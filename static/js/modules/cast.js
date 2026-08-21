@@ -139,13 +139,120 @@ export async function openActorProfile(personId, personName) {
 
   sheet.classList.add("active");
 
+  const rawTmdbKey = localStorage.getItem("cinelog_tmdb_key") || (window.CINELOG_CONFIG && window.CINELOG_CONFIG.TMDB_API_KEY) || "";
+
   try {
-    const res = await fetch(`/api/actor/details?id=${personId || ''}&name=${encodeURIComponent(personName)}&lang=${getUserLanguage()}`);
-    const data = res.ok ? await res.json() : {
-      name: personName,
-      biography: "Twórca niezależny / debiut (brak dodatkowego profilu biograficznego w globalnej bazie TMDb).",
-      filmography: []
-    };
+    let data = null;
+
+    // 1. Try local Flask backend if available
+    if (window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
+      try {
+        const res = await fetch(`/api/actor/details?id=${personId || ''}&name=${encodeURIComponent(personName)}&lang=${getUserLanguage()}`);
+        if (res.ok) {
+          data = await res.json();
+        }
+      } catch (e) {}
+    }
+
+    // 2. Direct client-side TMDb API lookup (GitHub Pages / offline mode)
+    if (!data && rawTmdbKey) {
+      try {
+        let resolvedId = personId;
+
+        // If personId is missing or non-numeric, search TMDb for the person by name
+        if (!resolvedId || isNaN(Number(resolvedId))) {
+          const sRes = await fetch(`https://api.themoviedb.org/3/search/person?api_key=${encodeURIComponent(rawTmdbKey)}&query=${encodeURIComponent(personName)}&language=${getUserLanguage()}`);
+          if (sRes.ok) {
+            const sData = await sRes.json();
+            if (sData.results && sData.results.length > 0) {
+              resolvedId = sData.results[0].id;
+            }
+          }
+        }
+
+        if (resolvedId) {
+          const pRes = await fetch(`https://api.themoviedb.org/3/person/${resolvedId}?api_key=${encodeURIComponent(rawTmdbKey)}&language=${getUserLanguage()}&append_to_response=combined_credits`);
+          if (pRes.ok) {
+            const pData = await pRes.json();
+            let bio = pData.biography || "";
+
+            // English bio fallback if localized bio is empty
+            if (!bio) {
+              try {
+                const pResEn = await fetch(`https://api.themoviedb.org/3/person/${resolvedId}?api_key=${encodeURIComponent(rawTmdbKey)}&language=en-US`);
+                if (pResEn.ok) {
+                  const pDataEn = await pResEn.json();
+                  bio = pDataEn.biography || "";
+                }
+              } catch(e) {}
+            }
+
+            const castRoles = (pData.combined_credits?.cast || []).map(c => ({
+              tmdb_id: c.id,
+              title: c.title || c.name || "Nieznany tytuł",
+              original_title: c.original_title || c.original_name || c.title || c.name,
+              year: (c.release_date || c.first_air_date || "").substring(0, 4),
+              release_date: c.release_date || c.first_air_date || "",
+              type: c.media_type === "tv" ? "series" : "movie",
+              poster_url: c.poster_path ? `https://image.tmdb.org/t/p/w342${c.poster_path}` : null,
+              role: c.character ? `jako ${c.character}` : "Aktor",
+              vote_average: Math.round((c.vote_average || 0) * 10) / 10,
+              vote_count: c.vote_count || 0,
+              popularity: c.popularity || 0
+            }));
+
+            const crewRoles = (pData.combined_credits?.crew || [])
+              .filter(c => c.job === "Director" || c.job === "Writer")
+              .map(c => ({
+                tmdb_id: c.id,
+                title: c.title || c.name || "Nieznany tytuł",
+                original_title: c.original_title || c.original_name || c.title || c.name,
+                year: (c.release_date || c.first_air_date || "").substring(0, 4),
+                release_date: c.release_date || c.first_air_date || "",
+                type: c.media_type === "tv" ? "series" : "movie",
+                poster_url: c.poster_path ? `https://image.tmdb.org/t/p/w342${c.poster_path}` : null,
+                role: c.job === "Director" ? "Reżyser" : c.job,
+                vote_average: Math.round((c.vote_average || 0) * 10) / 10,
+                vote_count: c.vote_count || 0,
+                popularity: c.popularity || 0
+              }));
+
+            const seen = new Set();
+            const filmography = [];
+            [...crewRoles, ...castRoles]
+              .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+              .forEach(f => {
+                const k = `${f.type}_${f.tmdb_id}`;
+                if (!seen.has(k)) {
+                  seen.add(k);
+                  filmography.push(f);
+                }
+              });
+
+            data = {
+              name: pData.name || personName,
+              biography: bio || "Twórca filmowy i telewizyjny.",
+              birthday: pData.birthday || null,
+              deathday: pData.deathday || null,
+              place_of_birth: pData.place_of_birth || null,
+              profile_url: pData.profile_path ? `https://image.tmdb.org/t/p/w300${pData.profile_path}` : null,
+              known_for_department: pData.known_for_department || "Film",
+              filmography: filmography
+            };
+          }
+        }
+      } catch (tmdbErr) {
+        console.warn("Client TMDb actor fetch error:", tmdbErr);
+      }
+    }
+
+    if (!data) {
+      data = {
+        name: personName,
+        biography: "Twórca niezależny / debiut (brak dodatkowego profilu biograficznego w globalnej bazie TMDb).",
+        filmography: []
+      };
+    }
 
     document.getElementById("m3-actor-name").innerText = data.name || personName;
     document.getElementById("m3-actor-bio").innerText = data.biography || "Twórca niezależny / debiut (brak dodatkowego profilu biograficznego w globalnej bazie TMDb).";
