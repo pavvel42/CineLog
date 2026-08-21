@@ -309,7 +309,7 @@ export async function openEpisodeTracker(show) {
   renderSeasonEpisodes(true);
   document.getElementById("m3-sheet-episodes").classList.add("active");
 
-  getWatchProvidersForTitle(show.title, "tv").then(data => {
+  getWatchProvidersForTitle(show.title, "tv", show.tmdb_id).then(data => {
     vodLogosContainer.innerHTML = "";
     const flat = data.flatrate || [];
     const free = data.free || [];

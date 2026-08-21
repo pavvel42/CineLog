@@ -273,13 +273,18 @@ export async function selectProductionDetail(item) {
     setConfirmedType(detectedType);
 
     const existing = findDuplicateInLibrary(detail.title, detectedType, detail.tmdb_id || detail.id);
+    const confirmBtn = document.querySelector("#m3-confirm-add-form button[type='submit']");
+    const confirmBtnText = confirmBtn ? (confirmBtn.querySelector("span:not(.material-symbols-rounded)") || confirmBtn) : null;
+
     if (existing) {
       setConfirmedStatus(existing.status || "watched");
       setAddRating(existing.rating || null);
-      showToastNotification(`ℹ️ Ta pozycja („${detail.title}”) jest już w Twojej bibliotece (${existing.status === 'watched' ? 'Obejrzane' : 'Do obejrzenia'}).`, "info");
+      if (confirmBtnText) confirmBtnText.innerText = "Zaktualizuj w bibliotece";
+      showToastNotification(`ℹ️ Pozycja („${detail.title}”) jest już w bibliotece. Możesz zaktualizować status lub ocenę.`, "info");
     } else {
       setConfirmedStatus("watched");
       setAddRating(null);
+      if (confirmBtnText) confirmBtnText.innerText = "Dodaj do mojej listy";
     }
 
     document.getElementById("m3-preview-title").innerText = detail.title;

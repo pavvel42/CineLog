@@ -149,22 +149,30 @@ class GoogleDriveSync {
         if (checkRes.ok) {
           const checkData = await checkRes.json();
           if (!checkData.trashed && checkData.name === fileName) return cachedId;
+        } else {
+          localStorage.removeItem(cachedIdKey);
         }
-      } catch (e) {}
+      } catch (e) {
+        localStorage.removeItem(cachedIdKey);
+      }
     }
 
-    const q = encodeURIComponent(`name = '${fileName}' and trashed = false`);
-    const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,modifiedTime)`, {
-      headers: { Authorization: `Bearer ${this.accessToken}` }
-    });
+    try {
+      const q = encodeURIComponent(`name = '${fileName}' and trashed = false`);
+      const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc`, {
+        headers: { Authorization: `Bearer ${this.accessToken}` }
+      });
 
-    if (searchRes.ok) {
-      const data = await searchRes.json();
-      if (data.files && data.files.length > 0) {
-        const foundId = data.files[0].id;
-        localStorage.setItem(cachedIdKey, foundId);
-        return foundId;
+      if (searchRes.ok) {
+        const data = await searchRes.json();
+        if (data.files && data.files.length > 0) {
+          const foundId = data.files[0].id;
+          localStorage.setItem(cachedIdKey, foundId);
+          return foundId;
+        }
       }
+    } catch (e) {
+      console.warn("Drive search query failed:", e);
     }
 
     return null;

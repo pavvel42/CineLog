@@ -714,21 +714,73 @@ export async function getWatchProvidersForTitle(title, mediaType, tmdbId = null)
     return state.vodCache[cacheKey];
   }
 
-  try {
-    let url = `/api/watch_providers?title=${encodeURIComponent(cleanTitle)}&type=${mediaType}&region=${state.userVodCountry}`;
-    if (tmdbId) {
-      url += `&tmdb_id=${encodeURIComponent(tmdbId)}`;
-    }
-    const res = await fetch(url);
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.found) {
-        state.vodCache[cacheKey] = data;
+  const rawTmdbKey = localStorage.getItem("cinelog_tmdb_key") || (window.CINELOG_CONFIG && window.CINELOG_CONFIG.TMDB_API_KEY) || "";
+
+  // 1. Backend check (if on Flask)
+  if (window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
+    try {
+      let url = `/api/watch_providers?title=${encodeURIComponent(cleanTitle)}&type=${mediaType}&region=${state.userVodCountry}`;
+      if (tmdbId) {
+        url += `&tmdb_id=${encodeURIComponent(tmdbId)}`;
       }
-      return data;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.found) {
+          state.vodCache[cacheKey] = data;
+          return data;
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 2. Direct client-side TMDb Watch Providers API (GitHub Pages / Client mode)
+  if (rawTmdbKey) {
+    try {
+      let resolvedTmdbId = tmdbId;
+      const tmdbType = (mediaType === "series" || mediaType === "tv") ? "tv" : "movie";
+
+      // If tmdbId not provided, search TMDb for this title
+      if (!resolvedTmdbId) {
+        const searchRes = await fetch(`https://api.themoviedb.org/3/search/${tmdbType}?api_key=${encodeURIComponent(rawTmdbKey)}&query=${encodeURIComponent(cleanTitle)}&language=${getUserLanguage()}&include_adult=false`);
+        if (searchRes.ok) {
+          const searchJson = await searchRes.json();
+          if (searchJson.results && searchJson.results.length > 0) {
+            resolvedTmdbId = searchJson.results[0].id;
+          }
+        }
+      }
+
+      if (resolvedTmdbId) {
+        const provRes = await fetch(`https://api.themoviedb.org/3/${tmdbType}/${resolvedTmdbId}/watch/providers?api_key=${encodeURIComponent(rawTmdbKey)}`);
+        if (provRes.ok) {
+          const provJson = await provRes.json();
+          const regionData = provJson.results && (provJson.results[state.userVodCountry] || provJson.results["PL"] || provJson.results["US"]);
+          
+          if (regionData) {
+            const mapProviders = (arr) => (arr || []).map(p => ({
+              id: p.provider_id,
+              name: (TMDB_GLOBAL_VOD_MAP && TMDB_GLOBAL_VOD_MAP[p.provider_id]?.name) || p.provider_name,
+              logo: p.logo_path ? `https://image.tmdb.org/t/p/w92${p.logo_path}` : ""
+            }));
+
+            const result = {
+              found: true,
+              link: regionData.link || "",
+              flatrate: mapProviders(regionData.flatrate),
+              free: mapProviders(regionData.free || regionData.ads),
+              rent: mapProviders(regionData.rent),
+              buy: mapProviders(regionData.buy)
+            };
+
+            state.vodCache[cacheKey] = result;
+            return result;
+          }
+        }
+      }
+    } catch (tmdbErr) {
+      console.warn("Client TMDb Watch Providers error:", tmdbErr);
     }
-  } catch (e) {
-    console.error("VOD Fetch error:", e);
   }
 
   const empty = { found: false, flatrate: [], rent: [], buy: [], free: [] };

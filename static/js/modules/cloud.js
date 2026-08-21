@@ -525,6 +525,8 @@ export function initCloudSyncHandlers() {
         window.googleDriveSync.connect(clientId, (movies, shows) => {
           if (movies && movies.length > 0) state.movies = movies;
           if (shows && shows.length > 0) state.shows = shows;
+          saveLocalDatabase();
+          markUserDatabaseCustom();
           updateStats();
           if (state.mode === "movies") renderMovies();
           else renderShows();
@@ -548,14 +550,29 @@ export function initCloudSyncHandlers() {
   if (btnPull) {
     btnPull.addEventListener("click", async () => {
       if (window.googleDriveSync) {
-        const data = await window.googleDriveSync.downloadFromDrive();
-        if (data) {
-          if (data.movies) state.movies = data.movies;
-          if (data.shows) state.shows = data.shows;
-          updateStats();
-          if (state.mode === "movies") renderMovies();
-          else renderShows();
-          showToastNotification(`Wczytano z Dysku Google: ${state.movies.length} filmów, ${state.shows.length} seriali.`, "success");
+        btnPull.disabled = true;
+        const origText = btnPull.innerHTML;
+        btnPull.innerHTML = `<span class="material-symbols-rounded" style="animation: spin 1s linear infinite; font-size: 16px;">sync</span> Pobieram...`;
+        
+        try {
+          const data = await window.googleDriveSync.downloadFromDrive();
+          if (data && (data.movies || data.shows)) {
+            if (data.movies && data.movies.length > 0) state.movies = data.movies;
+            if (data.shows && data.shows.length > 0) state.shows = data.shows;
+            saveLocalDatabase();
+            markUserDatabaseCustom();
+            updateStats();
+            if (state.mode === "movies") renderMovies();
+            else renderShows();
+            showToastNotification(`Wczytano z Dysku Google: ${state.movies.length} filmów, ${state.shows.length} seriali. ✨`, "success");
+          } else {
+            showToastNotification("Nie znaleziono pliku bazy na Dysku. Upewnij się, że na drugim urządzeniu kliknięto 'Wyślij do Chmury'.", "warning");
+          }
+        } catch (e) {
+          showToastNotification("Błąd podczas pobierania bazy z Dysku Google.", "error");
+        } finally {
+          btnPull.innerHTML = origText;
+          btnPull.disabled = false;
         }
       }
     });
@@ -565,8 +582,23 @@ export function initCloudSyncHandlers() {
   if (btnPush) {
     btnPush.addEventListener("click", async () => {
       if (window.googleDriveSync) {
-        const ok = await window.googleDriveSync.uploadToDrive(state.movies, state.shows);
-        if (ok) showToastNotification(`Przesłano bibliotekę (${state.movies.length} filmów, ${state.shows.length} seriali) na Dysk Google!`, "success");
+        btnPush.disabled = true;
+        const origText = btnPush.innerHTML;
+        btnPush.innerHTML = `<span class="material-symbols-rounded" style="animation: spin 1s linear infinite; font-size: 18px;">sync</span> Zapisuję na Dysku...`;
+        
+        try {
+          const ok = await window.googleDriveSync.uploadToDrive(state.movies, state.shows);
+          if (ok) {
+            showToastNotification(`Przesłano bibliotekę (${state.movies.length} filmów, ${state.shows.length} seriali) na Dysk Google! ☁️`, "success");
+          } else {
+            showToastNotification("Błąd zapisu na Dysku Google. Spróbuj zalogować się ponownie.", "error");
+          }
+        } catch (e) {
+          showToastNotification("Błąd zapisu na Dysku Google.", "error");
+        } finally {
+          btnPush.innerHTML = origText;
+          btnPush.disabled = false;
+        }
       }
     });
   }
@@ -575,20 +607,33 @@ export function initCloudSyncHandlers() {
   if (btnMerge) {
     btnMerge.addEventListener("click", async () => {
       if (window.googleDriveSync) {
-        const cloudData = await window.googleDriveSync.downloadFromDrive();
-        if (cloudData) {
-          const merged = window.googleDriveSync.mergeLibraries(state.movies, state.shows, cloudData.movies, cloudData.shows);
-          state.movies = merged.movies;
-          state.shows = merged.shows;
-          updateStats();
-          if (state.mode === "movies") renderMovies();
-          else renderShows();
-          
-          await window.googleDriveSync.uploadToDrive(state.movies, state.shows);
-          showToastNotification(`Pomyślnie scalono bazę! Stan: ${state.movies.length} filmów, ${state.shows.length} seriali.`, "success");
-        } else {
-          await window.googleDriveSync.uploadToDrive(state.movies, state.shows);
-          showToastNotification("Utworzono nową bazę na Dysku Google z Twojej aktualnej biblioteki.", "success");
+        btnMerge.disabled = true;
+        const origText = btnMerge.innerHTML;
+        btnMerge.innerHTML = `<span class="material-symbols-rounded" style="animation: spin 1s linear infinite; font-size: 16px;">sync</span> Scalam...`;
+
+        try {
+          const cloudData = await window.googleDriveSync.downloadFromDrive();
+          if (cloudData) {
+            const merged = window.googleDriveSync.mergeLibraries(state.movies, state.shows, cloudData.movies, cloudData.shows);
+            state.movies = merged.movies;
+            state.shows = merged.shows;
+            saveLocalDatabase();
+            markUserDatabaseCustom();
+            updateStats();
+            if (state.mode === "movies") renderMovies();
+            else renderShows();
+            
+            await window.googleDriveSync.uploadToDrive(state.movies, state.shows);
+            showToastNotification(`Pomyślnie scalono bazę! Stan: ${state.movies.length} filmów, ${state.shows.length} seriali. ✨`, "success");
+          } else {
+            await window.googleDriveSync.uploadToDrive(state.movies, state.shows);
+            showToastNotification("Utworzono nową bazę na Dysku Google z Twojej aktualnej biblioteki.", "success");
+          }
+        } catch(e) {
+          showToastNotification("Błąd podczas scalania bazy.", "error");
+        } finally {
+          btnMerge.innerHTML = origText;
+          btnMerge.disabled = false;
         }
       }
     });

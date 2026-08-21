@@ -366,12 +366,35 @@ export async function openMovieDetail(movie) {
 
     const [detailRes, vodData] = await Promise.all([
       fetch(detailFetchUrl).catch(() => ({ ok: false })),
-      getWatchProvidersForTitle(movie.title, "movie")
+      getWatchProvidersForTitle(movie.title, "movie", movie.tmdb_id)
     ]);
 
+    let detail = null;
     if (detailRes.ok) {
-      const detail = await detailRes.json();
+      detail = await detailRes.json();
+    } else if (localTmdbKey && movie.tmdb_id) {
+      try {
+        const tmdbRes = await fetch(`https://api.themoviedb.org/3/movie/${movie.tmdb_id}?api_key=${encodeURIComponent(localTmdbKey)}&language=${getUserLanguage()}&append_to_response=credits,release_dates`);
+        if (tmdbRes.ok) {
+          const tData = await tmdbRes.json();
+          detail = {
+            plot: tData.overview || movie.plot || "",
+            genre: (tData.genres || []).map(g => g.name).join(", "),
+            year: (tData.release_date || movie.release_year || "").substring(0, 4),
+            runtime: tData.runtime,
+            vote_average: tData.vote_average,
+            cast: (tData.credits && tData.credits.cast) ? tData.credits.cast.slice(0, 8).map(c => ({ name: c.name, character: c.character, profile_path: c.profile_path })) : [],
+            directors: (tData.credits && tData.credits.crew) ? tData.credits.crew.filter(c => c.job === "Director").map(c => ({ name: c.name, profile_path: c.profile_path })) : []
+          };
+        }
+      } catch(e) {}
+    }
+
+    if (detail) {
       if (detail.plot) document.getElementById("m3-detail-plot").innerText = detail.plot;
+      else if (movie.plot) document.getElementById("m3-detail-plot").innerText = movie.plot;
+      else document.getElementById("m3-detail-plot").innerText = "Brak szczegółowego opisu filmu.";
+
       if (detail.genre) document.getElementById("m3-detail-meta").innerText = `${detail.year || ''} • ${detail.genre}`;
 
       if (badgesRow) {
@@ -402,6 +425,9 @@ export async function openMovieDetail(movie) {
           castSection.style.display = "none";
         }
       }
+    } else {
+      if (movie.plot) document.getElementById("m3-detail-plot").innerText = movie.plot;
+      else document.getElementById("m3-detail-plot").innerText = "Brak szczegółowego opisu.";
     }
 
     vodLoading.style.display = "none";
