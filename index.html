@@ -274,14 +274,14 @@
           <div class="m3-sort-control-group">
             <span class="material-symbols-rounded m3-sort-icon">sort</span>
             <select id="m3-sort-select" class="m3-sort-select" title="Zmień kryterium sortowania">
-              <option value="default">Ostatnio oglądane (Domyślne)</option>
-              <option value="watched_asc">Data obejrzenia: najstarsze</option>
+              <option value="default" id="m3-sort-opt-default">Ostatnio dodane / aktywność (Domyślne)</option>
+              <option value="watched_asc" id="m3-sort-opt-asc">Data: od najstarszych</option>
               <option value="title_asc">Tytuł: A ➔ Z</option>
               <option value="title_desc">Tytuł: Z ➔ A</option>
               <option value="rating_desc">Ocena: od najwyższej (★)</option>
               <option value="rating_asc">Ocena: od najniższej (★)</option>
-              <option value="year_desc">Rok: od najnowszych</option>
-              <option value="year_asc">Rok: od najstarszych</option>
+              <option value="year_desc">Rok premiery: od najnowszych</option>
+              <option value="year_asc">Rok premiery: od najstarszych</option>
               <option value="episodes_desc" class="m3-sort-shows-only">Odcinki: najwięcej</option>
               <option value="episodes_asc" class="m3-sort-shows-only">Odcinki: najmniej</option>
             </select>
@@ -1856,14 +1856,14 @@
   </div>
 
   <script src="static/js/config.js?v=1.0" onerror="/* config.js is optional */"></script>
-  <script src="static/js/drive_sync.js?v=10.14"></script>
-  <script type="module" src="static/js/main.js?v=10.14"></script>
+  <script src="static/js/drive_sync.js?v=10.15"></script>
+  <script type="module" src="static/js/main.js?v=10.15"></script>
   
   <!-- Service Worker Registration for PWA -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('static/sw.js?v=10.14', { scope: './' })
+        navigator.serviceWorker.register('static/sw.js?v=10.15', { scope: './' })
           .then(reg => {
             console.log('CineLog PWA Service Worker zarejestrowany!', reg.scope);
             reg.update();

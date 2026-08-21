@@ -2,7 +2,7 @@
 // CineLog - Google Drive Cloud Sync, Local Backup & AI Configuration Module
 // ==========================================================================
 
-import { state, saveLocalDatabase } from './state.js';
+import { state, saveLocalDatabase, markUserDatabaseCustom, syncWindowAliases } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { renderMovies } from './movies.js';
@@ -557,14 +557,27 @@ export function initCloudSyncHandlers() {
         try {
           const data = await window.googleDriveSync.downloadFromDrive();
           if (data && (data.movies || data.shows)) {
-            if (data.movies && data.movies.length > 0) state.movies = data.movies;
-            if (data.shows && data.shows.length > 0) state.shows = data.shows;
+            state.movies = Array.isArray(data.movies) ? data.movies : [];
+            state.shows = Array.isArray(data.shows) ? data.shows : [];
             saveLocalDatabase();
             markUserDatabaseCustom();
+            syncWindowAliases();
             updateStats();
+
+            // Re-render library immediately
             if (state.mode === "movies") renderMovies();
             else renderShows();
-            showToastNotification(`Wczytano z Dysku Google: ${state.movies.length} filmów, ${state.shows.length} seriali. ✨`, "success");
+
+            // Refresh recommendations if active
+            if (typeof window.loadRecommendationsHub === "function") {
+              window.loadRecommendationsHub(true);
+            }
+
+            // Close sheet and show confirmation
+            const sheet = document.getElementById("m3-sheet-cloud-sync");
+            if (sheet) sheet.classList.remove("active");
+
+            showToastNotification(`Wczytano z Dysku Google: ${state.movies.length} filmów, ${state.shows.length} seriali! ✨`, "success");
           } else {
             showToastNotification("Nie znaleziono pliku bazy na Dysku. Upewnij się, że na drugim urządzeniu kliknięto 'Wyślij do Chmury'.", "warning");
           }
@@ -619,11 +632,20 @@ export function initCloudSyncHandlers() {
             state.shows = merged.shows;
             saveLocalDatabase();
             markUserDatabaseCustom();
+            syncWindowAliases();
             updateStats();
             if (state.mode === "movies") renderMovies();
             else renderShows();
+
+            if (typeof window.loadRecommendationsHub === "function") {
+              window.loadRecommendationsHub(true);
+            }
             
             await window.googleDriveSync.uploadToDrive(state.movies, state.shows);
+
+            const sheet = document.getElementById("m3-sheet-cloud-sync");
+            if (sheet) sheet.classList.remove("active");
+
             showToastNotification(`Pomyślnie scalono bazę! Stan: ${state.movies.length} filmów, ${state.shows.length} seriali. ✨`, "success");
           } else {
             await window.googleDriveSync.uploadToDrive(state.movies, state.shows);

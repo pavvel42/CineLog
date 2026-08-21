@@ -186,6 +186,24 @@ export function switchTab(tabId) {
     if (toolbarRow) toolbarRow.style.display = "flex";
     if (searchBar) searchBar.style.display = "flex";
 
+    const sortOptDefault = document.getElementById("m3-sort-opt-default");
+    const sortOptAsc = document.getElementById("m3-sort-opt-asc");
+    if (sortOptDefault) {
+      if (tabId === "watchlist") {
+        sortOptDefault.innerText = "Ostatnio dodane do listy (Domyślne)";
+        if (sortOptAsc) sortOptAsc.innerText = "Data dodania: od najstarszych";
+      } else if (tabId === "watched") {
+        sortOptDefault.innerText = "Ostatnio obejrzane (Domyślne)";
+        if (sortOptAsc) sortOptAsc.innerText = "Data obejrzenia: od najstarszych";
+      } else if (tabId === "watching") {
+        sortOptDefault.innerText = "Ostatnio kontynuowane (Domyślne)";
+        if (sortOptAsc) sortOptAsc.innerText = "Data: od najstarszych";
+      } else {
+        sortOptDefault.innerText = "Ostatnio dodane / aktywność (Domyślne)";
+        if (sortOptAsc) sortOptAsc.innerText = "Data: od najstarszych";
+      }
+    }
+
     if (isShows) {
       if (showsGrid) showsGrid.style.display = "grid";
       renderShows();

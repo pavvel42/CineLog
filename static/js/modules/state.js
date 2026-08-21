@@ -100,35 +100,94 @@ export function normalizeTitleForLibrary(title) {
     .replace(/[^a-z0-9]/g, "");
 }
 
+export function getTitleVariants(itemOrTitle) {
+  if (!itemOrTitle) return [];
+  const set = new Set();
+  const add = (t) => {
+    if (!t) return;
+    const clean = String(t).trim();
+    if (clean) {
+      const normalized = normalizeTitleForLibrary(clean);
+      if (normalized) set.add(normalized);
+      // Remove text after colon or dash (e.g. "Spider-Man: Homecoming" -> "spiderman")
+      const baseColon = clean.split(":")[0].trim();
+      if (baseColon && baseColon !== clean) {
+        const normColon = normalizeTitleForLibrary(baseColon);
+        if (normColon) set.add(normColon);
+      }
+      const baseDash = clean.split(" - ")[0].trim();
+      if (baseDash && baseDash !== clean) {
+        const normDash = normalizeTitleForLibrary(baseDash);
+        if (normDash) set.add(normDash);
+      }
+    }
+  };
+
+  if (typeof itemOrTitle === "string") {
+    add(itemOrTitle);
+  } else if (typeof itemOrTitle === "object") {
+    add(itemOrTitle.title);
+    add(itemOrTitle.original_title);
+    add(itemOrTitle.name);
+    add(itemOrTitle.original_name);
+    add(itemOrTitle.alt_title);
+  }
+  return Array.from(set);
+}
+
 export function isItemInLibrary(item) {
-  const normTitle = normalizeTitleForLibrary(item.title);
-  const tmdbId = item.id || item.tmdb_id;
-  const inMovies = state.movies.some(m => {
-    if (tmdbId && m.tmdb_id && String(m.tmdb_id) === String(tmdbId)) return true;
-    return normalizeTitleForLibrary(m.title) === normTitle;
-  });
-  if (inMovies) return true;
-  const inShows = state.shows.some(s => {
-    if (tmdbId && s.tmdb_id && String(s.tmdb_id) === String(tmdbId)) return true;
-    return normalizeTitleForLibrary(s.title) === normTitle;
-  });
-  return inShows;
+  if (!item) return false;
+  const tmdbId = String(item.tmdb_id || item.id || "");
+  const imdbId = String(item.imdb_id || "");
+  const itemYear = String(item.year || (item.release_date ? item.release_date.substring(0, 4) : "") || "");
+  const itemVariants = getTitleVariants(item);
+
+  const checkList = (arr) => {
+    return (arr || []).some(entry => {
+      // 1. Exact TMDb ID Match
+      if (tmdbId && entry.tmdb_id && String(entry.tmdb_id) === tmdbId) return true;
+      // 2. Exact IMDb ID Match
+      if (imdbId && entry.imdb_id && String(entry.imdb_id) === imdbId) return true;
+
+      // 3. Normalized Title / Original Title Variants Match
+      const entryVariants = getTitleVariants(entry);
+      const hasMatch = itemVariants.some(iv => iv.length >= 3 && entryVariants.includes(iv));
+      if (hasMatch) return true;
+
+      // 4. Same release year and high substring containment
+      const entryYear = String(entry.release_year || (entry.release_date ? entry.release_date.substring(0, 4) : "") || entry.year || "");
+      if (itemYear && entryYear && itemYear === entryYear) {
+        const itemNorm = normalizeTitleForLibrary(item.title || item.original_title || "");
+        const entryNorm = normalizeTitleForLibrary(entry.title || entry.original_title || "");
+        if (itemNorm.length >= 4 && entryNorm.length >= 4) {
+          if (itemNorm.includes(entryNorm) || entryNorm.includes(itemNorm)) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    });
+  };
+
+  return checkList(state.movies) || checkList(state.shows);
 }
 
 export function findDuplicateInLibrary(title, type = "movie", tmdbId = null) {
   const normTitle = normalizeTitleForLibrary(title);
+  const targetTmdb = tmdbId ? String(tmdbId) : "";
+  const titleVariants = getTitleVariants(title);
+
+  const matchEntry = (entry) => {
+    if (targetTmdb && entry.tmdb_id && String(entry.tmdb_id) === targetTmdb) return true;
+    const entryVariants = getTitleVariants(entry);
+    return titleVariants.some(tv => tv.length >= 3 && entryVariants.includes(tv));
+  };
+
   if (type === "series" || type === "tv") {
-    return state.shows.find(s => {
-      if (tmdbId && s.tmdb_id && String(s.tmdb_id) === String(tmdbId)) return true;
-      const sNorm = normalizeTitleForLibrary(s.title);
-      return sNorm.length > 0 && sNorm === normTitle;
-    });
+    return state.shows.find(matchEntry);
   } else {
-    return state.movies.find(m => {
-      if (tmdbId && m.tmdb_id && String(m.tmdb_id) === String(tmdbId)) return true;
-      const mNorm = normalizeTitleForLibrary(m.title);
-      return mNorm.length > 0 && mNorm === normTitle;
-    });
+    return state.movies.find(matchEntry);
   }
 }
 
