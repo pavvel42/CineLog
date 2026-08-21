@@ -1,0 +1,11 @@
+.DS_Store
+node_modules/
+*.zip
+.tmp.driveupload/
+*.bak
+.env
+config.json
+static/js/config.js
+__pycache__/
+*.pyc
+.venv/

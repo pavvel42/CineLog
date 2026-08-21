@@ -1,0 +1,1870 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>CineLog - Dziennik Filmów i Seriali</title>
+  
+  <!-- PWA & Mobile Web App Meta Tags -->
+  <link rel="manifest" href="static/manifest.json">
+  <link rel="icon" type="image/png" href="static/icons/favicon.png">
+  <link rel="apple-touch-icon" href="static/icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#141218">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- Google Fonts & Material Symbols (Preloaded in Head) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200">
+
+  <!-- M3 Expressive Stylesheet with cache buster -->
+  <link rel="stylesheet" href="static/css/style.css?v=10.5">
+  
+  <!-- Chart.js & Google Identity Services for Drive BYO-Cloud -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <script>
+    {
+      const colorScheme = localStorage.getItem("color-scheme");
+      if (colorScheme) {
+        document.documentElement.setAttribute('data-theme', colorScheme);
+      } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    }
+  </script>
+</head>
+<body>
+  <div class="m3-layout">
+    <!-- Desktop Navigation Rail / Drawer -->
+    <aside class="m3-navigation-drawer">
+      <div class="m3-brand">
+        <img src="static/icons/favicon.png" alt="CineLog Logo" style="width: 32px; height: 32px; border-radius: 8px; box-shadow: var(--md-shadow-1);">
+        <h1>CineLog</h1>
+      </div>
+
+      <!-- Mode Switcher: Movies vs TV Shows -->
+      <div class="m3-mode-switcher">
+        <button class="m3-mode-btn active" id="m3-mode-movies" data-mode="movies">
+          <span class="material-symbols-rounded">movie</span>
+          <span>Filmy</span>
+        </button>
+        <button class="m3-mode-btn" id="m3-mode-shows" data-mode="shows">
+          <span class="material-symbols-rounded">tv</span>
+          <span>Seriale</span>
+        </button>
+      </div>
+
+      <!-- Movies Navigation Tabs -->
+      <nav id="m3-nav-movies" style="display: flex; flex-direction: column; gap: 6px;">
+        <button class="m3-nav-item active" data-tab="all">
+          <span class="material-symbols-rounded">movie_filter</span>
+          <span>Wszystkie filmy</span>
+        </button>
+        <button class="m3-nav-item" data-tab="watched">
+          <span class="material-symbols-rounded">check_circle</span>
+          <span>Obejrzane</span>
+        </button>
+        <button class="m3-nav-item" data-tab="watchlist">
+          <span class="material-symbols-rounded">bookmark</span>
+          <span>Do obejrzenia</span>
+        </button>
+        <button class="m3-nav-item" data-tab="favorites">
+          <span class="material-symbols-rounded">favorite</span>
+          <span>Ulubione</span>
+        </button>
+        <button class="m3-nav-item" data-tab="upcoming">
+          <span class="material-symbols-rounded">event_upcoming</span>
+          <span>Nadchodzące</span>
+        </button>
+        <button class="m3-nav-item" data-tab="recommendations">
+          <span class="material-symbols-rounded">auto_awesome</span>
+          <span>Dla Ciebie</span>
+        </button>
+      </nav>
+
+      <!-- TV Shows Navigation Tabs -->
+      <nav id="m3-nav-shows" style="display: none; flex-direction: column; gap: 6px;">
+        <button class="m3-nav-item active" data-tab="all_shows">
+          <span class="material-symbols-rounded">tv</span>
+          <span>Wszystkie seriale</span>
+        </button>
+        <button class="m3-nav-item" data-tab="watching_shows">
+          <span class="material-symbols-rounded">play_circle</span>
+          <span>W trakcie oglądania</span>
+        </button>
+        <button class="m3-nav-item" data-tab="watchlist_shows">
+          <span class="material-symbols-rounded">bookmark</span>
+          <span>Do obejrzenia</span>
+        </button>
+        <button class="m3-nav-item" data-tab="favorites_shows">
+          <span class="material-symbols-rounded">favorite</span>
+          <span>Ulubione</span>
+        </button>
+        <button class="m3-nav-item" data-tab="upcoming">
+          <span class="material-symbols-rounded">event_upcoming</span>
+          <span>Nadchodzące</span>
+        </button>
+        <button class="m3-nav-item" data-tab="recommendations">
+          <span class="material-symbols-rounded">auto_awesome</span>
+          <span>Dla Ciebie</span>
+        </button>
+      </nav>
+
+      <!-- Stats Summary -->
+      <div class="m3-drawer-stats">
+        <h3 id="m3-stats-heading">Podsumowanie Filmów</h3>
+        <div class="m3-stat-row">
+          <span id="m3-stat-label-1">Kolekcja</span>
+          <span class="num" id="m3-stat-1">0</span>
+        </div>
+        <div class="m3-stat-row">
+          <span id="m3-stat-label-2">Obejrzane</span>
+          <span class="num" id="m3-stat-2">0</span>
+        </div>
+        <div class="m3-stat-row">
+          <span id="m3-stat-label-3">Ulubione</span>
+          <span class="num" id="m3-stat-3">0</span>
+        </div>
+        <div class="m3-stat-row">
+          <span>Czas seansów</span>
+          <span class="num" id="m3-stat-time">0 min</span>
+        </div>
+        <div class="m3-stat-row">
+          <span>Średnia ocena</span>
+          <span class="num" id="m3-stat-avg">0.0★</span>
+        </div>
+      </div>
+
+      <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;">
+        <button class="m3-chip" id="m3-btn-open-analytics" style="justify-content: center; width: 100%; font-weight: 700;">
+          <span class="material-symbols-rounded">analytics</span> <span>Statystyki & Osiągnięcia</span>
+        </button>
+        <button class="m3-chip" id="m3-btn-open-cloud-sync" style="justify-content: center; width: 100%; font-weight: 700;">
+          <span class="material-symbols-rounded" id="m3-drive-status-icon">cloud</span>
+          <span id="m3-drive-status-text">Chmura & Asystent AI</span>
+        </button>
+        <button class="m3-chip" id="m3-btn-open-vod-settings" style="justify-content: center; width: 100%; font-weight: 700;">
+          <span class="material-symbols-rounded">tune</span> <span>Moje platformy VOD</span>
+        </button>
+        <button class="m3-chip" id="m3-theme-toggle" style="justify-content: center; width: 100%;">
+          <span class="material-symbols-rounded">contrast</span> <span>Motyw</span>
+        </button>
+        <button class="m3-chip" id="m3-btn-env-toggle" style="justify-content: center; width: 100%; font-size: 0.72rem; opacity: 0.85;" title="Kliknij, aby przełączyć tryb aplikacji">
+          <span class="material-symbols-rounded" style="font-size: 16px;">science</span>
+          <span id="m3-env-toggle-text">Tryb: Demo (Flask)</span>
+        </button>
+        <button class="m3-chip active" id="m3-btn-pwa-install" style="justify-content: center; width: 100%; display: none;">
+          <span class="material-symbols-rounded">install_mobile</span> <span>Zainstaluj aplikację</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="m3-main">
+      <header class="m3-header">
+        <div class="m3-mobile-top-bar">
+          <div class="m3-mobile-brand" style="align-items: center; gap: 8px;">
+            <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 26px;">movie_filter</span>
+            <span style="font-weight: 700; font-size: 1.15rem; letter-spacing: -0.3px;">CineLog</span>
+          </div>
+          <div class="m3-mobile-actions">
+            <button class="m3-chip" id="m3-mobile-mode-toggle" style="padding: 6px 14px; font-weight: 700;">
+              <span class="material-symbols-rounded" id="m3-mobile-mode-icon" style="font-size: 18px;">tv</span>
+              <span id="m3-mobile-mode-text">Seriale</span>
+            </button>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <button class="m3-chip" id="m3-mobile-analytics" title="Statystyki biblioteki" style="padding: 6px 10px;">
+                <span class="material-symbols-rounded" style="font-size: 20px;">analytics</span>
+              </button>
+              <button class="m3-chip" id="m3-mobile-cloud-sync" title="Chmura & Asystent AI" style="padding: 6px 10px;">
+                <span class="material-symbols-rounded" style="font-size: 20px;">cloud</span>
+              </button>
+              <button class="m3-chip" id="m3-mobile-vod-settings" title="Ustawienia VOD" style="padding: 6px 10px;">
+                <span class="material-symbols-rounded" style="font-size: 20px;">tune</span>
+              </button>
+              <button class="m3-chip" id="m3-mobile-theme-toggle" style="padding: 6px 10px;" title="Motyw i Wygląd">
+                <span class="material-symbols-rounded" style="font-size: 20px;">contrast</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Demo Mode Notice Banner -->
+        <div id="m3-demo-notice-banner" class="m3-card" style="display: none; margin-bottom: 16px; padding: 14px 18px; border-radius: var(--md-corner-large); background: linear-gradient(135deg, rgba(103, 80, 164, 0.12), rgba(125, 82, 96, 0.08)); border: 1px solid var(--md-sys-color-outline-variant); align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 12px; max-width: 680px;">
+            <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 28px;">science</span>
+            <div>
+              <div style="font-weight: 700; font-size: 0.94rem; color: var(--md-sys-color-on-surface);">Przeglądasz bazę demonstracyjną (Demo)</div>
+              <div style="font-size: 0.8rem; color: var(--md-sys-color-on-surface-variant); margin-top: 2px;">
+                To przykładowy zestaw filmów i seriali. Zaimportuj własną historię (z Filmweba, TV Time lub Letterboxd) albo skonfiguruj własne klucze (TMDb / AI / Google Drive), aby odblokować pełne możliwości i synchronizację.
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="m3-btn-action-primary" id="m3-btn-demo-banner-import" style="padding: 6px 14px; font-size: 0.8rem; font-weight: 700; border-radius: 999px; display: inline-flex; align-items: center; gap: 4px;">
+              <span class="material-symbols-rounded" style="font-size: 16px;">upload_file</span> Zaimportuj moje dane
+            </button>
+            <button type="button" class="m3-chip" id="m3-btn-demo-banner-keys" title="Zobacz jak dodać klucze i uruchomić pełne funkcje" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 600;">
+              <span class="material-symbols-rounded" style="font-size: 16px;">key</span> Klucze & Funkcje
+            </button>
+            <button type="button" class="m3-chip" id="m3-btn-demo-banner-dismiss" title="Ukryj powiadomienie" style="padding: 6px 10px; font-size: 0.8rem;">
+              Ukryj
+            </button>
+          </div>
+        </div>
+
+        <!-- PWA Install Banner -->
+        <div id="m3-pwa-install-banner" class="m3-progress-banner" style="display: none; background: var(--md-sys-color-primary-container); border-color: var(--md-sys-color-primary);">
+          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <img src="static/icons/favicon.png" style="width: 32px; height: 32px; border-radius: 8px;">
+              <div>
+                <div style="font-weight: 700; font-size: 0.9rem; color: var(--md-sys-color-on-primary-container);">Zainstaluj CineLog na telefonie</div>
+                <div style="font-size: 0.75rem; color: var(--md-sys-color-on-primary-container); opacity: 0.85;">Dostęp offline, tryb pełnoekranowy i ikona na pulpicie.</div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <button class="m3-btn-action-primary" id="m3-btn-pwa-install-banner" style="padding: 6px 14px; font-size: 0.8rem;">Zainstaluj</button>
+              <span class="material-symbols-rounded" id="m3-btn-pwa-dismiss" style="cursor: pointer; font-size: 20px; color: var(--md-sys-color-on-primary-container);">close</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Search Bar with Search Icon, Input & Clear (x) Button -->
+        <div class="m3-search-bar">
+          <span class="material-symbols-rounded m3-search-icon">search</span>
+          <input type="text" id="m3-search-input" placeholder="Szukaj w bibliotece...">
+          <span class="material-symbols-rounded" id="m3-search-clear" style="cursor: pointer; display: none; color: var(--md-sys-color-on-surface-variant); font-size: 20px; padding: 4px;" title="Wyczyść">close</span>
+        </div>
+
+        <!-- Unified Single-Row Toolbar: VOD Filter Rail (Left) | Count (Middle) | Sort (Right) -->
+        <div class="m3-unified-toolbar-row">
+          <!-- 1. VOD Providers Filter Bar (Scrollable Rail) -->
+          <div class="m3-vod-filter-bar" id="m3-vod-filter-bar">
+            <button class="m3-vod-chip active" data-vod="all" title="Wszystkie pozycje w bibliotece">
+              <span class="material-symbols-rounded" style="font-size: 17px;">public</span>
+              <span class="m3-desktop-only-text">Wszystkie</span>
+            </button>
+            <button class="m3-vod-chip icon-only" data-vod="my_vod" id="m3-chip-my-vod" title="Moje VOD (Aktywne subskrypcje)">
+              <span class="material-symbols-rounded" style="font-size: 18px; color: var(--md-sys-color-primary);">star</span>
+            </button>
+          </div>
+
+          <div class="m3-toolbar-divider"></div>
+
+          <!-- 2. Visible Count Pill -->
+          <div id="m3-visible-count-pill" class="m3-visible-count-pill" title="Liczba widocznych pozycji w bibliotece">
+            <span class="material-symbols-rounded m3-count-icon">filter_list</span>
+            <span class="m3-count-label">Widoczne:</span>
+            <span id="m3-visible-count" class="m3-count-val">0</span>
+          </div>
+
+          <div class="m3-toolbar-divider"></div>
+
+          <!-- 3. Sort Group -->
+          <div class="m3-sort-control-group">
+            <span class="material-symbols-rounded m3-sort-icon">sort</span>
+            <select id="m3-sort-select" class="m3-sort-select" title="Zmień kryterium sortowania">
+              <option value="default">Ostatnio oglądane (Domyślne)</option>
+              <option value="watched_asc">Data obejrzenia: najstarsze</option>
+              <option value="title_asc">Tytuł: A ➔ Z</option>
+              <option value="title_desc">Tytuł: Z ➔ A</option>
+              <option value="rating_desc">Ocena: od najwyższej (★)</option>
+              <option value="rating_asc">Ocena: od najniższej (★)</option>
+              <option value="year_desc">Rok: od najnowszych</option>
+              <option value="year_asc">Rok: od najstarszych</option>
+              <option value="episodes_desc" class="m3-sort-shows-only">Odcinki: najwięcej</option>
+              <option value="episodes_asc" class="m3-sort-shows-only">Odcinki: najmniej</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- VOD Filtering Progress Indicator with Material 3 Linear Progress Bar -->
+        <div id="m3-vod-loading-banner" class="m3-progress-banner" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="material-symbols-rounded" style="animation: spin 1s linear infinite; font-size: 18px; color: var(--md-sys-color-primary);">sync</span>
+              <span id="m3-vod-loading-text" style="font-weight: 600; font-size: 0.82rem;">Synchronizuję bazę VOD (7-dniowy cache)...</span>
+            </div>
+            <span id="m3-vod-loading-count" style="font-weight: 700; font-size: 0.8rem; color: var(--md-sys-color-primary);">0 / 0 (0%)</span>
+          </div>
+          <div class="m3-linear-progress-track">
+            <div class="m3-linear-progress-indicator" id="m3-vod-progress-bar" style="width: 0%;"></div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Movies Grid -->
+      <section class="m3-grid" id="m3-movies-grid">
+        <div style="grid-column: 1/-1; text-align: center; padding: 40px;">Wczytywanie filmów...</div>
+      </section>
+
+      <!-- TV Shows Grid -->
+      <section class="m3-grid" id="m3-shows-grid" style="display: none;">
+        <div style="grid-column: 1/-1; text-align: center; padding: 40px;">Wczytywanie seriali...</div>
+      </section>
+
+      <!-- Upcoming Releases & Episodes Radar View -->
+      <section id="m3-upcoming-container" style="display: none; flex-direction: column; gap: 20px; width: 100%;">
+        <!-- Upcoming Header & Quick Filters -->
+        <div class="m3-upcoming-header-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 44px; height: 44px; border-radius: 12px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <span class="material-symbols-rounded" style="font-size: 26px;">event_upcoming</span>
+              </div>
+              <div>
+                <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--md-sys-color-on-surface); margin: 0;">Nadchodzące Premiery & Odcinki</h2>
+                <p style="font-size: 0.8rem; color: var(--md-sys-color-on-surface-variant); margin: 2px 0 0 0;">Kalendarz wydań i odliczanie dni do nowych odcinków oraz filmów z Twojej biblioteki</p>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <button class="m3-chip" id="m3-upcoming-export-ics-btn" style="padding: 6px 14px; font-size: 0.8rem; font-weight: 700;" title="Eksportuj nadchodzące premiery do pliku kalendarza Google / Apple (.ics)">
+                <span class="material-symbols-rounded" style="font-size: 16px;">calendar_add_on</span> Eksportuj (.ics)
+              </button>
+              <button class="m3-chip" id="m3-upcoming-refresh-btn" style="padding: 6px 14px; font-size: 0.8rem; font-weight: 700;">
+                <span class="material-symbols-rounded" style="font-size: 16px;">sync</span> Odśwież harmonogram
+              </button>
+            </div>
+          </div>
+          <!-- Filter chips -->
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px;">
+            <button class="m3-chip active" data-upcoming-filter="all" id="m3-upcoming-filter-all">Wszystkie (<span id="m3-upcoming-count-all">0</span>)</button>
+            <button class="m3-chip" data-upcoming-filter="tv" id="m3-upcoming-filter-tv">Tylko Seriale (<span id="m3-upcoming-count-tv">0</span>)</button>
+            <button class="m3-chip" data-upcoming-filter="movie" id="m3-upcoming-filter-movie">Tylko Filmy (<span id="m3-upcoming-count-movie">0</span>)</button>
+          </div>
+        </div>
+
+        <!-- Upcoming Dynamic Content -->
+        <div id="m3-upcoming-content" style="display: flex; flex-direction: column; gap: 26px;">
+          <div style="text-align: center; padding: 50px 20px; color: var(--md-sys-color-on-surface-variant);">
+            <span class="material-symbols-rounded" style="font-size: 40px; animation: spin 1s linear infinite; color: var(--md-sys-color-primary);">sync</span>
+            <p style="margin-top: 10px; font-weight: 600;">Wczytywanie harmonogramu premier...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Recommendations & Streaming Discovery Hub ("Dla Ciebie") -->
+      <section id="m3-recommendations-container" style="display: none; flex-direction: column; gap: 28px; width: 100%;">
+        <!-- AI Natural Language Curator & Taste DNA Bar -->
+        <div class="m3-gdrive-card" style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(59, 130, 246, 0.12)); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: var(--md-corner-xl); padding: 18px; display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="width: 32px; height: 32px; border-radius: 8px; background: #a855f7; color: #fff; display: flex; align-items: center; justify-content: center;">
+                <span class="material-symbols-rounded" style="font-size: 20px;">auto_awesome</span>
+              </div>
+              <div>
+                <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0;">Filmowy Asystent AI</h3>
+                <p style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); margin: 0;">Zapytaj o cokolwiek, opisz nastrój lub sprawdź DNA swojego gustu</p>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <button type="button" class="m3-chip" id="m3-rec-btn-reset-ai" style="font-size: 0.75rem; padding: 4px 10px; display: none;" title="Zacznij nową rozmowę">
+                <span class="material-symbols-rounded" style="font-size: 15px;">restart_alt</span> Nowa rozmowa
+              </button>
+              <button type="button" class="m3-chip" id="m3-rec-btn-open-ai-settings" style="font-size: 0.75rem; padding: 4px 10px;">
+                <span class="material-symbols-rounded" style="font-size: 14px;">tune</span> Ustawienia AI
+              </button>
+            </div>
+          </div>
+
+          <!-- Quick Suggestion Chips -->
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;" id="m3-rec-ai-quick-chips">
+            <button type="button" class="m3-chip" data-ai-prompt="dna" style="font-size: 0.78rem; padding: 6px 12px; font-weight: 600;">
+              <span>🧬 DNA mojego gustu</span>
+            </button>
+            <button type="button" class="m3-chip" data-ai-prompt="binge90" style="font-size: 0.78rem; padding: 6px 12px; font-weight: 600;">
+              <span>🎲 Wybór na 90 minut</span>
+            </button>
+            <button type="button" class="m3-chip" data-ai-prompt="gems" style="font-size: 0.78rem; padding: 6px 12px; font-weight: 600;">
+              <span>🍿 Ukryte perełki z moich VOD</span>
+            </button>
+            <button type="button" class="m3-chip" data-ai-prompt="dark" style="font-size: 0.78rem; padding: 6px 12px; font-weight: 600;">
+              <span>🔥 Coś mrocznego i wciągającego</span>
+            </button>
+            <button type="button" class="m3-chip" data-ai-prompt="binge_marathon" style="font-size: 0.78rem; padding: 6px 12px; font-weight: 600;">
+              <span>🍿 Binge-Planner (Maraton)</span>
+            </button>
+            <button type="button" class="m3-chip" data-ai-prompt="vibe_search" style="font-size: 0.78rem; padding: 6px 12px; font-weight: 600;">
+              <span>🌌 Szukaj klimatem (Vibe)</span>
+            </button>
+          </div>
+
+          <!-- Multi-turn Conversation Chat Thread Container -->
+          <div id="m3-rec-ai-chat-thread" style="display: none; flex-direction: column; gap: 12px; max-height: 480px; overflow-y: auto; padding-right: 4px;"></div>
+
+          <!-- Smart Context Mentions Toolbar -->
+          <div style="display: flex; gap: 4px; flex-wrap: wrap; align-items: center;" id="m3-rec-ai-mention-chips">
+            <span style="font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); font-weight: 700;">Wskaż kontekst:</span>
+            <button type="button" class="m3-chip" data-mention="@ulubione_filmy" style="font-size: 0.72rem; padding: 3px 8px; border-radius: var(--md-corner-full);">🎬 @ulubione_filmy</button>
+            <button type="button" class="m3-chip" data-mention="@planowane_filmy" style="font-size: 0.72rem; padding: 3px 8px; border-radius: var(--md-corner-full);">🍿 @planowane_filmy</button>
+            <button type="button" class="m3-chip" data-mention="@obejrzane_filmy" style="font-size: 0.72rem; padding: 3px 8px; border-radius: var(--md-corner-full);">✓ @obejrzane_filmy</button>
+            <button type="button" class="m3-chip" data-mention="@ulubione_seriale" style="font-size: 0.72rem; padding: 3px 8px; border-radius: var(--md-corner-full);">📺 @ulubione_seriale</button>
+            <button type="button" class="m3-chip" data-mention="@planowane_seriale" style="font-size: 0.72rem; padding: 3px 8px; border-radius: var(--md-corner-full);">📑 @planowane_seriale</button>
+            <button type="button" class="m3-chip" data-mention="@obejrzane_seriale" style="font-size: 0.72rem; padding: 3px 8px; border-radius: var(--md-corner-full);">✓ @obejrzane_seriale</button>
+          </div>
+
+          <!-- Prompt Input Row with Floating Autocomplete Container -->
+          <div style="position: relative; display: flex; flex-direction: column;">
+            <!-- Autocomplete Floating Dropdown -->
+            <div id="m3-ai-mention-dropdown" style="display: none; position: absolute; left: 0; right: 0; max-height: 220px; overflow-y: auto; background: var(--md-sys-color-surface-container-high); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); z-index: 1000; padding: 6px; backdrop-filter: blur(16px);"></div>
+            
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="m3-rec-ai-input" placeholder="Wpisz pytanie, użyj @filmu/@serialu lub wybierz kontekst powyżej..." style="flex: 1; padding: 12px 16px; border-radius: var(--md-corner-full); border: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container); color: inherit; font-size: 0.84rem;">
+              <button type="button" class="m3-btn-action-primary" id="m3-rec-ai-send-btn" style="padding: 10px 20px; font-weight: 700; gap: 6px; border-radius: var(--md-corner-full); background: #a855f7; color: #fff; flex-shrink: 0;">
+                <span class="material-symbols-rounded" style="font-size: 18px;">auto_awesome</span>
+                <span>Wyślij</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 1. Hero: "Co dziś obejrzeć?" (Smart Mood & Time Roulette) -->
+        <div class="m3-rec-hero-card">
+          <div class="m3-rec-hero-badge">
+            <span class="material-symbols-rounded" style="font-size: 16px;">casino</span>
+            <span>ASYSTENT SEANSU</span>
+          </div>
+          <h2 class="m3-rec-hero-title">Co dziś obejrzeć?</h2>
+          <p class="m3-rec-hero-subtitle">Wybierz nastrój lub wolny czas, a inteligentny asystent wylosuje dla Ciebie idealny seans z biblioteki lub bazy propozycji.</p>
+          
+          <!-- Roulette Controls -->
+          <div class="m3-rec-roulette-controls">
+            <div class="m3-rec-pills-row">
+              <span class="m3-rec-group-label">Źródło:</span>
+              <button type="button" class="m3-rec-pill active" data-roulette-source="watchlist">🍿 Z listy Do obejrzenia</button>
+              <button type="button" class="m3-rec-pill" data-roulette-source="discovery">✨ Odkryj coś nowego</button>
+              <button type="button" class="m3-rec-pill" data-roulette-source="myvod">⭐ Moje VOD</button>
+            </div>
+            <div class="m3-rec-pills-row">
+              <span class="m3-rec-group-label">Długość:</span>
+              <button type="button" class="m3-rec-pill active" data-roulette-time="all">Dowolny czas</button>
+              <button type="button" class="m3-rec-pill" data-roulette-time="short">⚡ Krótki (&lt; 100 min)</button>
+              <button type="button" class="m3-rec-pill" data-roulette-time="standard">🎬 Standard (&lt; 130 min)</button>
+              <button type="button" class="m3-rec-pill" data-roulette-time="long">🍿 Długi (&gt; 130 min)</button>
+            </div>
+            <div class="m3-rec-pills-row">
+              <span class="m3-rec-group-label">Klimat:</span>
+              <button type="button" class="m3-rec-pill active" data-roulette-mood="all">Wszystkie</button>
+              <button type="button" class="m3-rec-pill" data-roulette-mood="romcom">❤️ Komedia romantyczna / Romans</button>
+              <button type="button" class="m3-rec-pill" data-roulette-mood="comedy">😂 Lekki / Komedia</button>
+              <button type="button" class="m3-rec-pill" data-roulette-mood="crime">🕵️ Mroczny kryminał / Zagadka</button>
+              <button type="button" class="m3-rec-pill" data-roulette-mood="thriller">🔥 Thriller / Napięcie</button>
+              <button type="button" class="m3-rec-pill" data-roulette-mood="horror">😱 Horror / Groza</button>
+              <button type="button" class="m3-rec-pill" data-roulette-mood="scifi">🚀 Sci-Fi / Fantasy</button>
+              <button type="button" class="m3-rec-pill" data-roulette-mood="action">💥 Akcja / Przygoda</button>
+              <button type="button" class="m3-rec-pill" data-roulette-mood="animation">✨ Animacja / Magia</button>
+              <button type="button" class="m3-rec-pill" data-roulette-mood="drama">🎭 Poruszający Dramat</button>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 12px; align-items: center; margin-top: 14px; flex-wrap: wrap;">
+            <button type="button" class="m3-btn-action-primary" id="m3-rec-roulette-spin-btn" style="padding: 10px 22px; font-size: 0.92rem; font-weight: 700; gap: 8px;">
+              <span class="material-symbols-rounded" style="font-size: 20px;">casino</span>
+              <span>Wylosuj seans na dziś</span>
+            </button>
+            <span id="m3-rec-roulette-info" style="font-size: 0.8rem; color: var(--md-sys-color-on-surface-variant);"></span>
+          </div>
+
+          <!-- Roulette Winner Result Card (Reveals on spin) -->
+          <div id="m3-rec-roulette-result" style="display: none; margin-top: 18px;"></div>
+        </div>
+
+        <!-- 2. Streaming Filter Bar & Refresh Button -->
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 12px; width: 100%;">
+          <div class="m3-vod-filter-bar no-scrollbar" style="display: flex; align-items: center; gap: 8px; overflow-x: auto; flex: 1; min-width: 0; padding-bottom: 2px;">
+            <button class="m3-chip active" id="m3-rec-filter-all" data-rec-filter="all" style="flex-shrink: 0;">Wszystkie propozycje</button>
+            <button class="m3-chip" id="m3-rec-filter-myvod" data-rec-filter="myvod" style="flex-shrink: 0;">⭐ Moje VOD</button>
+            <button class="m3-chip" id="m3-rec-filter-personalized" data-rec-filter="personalized" style="flex-shrink: 0;">✨ Dopasowane do biblioteki</button>
+            <button class="m3-chip" id="m3-rec-filter-popular" data-rec-filter="popular" style="flex-shrink: 0;">🔥 Popularne</button>
+            <button class="m3-chip" id="m3-rec-filter-trending" data-rec-filter="trending" style="flex-shrink: 0;">⚡ Trendy tygodnia</button>
+            <button class="m3-chip" id="m3-rec-filter-romcom" data-rec-filter="romcom" style="flex-shrink: 0;">❤️ Romantyczne</button>
+            <button class="m3-chip" id="m3-rec-filter-comedy" data-rec-filter="comedy" style="flex-shrink: 0;">😂 Komedie</button>
+            <button class="m3-chip" id="m3-rec-filter-crime" data-rec-filter="crime" style="flex-shrink: 0;">🕵️ Kryminały</button>
+            <button class="m3-chip" id="m3-rec-filter-thriller" data-rec-filter="thriller" style="flex-shrink: 0;">🔥 Thrillery</button>
+            <button class="m3-chip" id="m3-rec-filter-horror" data-rec-filter="horror" style="flex-shrink: 0;">😱 Horrory</button>
+            <button class="m3-chip" id="m3-rec-filter-scifi" data-rec-filter="scifi" style="flex-shrink: 0;">🚀 Sci-Fi & Fantasy</button>
+            <button class="m3-chip" id="m3-rec-filter-action" data-rec-filter="action" style="flex-shrink: 0;">💥 Akcja & Przygoda</button>
+            <button class="m3-chip" id="m3-rec-filter-animation" data-rec-filter="animation" style="flex-shrink: 0;">✨ Animacje</button>
+            <button class="m3-chip" id="m3-rec-filter-drama" data-rec-filter="drama" style="flex-shrink: 0;">🎭 Dramaty</button>
+            <button class="m3-chip" id="m3-rec-filter-classics" data-rec-filter="classics" style="flex-shrink: 0;">🏆 IMDb Top Arcydzieła</button>
+            <button class="m3-chip" id="m3-rec-filter-gems" data-rec-filter="gems" style="flex-shrink: 0;">💎 Ukryte perełki</button>
+            <button class="m3-chip" id="m3-rec-filter-vod-fresh" data-rec-filter="vod_fresh" style="flex-shrink: 0;">🚀 Nowości na VOD</button>
+            <button class="m3-chip" id="m3-rec-filter-movies" data-rec-filter="movies" style="flex-shrink: 0;">🎬 Tylko filmy</button>
+            <button class="m3-chip" id="m3-rec-filter-shows" data-rec-filter="shows" style="flex-shrink: 0;">📺 Tylko seriale</button>
+          </div>
+          <button class="m3-chip" id="m3-rec-refresh-btn" style="padding: 6px 14px; font-size: 0.8rem; font-weight: 700; gap: 6px; flex-shrink: 0; white-space: nowrap;" title="Wygeneruj świeże rekomendacje">
+            <span class="material-symbols-rounded" style="font-size: 16px;">refresh</span> Odśwież propozycje
+          </button>
+        </div>
+
+        <!-- 3. Dynamic Streaming Carousels Container -->
+        <div id="m3-rec-carousels-hub" style="display: flex; flex-direction: column; gap: 32px;">
+          <div style="text-align: center; padding: 60px 20px; color: var(--md-sys-color-on-surface-variant);">
+            <span class="material-symbols-rounded" style="font-size: 40px; animation: spin 1s linear infinite; color: var(--md-sys-color-primary);">auto_awesome</span>
+            <p style="margin-top: 12px; font-weight: 600;">Przygotowuję spersonalizowane rekomendacje...</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Scroll To Top Button (M3 Small FAB) -->
+    <button class="m3-scroll-top-btn" id="m3-scroll-top" title="Powrót na górę">
+      <span class="material-symbols-rounded">arrow_upward</span>
+    </button>
+
+    <!-- Extended FAB -->
+    <button class="m3-fab" id="m3-fab-add">
+      <span class="material-symbols-rounded">add</span>
+      <span id="m3-fab-text">Dodaj film</span>
+    </button>
+
+    <!-- Mobile Bottom Navigation Bar -->
+    <nav class="m3-bottom-nav">
+      <button class="m3-bottom-nav-item active" data-tab="all">
+        <div class="icon-wrapper">
+          <span class="material-symbols-rounded" id="m3-bnav-icon-1">movie_filter</span>
+        </div>
+        <span id="m3-bnav-text-1">Wszystkie</span>
+      </button>
+      <button class="m3-bottom-nav-item" data-tab="watched">
+        <div class="icon-wrapper">
+          <span class="material-symbols-rounded" id="m3-bnav-icon-2">check_circle</span>
+        </div>
+        <span id="m3-bnav-text-2">Obejrzane</span>
+      </button>
+      <button class="m3-bottom-nav-item" data-tab="watchlist">
+        <div class="icon-wrapper">
+          <span class="material-symbols-rounded" id="m3-bnav-icon-3">bookmark</span>
+        </div>
+        <span id="m3-bnav-text-3">Do obejrzenia</span>
+      </button>
+      <button class="m3-bottom-nav-item" data-tab="upcoming">
+        <div class="icon-wrapper">
+          <span class="material-symbols-rounded" id="m3-bnav-icon-4">event_upcoming</span>
+        </div>
+        <span id="m3-bnav-text-4">Nadchodzące</span>
+      </button>
+      <button class="m3-bottom-nav-item" data-tab="recommendations">
+        <div class="icon-wrapper">
+          <span class="material-symbols-rounded" id="m3-bnav-icon-5">auto_awesome</span>
+        </div>
+        <span id="m3-bnav-text-5">Dla Ciebie</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Analytics Modal / Bottom Sheet -->
+  <div class="m3-bottom-sheet" id="m3-sheet-analytics" style="z-index: 220;">
+    <div class="m3-sheet-content" style="max-height: 90vh; overflow-y: auto; max-width: 720px; margin: 0 auto;">
+      <div class="m3-sheet-header" style="border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 38px; height: 38px; border-radius: 10px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); display: flex; align-items: center; justify-content: center;">
+            <span class="material-symbols-rounded">analytics</span>
+          </div>
+          <div>
+            <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0;">Statystyki Twojej Biblioteki</h2>
+            <p style="font-size: 0.78rem; color: var(--md-sys-color-on-surface-variant); margin: 0;">Analiza ocen, aktywności rocznej i nawyków filmowych</p>
+          </div>
+        </div>
+        <span class="material-symbols-rounded" id="m3-sheet-analytics-close" style="cursor: pointer; font-size: 26px; padding: 4px;">close</span>
+      </div>
+
+      <!-- Scope Switcher: Filmy / Seriale / Razem -->
+      <div style="display: flex; justify-content: center; margin-top: 14px;">
+        <div class="m3-mode-switcher" style="padding: 3px; max-width: 380px; width: 100%;">
+          <button type="button" class="m3-mode-btn active" id="m3-analytics-mode-movies" data-scope="movies" style="font-size: 0.8rem; padding: 6px 12px;">
+            <span class="material-symbols-rounded" style="font-size: 16px;">movie</span> Filmy
+          </button>
+          <button type="button" class="m3-mode-btn" id="m3-analytics-mode-shows" data-scope="shows" style="font-size: 0.8rem; padding: 6px 12px;">
+            <span class="material-symbols-rounded" style="font-size: 16px;">tv</span> Seriale
+          </button>
+          <button type="button" class="m3-mode-btn" id="m3-analytics-mode-all" data-scope="all" style="font-size: 0.8rem; padding: 6px 12px;">
+            <span class="material-symbols-rounded" style="font-size: 16px;">library_books</span> Całość
+          </button>
+        </div>
+      </div>
+
+      <!-- Metric Summary Cards -->
+      <div id="m3-analytics-summary-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-top: 14px;">
+        <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-corner-lg); padding: 12px 14px; border: 1px solid var(--md-sys-color-outline-variant);">
+          <div id="m3-analytics-total-label" style="font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); font-weight: 600;">W kolekcji</div>
+          <div id="m3-analytics-total-count" style="font-size: 1.35rem; font-weight: 800; color: var(--md-sys-color-primary); margin-top: 2px;">0</div>
+        </div>
+        <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-corner-lg); padding: 12px 14px; border: 1px solid var(--md-sys-color-outline-variant);">
+          <div id="m3-analytics-watched-label" style="font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); font-weight: 600;">Obejrzane</div>
+          <div id="m3-analytics-watched-count" style="font-size: 1.35rem; font-weight: 800; color: #10b981; margin-top: 2px;">0</div>
+        </div>
+        <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-corner-lg); padding: 12px 14px; border: 1px solid var(--md-sys-color-outline-variant);">
+          <div style="font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); font-weight: 600;">Czas seansów</div>
+          <div id="m3-analytics-time-count" style="font-size: 1.35rem; font-weight: 800; color: #38bdf8; margin-top: 2px;">0h</div>
+        </div>
+        <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-corner-lg); padding: 12px 14px; border: 1px solid var(--md-sys-color-outline-variant);">
+          <div style="font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); font-weight: 600;">Średnia ocena</div>
+          <div id="m3-analytics-avg-rating" style="font-size: 1.35rem; font-weight: 800; color: #f59e0b; margin-top: 2px;">0.0★</div>
+        </div>
+        <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-corner-lg); padding: 12px 14px; border: 1px solid var(--md-sys-color-outline-variant);">
+          <div style="font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); font-weight: 600;">Ulubione</div>
+          <div id="m3-analytics-fav-count" style="font-size: 1.35rem; font-weight: 800; color: #f43f5e; margin-top: 2px;">0</div>
+        </div>
+        <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-corner-lg); padding: 12px 14px; border: 1px solid var(--md-sys-color-outline-variant);">
+          <div style="font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); font-weight: 600;">Do obejrzenia</div>
+          <div id="m3-analytics-watchlist-count" style="font-size: 1.35rem; font-weight: 800; color: var(--md-sys-color-secondary); margin-top: 2px;">0</div>
+        </div>
+      </div>
+
+      <!-- Yearly Goal Challenge Card -->
+      <div id="m3-analytics-yearly-goal-box" style="margin-top: 14px;"></div>
+
+      <!-- Director Mastery & Badges Section -->
+      <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-corner-xl); padding: 16px; border: 1px solid var(--md-sys-color-outline-variant); margin-top: 14px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="material-symbols-rounded" style="color: #eab308; font-size: 22px;">workspace_premium</span>
+            <h3 style="margin: 0; font-size: 0.95rem; font-weight: 700;">Mistrzowie Kina & Odznaki Reżyserskie</h3>
+          </div>
+          <span style="font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant);">Filmografie TOP twórców</span>
+        </div>
+        <div id="m3-analytics-directors-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px;"></div>
+      </div>
+
+      <!-- Charts -->
+      <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 14px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+          <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-corner-xl); padding: 16px; border: 1px solid var(--md-sys-color-outline-variant);">
+            <h3 style="margin: 0 0 10px 0; font-size: 0.95rem; font-weight: 700;">Rozkład ocen w bibliotece</h3>
+            <canvas id="m3RatingsChart" style="max-height: 220px;"></canvas>
+          </div>
+          <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-corner-xl); padding: 16px; border: 1px solid var(--md-sys-color-outline-variant);">
+            <h3 style="margin: 0 0 10px 0; font-size: 0.95rem; font-weight: 700;">Top gatunki</h3>
+            <canvas id="m3GenresChart" style="max-height: 220px;"></canvas>
+          </div>
+        </div>
+        <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-corner-xl); padding: 16px; border: 1px solid var(--md-sys-color-outline-variant);">
+          <h3 style="margin: 0 0 10px 0; font-size: 0.95rem; font-weight: 700;">Aktywność oglądania na przestrzeni lat</h3>
+          <canvas id="m3YearlyChart" style="max-height: 220px;"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Director Filmography & Mastery Modal / Bottom Sheet -->
+  <div class="m3-bottom-sheet" id="m3-sheet-director-detail" style="z-index: 245;">
+    <div class="m3-sheet-content" style="max-height: 90vh; overflow-y: auto; max-width: 680px; margin: 0 auto; gap: 14px;">
+      <div class="m3-sheet-header" style="border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+          <img id="m3-director-modal-avatar" src="" alt="Director" style="width: 52px; height: 52px; border-radius: 50%; object-fit: cover; border: 2px solid var(--md-sys-color-primary); flex-shrink: 0;" onerror="this.src='static/icons/favicon.png'">
+          <div style="min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <h2 id="m3-director-modal-name" style="font-size: 1.25rem; font-weight: 800; margin: 0;">Reżyser</h2>
+              <span id="m3-director-modal-badge" class="m3-chip active" style="font-size: 0.72rem; padding: 2px 8px; pointer-events: none;">🥇 Złota Odznaka</span>
+            </div>
+            <p id="m3-director-modal-stats" style="font-size: 0.8rem; color: var(--md-sys-color-on-surface-variant); margin: 2px 0 0 0;">Obejrzano 11 z 12 filmów (92%)</p>
+          </div>
+        </div>
+        <span class="material-symbols-rounded" id="m3-director-modal-close" style="cursor: pointer; font-size: 26px; padding: 4px;">close</span>
+      </div>
+
+      <!-- Filmography Filter Tabs -->
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button type="button" class="m3-chip active" id="m3-dir-tab-watched" style="flex: 1; justify-content: center; font-weight: 700;">
+          <span class="material-symbols-rounded" style="font-size: 18px;">check_circle</span>
+          <span>Obejrzane (<span id="m3-dir-count-watched">0</span>)</span>
+        </button>
+        <button type="button" class="m3-chip" id="m3-dir-tab-missing" style="flex: 1; justify-content: center; font-weight: 700;">
+          <span class="material-symbols-rounded" style="font-size: 18px;">hourglass_empty</span>
+          <span>Brakujące (<span id="m3-dir-count-missing">0</span>)</span>
+        </button>
+        <button type="button" class="m3-chip" id="m3-dir-tab-all" style="flex: 1; justify-content: center; font-weight: 700;">
+          <span class="material-symbols-rounded" style="font-size: 18px;">movie_filter</span>
+          <span>Wszystkie (<span id="m3-dir-count-all">0</span>)</span>
+        </button>
+      </div>
+
+      <!-- Movies Grid Container -->
+      <div id="m3-director-movies-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 12px; max-height: 60vh; overflow-y: auto; padding: 4px 2px;"></div>
+    </div>
+  </div>
+
+  <!-- Movie Details & VOD Availability Modal / Bottom Sheet -->
+  <div class="m3-bottom-sheet" id="m3-sheet-movie-detail" style="z-index: 210;">
+    <div class="m3-sheet-content" style="max-height: 90vh; overflow-y: auto;">
+      <div class="m3-sheet-header" style="border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 10px;">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex-grow: 1; padding-right: 8px;">
+          <h2 id="m3-detail-title" style="font-size: 1.35rem; font-weight: 700; margin: 0;">Tytuł Filmu</h2>
+          <div id="m3-detail-badges-row" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;"></div>
+        </div>
+        <span class="material-symbols-rounded" id="m3-sheet-detail-close" style="cursor: pointer; font-size: 26px; padding: 4px;">close</span>
+      </div>
+
+      <!-- Movie Card Details (Poster, Plot, Metadata) -->
+      <div class="m3-preview-card" style="margin-top: 4px;">
+        <div class="m3-preview-poster-box" style="width: 110px; min-width: 110px;">
+          <img id="m3-detail-img" src="" alt="Poster" style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px;">
+        </div>
+        <div class="m3-preview-details" style="gap: 6px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div id="m3-detail-meta" style="font-size: 0.82rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant);">2024 • Gatunek</div>
+            <button class="m3-card-fav-btn" id="m3-detail-fav-btn" style="position: static; width: 32px; height: 32px;">
+              <span class="material-symbols-rounded">favorite</span>
+            </button>
+          </div>
+
+          <!-- Rating Stars -->
+          <div class="m3-stars" id="m3-detail-stars" style="margin: 2px 0;"></div>
+
+          <p id="m3-detail-plot" style="font-size: 0.82rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.4; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;"></p>
+        </div>
+      </div>
+
+      <!-- Full-Width Status Switcher & Action Row -->
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; margin-top: 2px; flex-wrap: wrap;">
+        <div class="m3-mode-switcher" id="m3-detail-status-switcher" style="padding: 2px; flex: 1; min-width: 190px;">
+          <button type="button" class="m3-mode-btn" id="m3-detail-btn-watched" style="white-space: nowrap; font-size: 0.82rem; padding: 8px 12px;">
+            <span class="material-symbols-rounded" style="font-size: 16px;">check_circle</span>
+            <span>Obejrzane</span>
+          </button>
+          <button type="button" class="m3-mode-btn" id="m3-detail-btn-watchlist" style="white-space: nowrap; font-size: 0.82rem; padding: 8px 12px;">
+            <span class="material-symbols-rounded" style="font-size: 16px;">bookmark</span>
+            <span>Planowane</span>
+          </button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <button type="button" class="m3-chip" id="m3-detail-rematch-btn" style="font-size: 0.78rem; padding: 8px 12px; gap: 4px; border-radius: var(--md-corner-full); white-space: nowrap;" title="Wybierz inną wersję filmu / Napraw dopasowanie TMDb">
+            <span class="material-symbols-rounded" style="font-size: 16px;">sync</span>
+            <span>Zmień wersję</span>
+          </button>
+          <button type="button" class="m3-chip" id="m3-detail-delete-btn" style="color: var(--md-sys-color-error); border-color: rgba(242, 184, 181, 0.35); font-size: 0.78rem; padding: 8px 12px; gap: 4px; border-radius: var(--md-corner-full); white-space: nowrap;" title="Usuń film z biblioteki">
+            <span class="material-symbols-rounded" style="font-size: 16px;">delete_outline</span>
+            <span>Usuń</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Live VOD Providers Section (JustWatch Data) -->
+      <div class="m3-vod-section" id="m3-detail-vod-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">stream</span>
+            <span style="font-weight: 700; font-size: 0.95rem;">Gdzie obejrzeć? (VOD)</span>
+          </div>
+          <span style="font-size: 0.78rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); display: flex; align-items: center; gap: 4px;" id="m3-detail-vod-region">
+            Polska 🇵🇱
+          </span>
+        </div>
+
+        <div id="m3-detail-vod-loading" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 20px; color: var(--md-sys-color-on-surface-variant); font-size: 0.85rem;">
+          <span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">sync</span>
+          <span>Sprawdzam aktualną ofertę serwisów VOD...</span>
+        </div>
+
+        <div id="m3-detail-vod-results" style="display: none; flex-direction: column; gap: 12px; margin-top: 6px;">
+          <div class="m3-vod-cat" id="m3-vod-box-flatrate" style="display: none;">
+            <div class="m3-vod-cat-title">Abonament (W cenie subskrypcji):</div>
+            <div class="m3-vod-logos-grid" id="m3-vod-logos-flatrate"></div>
+          </div>
+
+          <div class="m3-vod-cat" id="m3-vod-box-free" style="display: none;">
+            <div class="m3-vod-cat-title">Darmowe / Z reklamami:</div>
+            <div class="m3-vod-logos-grid" id="m3-vod-logos-free"></div>
+          </div>
+
+          <div class="m3-vod-cat" id="m3-vod-box-rent" style="display: none;">
+            <div class="m3-vod-cat-title">Wypożyczenie / Kupno:</div>
+            <div class="m3-vod-logos-grid" id="m3-vod-logos-rent"></div>
+          </div>
+
+          <div id="m3-vod-box-empty" style="display: none; padding: 14px; text-align: center; color: var(--md-sys-color-on-surface-variant); font-size: 0.85rem; background: var(--md-sys-color-surface-container); border-radius: 10px;">
+            Obecnie niedostępny w serwisach streamingowych w wybranym kraju.
+          </div>
+
+          <!-- JustWatch Direct Link Button -->
+          <div style="margin-top: 4px; display: flex; justify-content: flex-end;">
+            <a href="#" target="_blank" rel="noopener noreferrer" class="m3-chip" id="m3-btn-justwatch-link" style="display: none; text-decoration: none; font-size: 0.78rem; gap: 6px;">
+              <span>Zobacz na JustWatch</span>
+              <span class="material-symbols-rounded" style="font-size: 16px;">open_in_new</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cast & Crew Section (Obsada i Twórcy) -->
+      <div class="m3-cast-section" id="m3-detail-cast-section" style="display: none; margin-top: 6px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 6px; margin-bottom: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">groups</span>
+            <span style="font-weight: 700; font-size: 0.95rem;">Obsada i Twórcy</span>
+          </div>
+          <span style="font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant);">Kliknij aktora, aby poznać jego role</span>
+        </div>
+        <div class="m3-cast-rail" id="m3-detail-cast-rail"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VOD Country & Subscription Settings Sheet -->
+  <div class="m3-bottom-sheet" id="m3-sheet-vod-settings" style="z-index: 250;">
+    <div class="m3-sheet-content" style="max-width: 580px; max-height: 90vh; overflow-y: auto;">
+      <div class="m3-sheet-header" style="border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 10px; margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary);">tune</span>
+          <h3 style="font-size: 1.15rem; font-weight: 700;">Ustawienia VOD i Kraj</h3>
+        </div>
+        <span class="material-symbols-rounded" id="m3-vod-settings-close" style="cursor: pointer;">close</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div>
+          <label style="font-size: 0.8rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant); display: block; margin-bottom: 6px;">Kraj / Rynek serwisów streamingowych:</label>
+          <select id="m3-vod-country-select" style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container); color: inherit; font-size: 0.9rem;">
+            <optgroup label="Europa">
+              <option value="PL">Polska (PL) 🇵🇱</option>
+              <option value="GB">Wielka Brytania (UK) 🇬🇧</option>
+              <option value="DE">Niemcy (DE) 🇩🇪</option>
+              <option value="FR">Francja (FR) 🇫🇷</option>
+              <option value="ES">Hiszpania (ES) 🇪🇸</option>
+              <option value="IT">Włochy (IT) 🇮🇹</option>
+              <option value="NL">Holandia (NL) 🇳🇱</option>
+              <option value="SE">Szwecja (SE) 🇸🇪</option>
+              <option value="NO">Norwegia (NO) 🇳🇴</option>
+              <option value="DK">Dania (DK) 🇩🇰</option>
+              <option value="FI">Finlandia (FI) 🇫🇮</option>
+              <option value="CZ">Czechy (CZ) 🇨🇿</option>
+              <option value="SK">Słowacja (SK) 🇸🇰</option>
+              <option value="UA">Ukraina (UA) 🇺🇦</option>
+            </optgroup>
+            <optgroup label="Ameryka Północna & Południowa">
+              <option value="US">Stany Zjednoczone (USA) 🇺🇸</option>
+              <option value="CA">Kanada (CA) 🇨🇦</option>
+              <option value="BR">Brazylia (BR) 🇧🇷</option>
+            </optgroup>
+            <optgroup label="Azja & Pacyfik">
+              <option value="AU">Australia (AU) 🇦🇺</option>
+              <option value="JP">Japonia (JP) 🇯🇵</option>
+              <option value="KR">Korea Południowa (KR) 🇰🇷</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div>
+          <label style="font-size: 0.8rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant); display: block; margin-bottom: 6px;">Moje aktywne subskrypcje (do filtra "Moje VOD"):</label>
+          <div id="m3-vod-subscriptions-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 48vh; overflow-y: auto; padding-right: 4px;"></div>
+        </div>
+
+        <button type="button" class="m3-chip active" id="m3-btn-save-vod-settings" style="justify-content: center; padding: 12px; font-weight: 700; margin-top: 4px;">
+          Zapisz preferencje
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Smart Add Pre-window (Search, Multi-Result Picker & Preview Modal) -->
+  <div class="m3-bottom-sheet" id="m3-sheet-add">
+    <div class="m3-sheet-content" style="max-height: 90vh; overflow-y: auto;">
+      
+      <!-- Step 1: Search Form -->
+      <div id="m3-add-step-search">
+        <div class="m3-sheet-header" style="margin-bottom: 12px;">
+          <h2 id="m3-modal-title">Wyszukaj i dodaj</h2>
+          <span class="material-symbols-rounded" id="m3-sheet-close" style="cursor: pointer;">close</span>
+        </div>
+
+        <!-- Search Mode Switcher: Film vs Serial -->
+        <div class="m3-mode-switcher" style="margin-bottom: 14px;">
+          <button type="button" class="m3-mode-btn active" id="m3-search-type-movie" data-type="movie">
+            <span class="material-symbols-rounded">movie</span>
+            <span>Film</span>
+          </button>
+          <button type="button" class="m3-mode-btn" id="m3-search-type-series" data-type="series">
+            <span class="material-symbols-rounded">tv</span>
+            <span>Serial</span>
+          </button>
+        </div>
+        
+        <form id="m3-search-preview-form" style="display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="m3-search-preview-input" required placeholder="Wpisz tytuł..." style="flex: 1; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container); color: inherit; font-size: 1rem;">
+            <button type="submit" class="m3-chip active" id="m3-btn-search-trigger" style="padding: 12px 20px; font-weight: 700;">
+              <span class="material-symbols-rounded">search</span> Szukaj
+            </button>
+          </div>
+          
+          <!-- Error Alert Banner -->
+          <div class="m3-error-banner" id="m3-search-error" style="display: none;">
+            <span class="material-symbols-rounded" style="color: var(--md-sys-color-error);">error</span>
+            <span id="m3-search-error-text">Nie znaleziono pozycji o podanym tytule. Sprawdź pisownię.</span>
+          </div>
+        </form>
+      </div>
+
+      <!-- Step 1.5: Multi-Result Selection List -->
+      <div id="m3-add-step-results" style="display: none; flex-direction: column; gap: 12px;">
+        <div class="m3-sheet-header" style="border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 10px;">
+          <div>
+            <h2 style="font-size: 1.15rem; font-weight: 700;">Wybierz wersję produkcji</h2>
+            <div style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">Znaleziono kilka pasujących tytułów:</div>
+          </div>
+          <button class="m3-chip" id="m3-btn-results-back" style="padding: 4px 10px; font-size: 0.8rem;">
+            <span class="material-symbols-rounded" style="font-size: 16px;">arrow_back</span> Zmień frazę
+          </button>
+        </div>
+
+        <div id="m3-search-results-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto; padding-right: 4px;"></div>
+      </div>
+
+      <!-- Step 2: Live Pre-window Preview & Configuration -->
+      <div id="m3-add-step-preview" style="display: none; flex-direction: column; gap: 14px;">
+        <div class="m3-sheet-header" style="border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 10px;">
+          <h2 style="font-size: 1.15rem; font-weight: 700;">Podgląd i konfiguracja</h2>
+          <button class="m3-chip" id="m3-btn-back-to-search" style="padding: 4px 10px; font-size: 0.8rem;">
+            <span class="material-symbols-rounded" style="font-size: 16px;">arrow_back</span> Wybierz inną
+          </button>
+        </div>
+
+        <!-- Preview Card with Clear Type Badge -->
+        <div class="m3-preview-card">
+          <div class="m3-preview-poster-box">
+            <img id="m3-preview-img" src="" alt="Poster" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px;">
+          </div>
+          <div class="m3-preview-details">
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+              <span class="m3-preview-type-badge" id="m3-preview-type-badge">🎬 FILM</span>
+              <span id="m3-preview-year" style="font-size: 0.8rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant);">2024</span>
+            </div>
+            <h3 id="m3-preview-title" style="font-size: 1.15rem; font-weight: 700;">Tytuł</h3>
+            <div id="m3-preview-meta" style="font-size: 0.8rem; color: var(--md-sys-color-on-surface-variant); margin: 2px 0;">Gatunek</div>
+            <p id="m3-preview-plot" style="font-size: 0.8rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin-top: 4px;"></p>
+          </div>
+        </div>
+
+        <!-- Live VOD Providers for Preview (Gdzie obejrzeć) -->
+        <div id="m3-add-preview-vod-container" style="display: none; background: var(--md-sys-color-surface-container); border-radius: 12px; padding: 10px 14px; border: 1px solid var(--md-sys-color-outline-variant);">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: var(--md-sys-color-primary); display: flex; align-items: center; gap: 6px;">
+              <span class="material-symbols-rounded" style="font-size: 18px;">stream</span>
+              <span>Gdzie obejrzeć? (VOD)</span>
+            </div>
+            <span id="m3-add-preview-vod-region" style="font-size: 0.72rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant);">Polska 🇵🇱</span>
+          </div>
+          <div id="m3-add-preview-vod-loading" style="display: none; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--md-sys-color-on-surface-variant); padding: 4px 0;">
+            <span class="material-symbols-rounded" style="animation: spin 1s linear infinite; font-size: 16px;">sync</span>
+            <span>Sprawdzam serwisy streamingowe...</span>
+          </div>
+          <div id="m3-add-preview-vod-list" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;"></div>
+        </div>
+
+        <!-- Configuration Form -->
+        <form id="m3-confirm-add-form" style="display: flex; flex-direction: column; gap: 12px;">
+
+          <div>
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); display: block; margin-bottom: 4px;">Status:</label>
+            <div class="m3-mode-switcher m3-status-switcher" style="padding: 2px;">
+              <button type="button" class="m3-mode-btn active" id="m3-status-btn-watched" data-status="watched">
+                <span class="material-symbols-rounded" id="m3-status-icon-watched" style="font-size: 18px;">check_circle</span>
+                <span id="m3-status-label-watched">Obejrzane</span>
+              </button>
+              <button type="button" class="m3-mode-btn" id="m3-status-btn-watchlist" data-status="watchlist">
+                <span class="material-symbols-rounded" id="m3-status-icon-watchlist" style="font-size: 18px;">bookmark</span>
+                <span id="m3-status-label-watchlist">Do obejrzenia</span>
+              </button>
+            </div>
+            <input type="hidden" id="m3-confirm-status" value="watched">
+          </div>
+
+          <!-- Interactive 5-Star Visual Rating Selector -->
+          <div id="m3-add-rating-container" style="background: var(--md-sys-color-surface-container); border-radius: 12px; padding: 10px 14px; border: 1px solid var(--md-sys-color-outline-variant); display: flex; align-items: center; justify-content: space-between; transition: opacity 0.2s ease;">
+            <div>
+              <label style="font-size: 0.75rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); display: block;">Twoja ocena:</label>
+              <div id="m3-add-rating-label" style="font-size: 0.85rem; font-weight: 700; color: var(--md-sys-color-on-surface); margin-top: 2px;">Brak oceny</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <div class="m3-star-rating-selector" id="m3-add-star-bar" style="display: flex; gap: 4px; cursor: pointer;">
+                <span class="material-symbols-rounded m3-interactive-star" data-val="1" style="font-size: 26px; color: var(--md-sys-color-outline-variant); transition: transform 0.15s ease, color 0.15s ease;" title="1 ★ Słaby">star</span>
+                <span class="material-symbols-rounded m3-interactive-star" data-val="2" style="font-size: 26px; color: var(--md-sys-color-outline-variant); transition: transform 0.15s ease, color 0.15s ease;" title="2 ★★ Przeciętny">star</span>
+                <span class="material-symbols-rounded m3-interactive-star" data-val="3" style="font-size: 26px; color: var(--md-sys-color-outline-variant); transition: transform 0.15s ease, color 0.15s ease;" title="3 ★★★ Dobry">star</span>
+                <span class="material-symbols-rounded m3-interactive-star" data-val="4" style="font-size: 26px; color: var(--md-sys-color-outline-variant); transition: transform 0.15s ease, color 0.15s ease;" title="4 ★★★★ Bardzo dobry">star</span>
+                <span class="material-symbols-rounded m3-interactive-star" data-val="5" style="font-size: 26px; color: var(--md-sys-color-outline-variant); transition: transform 0.15s ease, color 0.15s ease;" title="5 ★★★★★ Arcydzieło!">star</span>
+              </div>
+              <button type="button" id="m3-add-rating-clear" title="Wyczyść ocenę" style="background: none; border: none; color: var(--md-sys-color-on-surface-variant); cursor: pointer; display: none; padding: 4px; margin-left: 4px; border-radius: 50%;">
+                <span class="material-symbols-rounded" style="font-size: 18px;">close</span>
+              </button>
+            </div>
+            <input type="hidden" id="m3-confirm-rating" value="">
+          </div>
+
+          <!-- Series Episode Checkbox Selector Section -->
+          <div id="m3-series-progress-box" style="display: none; background: var(--md-sys-color-surface-container); border-radius: 12px; padding: 12px; border: 1px solid var(--md-sys-color-outline-variant);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <div style="font-size: 0.85rem; font-weight: 700; color: var(--md-sys-color-primary);">Zaznacz obejrzane odcinki:</div>
+              <div id="m3-add-episodes-summary" style="font-size: 0.75rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant);">0 odc.</div>
+            </div>
+
+            <div class="m3-season-tabs" id="m3-add-season-tabs" style="margin-bottom: 8px;"></div>
+            <div id="m3-add-episodes-grid" class="m3-ep-chips-grid"></div>
+          </div>
+
+          <button type="submit" class="m3-chip active" style="justify-content: center; padding: 14px; font-size: 1rem; font-weight: 700; margin-top: 4px;">
+            <span class="material-symbols-rounded">bookmark_add</span> Dodaj do mojej listy
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Standalone TMDb Rematch Modal (Zmień wersję produkcji) -->
+  <div class="m3-bottom-sheet" id="m3-sheet-rematch" style="z-index: 300;">
+    <div class="m3-sheet-content" style="max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; gap: 14px; max-width: 640px;">
+      <div class="m3-sheet-header" style="border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 12px;">
+        <div>
+          <h2 id="m3-rematch-title" style="font-size: 1.25rem; font-weight: 800; margin: 0; color: var(--md-sys-color-on-surface);">Wybierz wersję produkcji</h2>
+          <div id="m3-rematch-subtitle" style="font-size: 0.78rem; color: var(--md-sys-color-on-surface-variant); margin-top: 3px;">
+            Wybierz właściwą wersję z bazy TMDb, aby zaktualizować obsadę, rok premiery i plakat:
+          </div>
+        </div>
+        <button type="button" class="m3-chip" id="m3-rematch-close-btn" style="padding: 6px 14px; font-size: 0.8rem; border-radius: var(--md-corner-full); gap: 4px;">
+          <span class="material-symbols-rounded" style="font-size: 16px;">close</span>
+          <span>Anuluj</span>
+        </button>
+      </div>
+
+      <!-- M3 Expressive Search Bar -->
+      <div class="m3-rematch-search-bar">
+        <span class="material-symbols-rounded m3-rematch-search-icon">search</span>
+        <input type="text" id="m3-rematch-search-input" class="m3-rematch-input" placeholder="Wyszukaj tytuł w TMDb..." autocomplete="off">
+        <button type="button" class="m3-rematch-search-btn" id="m3-rematch-search-btn">
+          Szukaj
+        </button>
+      </div>
+
+      <!-- Loading indicator -->
+      <div id="m3-rematch-loading" style="display: none; align-items: center; justify-content: center; gap: 8px; padding: 24px; color: var(--md-sys-color-primary);">
+        <span class="material-symbols-rounded" style="animation: spin 1s linear infinite; font-size: 22px;">sync</span>
+        <span style="font-size: 0.85rem; font-weight: 600;">Szukam wersji w TMDb...</span>
+      </div>
+
+      <!-- Results List -->
+      <div id="m3-rematch-results-list" class="m3-rematch-results-list"></div>
+    </div>
+  </div>
+
+  <!-- Episode Tracker Drawer / Sheet (with Unified Action & VOD Toolbar) -->
+  <div class="m3-bottom-sheet" id="m3-sheet-episodes">
+    <div class="m3-sheet-content" style="max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-bottom: 30px;">
+      <!-- Header -->
+      <div class="m3-sheet-header" style="border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 10px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;">
+          <h2 id="m3-ep-show-title" style="font-size: 1.28rem; font-weight: 800; margin: 0; min-width: 0; word-break: break-word; overflow: hidden; text-overflow: ellipsis;">Tytuł Serialu</h2>
+          <span class="material-symbols-rounded" id="m3-sheet-ep-close" style="cursor: pointer; font-size: 24px; padding: 4px; color: var(--md-sys-color-on-surface-variant); flex-shrink: 0;" title="Zamknij">close</span>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; width: 100%;">
+          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <button type="button" class="m3-card-fav-btn" id="m3-btn-fav-show" style="position: static; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;" title="Ulubione">
+              <span class="material-symbols-rounded" style="font-size: 18px;">favorite</span>
+            </button>
+            <button type="button" class="m3-chip" id="m3-btn-ai-show-assistant" style="font-size: 0.76rem; padding: 5px 10px; gap: 4px; border-radius: var(--md-corner-full); background: rgba(168, 85, 247, 0.12); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.35);" title="Asystent serialu (Podsumowania i pytania bez spoilerów)">
+              <span class="material-symbols-rounded" style="font-size: 15px;">auto_awesome</span>
+              <span>Asystent AI</span>
+            </button>
+            <button type="button" class="m3-chip" id="m3-btn-rematch-show" style="font-size: 0.76rem; padding: 5px 10px; gap: 4px; border-radius: var(--md-corner-full);" title="Wybierz inną wersję serialu / Napraw dopasowanie TMDb">
+              <span class="material-symbols-rounded" style="font-size: 15px;">sync</span>
+              <span>Zmień wersję</span>
+            </button>
+            <button type="button" class="m3-chip" id="m3-btn-delete-show" style="color: var(--md-sys-color-error); border-color: rgba(242, 184, 181, 0.35); font-size: 0.76rem; padding: 5px 10px; gap: 4px; border-radius: var(--md-corner-full);" title="Usuń cały serial z biblioteki">
+              <span class="material-symbols-rounded" style="font-size: 15px;">delete_outline</span>
+              <span>Usuń serial</span>
+            </button>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+          <div id="m3-ep-show-badges-row" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;"></div>
+          <div id="m3-ep-show-meta" style="font-size: 0.82rem; color: var(--md-sys-color-primary); font-weight: 700;">Postęp: S01E01 • 0 odcinków</div>
+        </div>
+      </div>
+
+      <!-- Series Card Details (Poster, Plot, Metadata, Stars) -->
+      <div class="m3-preview-card" id="m3-show-preview-card" style="margin-top: 2px; flex-shrink: 0;">
+        <div class="m3-preview-poster-box" style="width: 86px; min-width: 86px; height: 120px;">
+          <img id="m3-show-detail-img" src="" alt="Poster" style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px;">
+        </div>
+        <div class="m3-preview-details" style="gap: 6px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+            <div id="m3-show-detail-meta" style="font-size: 0.82rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant);">Wczytywanie...</div>
+            <div class="m3-stars" id="m3-show-detail-stars" style="margin: 0;"></div>
+          </div>
+          <p id="m3-show-detail-plot" style="font-size: 0.82rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.4; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">Wczytywanie opisu fabuły...</p>
+        </div>
+      </div>
+
+      <!-- Unified Action & VOD Toolbar -->
+      <div class="m3-tracker-toolbar">
+        <button type="button" class="m3-btn-action-primary" id="m3-btn-next-ep" title="Oznacz kolejny odcinek jako obejrzany">
+          <span class="material-symbols-rounded" style="font-size: 20px;">play_arrow</span>
+          <span>Oznacz kolejny (+1)</span>
+        </button>
+
+        <div class="m3-tracker-vod-box">
+          <span class="m3-tracker-vod-label">Dostępne na:</span>
+          <div id="m3-show-vod-logos" class="m3-tracker-vod-logos">
+            <span style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">Wczytywanie...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Series Cast Section -->
+      <div class="m3-cast-section" id="m3-show-cast-section" style="display: none; padding: 2px 0 4px 0; flex-shrink: 0;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 700; color: var(--md-sys-color-primary);">
+            <span class="material-symbols-rounded" style="font-size: 16px;">groups</span>
+            <span>Obsada serialu</span>
+          </div>
+          <span style="font-size: 0.7rem; color: var(--md-sys-color-on-surface-variant);">Kliknij, aby otworzyć profil</span>
+        </div>
+        <div class="m3-cast-rail" id="m3-show-cast-rail"></div>
+      </div>
+
+      <!-- Horizontal Season Tabs -->
+      <div class="m3-season-tabs" id="m3-season-tabs" style="flex-shrink: 0; padding: 4px 0;"></div>
+
+      <!-- Episode List for Selected Season -->
+      <div id="m3-episodes-list" style="display: flex; flex-direction: column; gap: 10px; padding-bottom: 24px;"></div>
+    </div>
+  </div>
+
+  <!-- Smart Batch Confirmation Modal (3-Option Smart Auto-Fill) -->
+  <div class="m3-bottom-sheet" id="m3-smart-batch-modal" style="z-index: 300;">
+    <div class="m3-sheet-content" style="max-width: 480px; padding: 22px; gap: 14px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 28px;">done_all</span>
+        <h3 style="font-size: 1.15rem; font-weight: 700;">Oznaczyć poprzednie odcinki?</h3>
+      </div>
+      <p id="m3-smart-batch-msg" style="font-size: 0.88rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.45;">
+        Zaznaczyłeś odcinek. Jak chcesz oznaczyć postęp oglądania?
+      </p>
+      
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+        <button type="button" class="m3-chip active" id="m3-btn-batch-all-seasons" style="justify-content: flex-start; padding: 12px 16px; font-weight: 700; width: 100%;">
+          <span class="material-symbols-rounded">library_add_check</span>
+          <span id="m3-btn-batch-all-seasons-text">Wszystko do tego odcinka</span>
+        </button>
+
+        <button type="button" class="m3-chip" id="m3-btn-batch-this-season" style="justify-content: flex-start; padding: 12px 16px; font-weight: 600; width: 100%;">
+          <span class="material-symbols-rounded">playlist_add_check</span>
+          <span id="m3-btn-batch-this-season-text">Tylko w tym sezonie</span>
+        </button>
+
+        <button type="button" class="m3-chip" id="m3-btn-batch-only" style="justify-content: flex-start; padding: 12px 16px; font-weight: 600; width: 100%;">
+          <span class="material-symbols-rounded">check</span>
+          <span>Tylko ten jeden odcinek</span>
+        </button>
+
+        <button type="button" class="m3-chip" id="m3-btn-batch-cancel" style="justify-content: center; padding: 10px 16px; font-weight: 600; margin-top: 4px; width: 100%;">
+          <span>Anuluj</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actor Profile / Cast Deep-Dive Modal (Material 3 Expressive) -->
+  <div class="m3-bottom-sheet" id="m3-sheet-actor" style="z-index: 290;">
+    <div class="m3-sheet-content" style="max-width: 680px; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 14px;">
+      <!-- Header with Close button -->
+      <div class="m3-sheet-header" style="border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary);">person</span>
+          <h2 style="font-size: 1.2rem; font-weight: 700; margin: 0;">Profil Aktora</h2>
+        </div>
+        <span class="material-symbols-rounded" id="m3-sheet-actor-close" style="cursor: pointer; font-size: 26px; padding: 4px;">close</span>
+      </div>
+
+      <!-- Actor Hero Profile (Photo, Name, Meta Badges, Bio) -->
+      <div id="m3-actor-hero-card" class="m3-actor-hero-card">
+        <div class="m3-actor-avatar-box">
+          <img id="m3-actor-avatar" src="" alt="Aktor" style="display: none; width: 100%; height: 100%; object-fit: cover;">
+          <div id="m3-actor-avatar-fallback" class="m3-actor-avatar-fallback">👤</div>
+        </div>
+        <div class="m3-actor-info" style="flex: 1; min-width: 0;">
+          <h3 id="m3-actor-name" style="font-size: 1.3rem; font-weight: 800; color: var(--md-sys-color-on-surface); line-height: 1.2;">Imię Nazwisko</h3>
+          <div id="m3-actor-meta-row" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px;"></div>
+          <p id="m3-actor-bio" class="m3-actor-bio" style="margin-top: 6px;">Wczytywanie biografii...</p>
+        </div>
+      </div>
+
+      <!-- Section 1: Watched in Library (Obejrzane w Twojej bibliotece) -->
+      <div class="m3-actor-section" id="m3-actor-watched-section" style="display: none;">
+        <div class="m3-actor-section-header">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="material-symbols-rounded" style="font-size: 18px; color: var(--md-sys-color-primary);">check_circle</span>
+            <span style="font-weight: 700; font-size: 0.95rem;">W Twojej bibliotece: Obejrzane</span>
+          </div>
+          <span class="m3-meta-badge highlight" id="m3-actor-watched-count">0 filmów</span>
+        </div>
+        <div class="m3-actor-cards-grid" id="m3-actor-watched-grid"></div>
+      </div>
+
+      <!-- Section 2: Watchlist in Library (Do obejrzenia w Twojej bibliotece) -->
+      <div class="m3-actor-section" id="m3-actor-watchlist-section" style="display: none;">
+        <div class="m3-actor-section-header">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="material-symbols-rounded" style="font-size: 18px; color: var(--md-sys-color-primary);">bookmark</span>
+            <span style="font-weight: 700; font-size: 0.95rem;">W Twojej bibliotece: Do obejrzenia</span>
+          </div>
+          <span class="m3-meta-badge" id="m3-actor-watchlist-count">0 pozycji</span>
+        </div>
+        <div class="m3-actor-cards-grid" id="m3-actor-watchlist-grid"></div>
+      </div>
+
+      <!-- Section 3: Recommendations / Discover Filmography (Odkryj więcej z tym aktorem) -->
+      <div class="m3-actor-section" id="m3-actor-recommendations-section">
+        <div class="m3-actor-section-header">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="material-symbols-rounded" style="font-size: 18px; color: #f59e0b;">auto_awesome</span>
+            <span style="font-weight: 700; font-size: 0.95rem;">Odkryj więcej filmów i seriali</span>
+          </div>
+          <span style="font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant);">Spoza Twojej biblioteki</span>
+        </div>
+        <div id="m3-actor-rec-loading" style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--md-sys-color-on-surface-variant); padding: 12px 0;">
+          <span class="material-symbols-rounded" style="animation: spin 1s linear infinite; font-size: 16px;">sync</span>
+          <span>Wczytywanie filmografii i rekomendacji...</span>
+        </div>
+        <div class="m3-actor-cards-grid" id="m3-actor-recommendations-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unified Cloud, Backup & AI Assistant Settings Modal -->
+  <div class="m3-bottom-sheet" id="m3-sheet-cloud-sync" style="z-index: 260;">
+    <div class="m3-sheet-content" style="max-width: 520px; max-height: 90vh; overflow-y: auto; padding: 22px; gap: 14px;">
+      <!-- Header -->
+      <div class="m3-sheet-header" style="border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 38px; height: 38px; border-radius: 12px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <span class="material-symbols-rounded" style="font-size: 22px;">settings_suggest</span>
+          </div>
+          <div>
+            <h3 style="font-size: 1.15rem; font-weight: 700; line-height: 1.2;">Chmura, Klucze & Asystent AI</h3>
+            <div style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">Prywatna baza danych BYO-Cloud, Klucze API & Model AI (BYOK)</div>
+          </div>
+        </div>
+        <span class="material-symbols-rounded" id="m3-cloud-sync-close" style="cursor: pointer; padding: 4px;">close</span>
+      </div>
+
+      <!-- Segmented Tab Switcher (3 Tabs) -->
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: 100%; background: var(--md-sys-color-surface-container-high); padding: 4px; border-radius: var(--md-corner-full);">
+        <button type="button" class="m3-chip active" id="m3-tab-cloud-drive" style="justify-content: center; font-weight: 700; border-radius: var(--md-corner-full); padding: 8px 4px; margin: 0; font-size: 0.76rem; white-space: nowrap; gap: 4px;">
+          <span class="material-symbols-rounded" style="font-size: 16px;">cloud</span>
+          <span>Dysk & Kopia</span>
+        </button>
+        <button type="button" class="m3-chip" id="m3-tab-cloud-keys" style="justify-content: center; font-weight: 700; border-radius: var(--md-corner-full); padding: 8px 4px; margin: 0; font-size: 0.76rem; white-space: nowrap; gap: 4px;">
+          <span class="material-symbols-rounded" style="font-size: 16px;">key</span>
+          <span>Klucze API</span>
+        </button>
+        <button type="button" class="m3-chip" id="m3-tab-cloud-ai" style="justify-content: center; font-weight: 700; border-radius: var(--md-corner-full); padding: 8px 4px; margin: 0; font-size: 0.76rem; white-space: nowrap; gap: 4px;">
+          <span class="material-symbols-rounded" style="font-size: 16px;">auto_awesome</span>
+          <span>Asystent AI</span>
+        </button>
+      </div>
+
+      <!-- Panel 1: Google Drive & Local Backup -->
+      <div id="m3-panel-cloud-drive" style="display: flex; flex-direction: column; gap: 14px;">
+        <!-- Cloud Card -->
+        <div class="m3-gdrive-card" style="background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-corner-xl); padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+          <!-- M3 Cloud Sync Info Card -->
+          <div class="m3-cloud-info-card" style="display: flex; align-items: flex-start; gap: 12px; background: var(--md-sys-color-surface-container-high); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-corner-l); padding: 12px 14px;">
+            <div style="display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); flex-shrink: 0; margin-top: 2px;">
+              <span class="material-symbols-rounded" style="font-size: 20px;">folder_shared</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap;">
+                <span style="font-weight: 700; font-size: 0.84rem; color: var(--md-sys-color-on-surface);">Prywatna Kopia w Chmurze</span>
+                <span style="font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: var(--md-corner-full); background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container);">100% Prywatności</span>
+              </div>
+              <div style="font-size: 0.78rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.45;">
+                Twoja biblioteka jest synchronizowana bezpośrednio z plikiem <code style="background: var(--md-sys-color-surface-container-highest); padding: 2px 6px; border-radius: 6px; font-weight: 700; color: var(--md-sys-color-primary); font-size: 0.75rem;">cinelog_database.json</code> na Twoim Dysku Google.
+              </div>
+            </div>
+          </div>
+
+          <!-- Disconnected State -->
+          <div id="m3-drive-disconnected-box" style="display: flex; flex-direction: column; gap: 10px;">
+            <button type="button" class="m3-btn-action-primary" id="m3-btn-gdrive-connect" style="justify-content: center; width: 100%; padding: 12px; font-weight: 700; background: #ffffff; color: #1f1f1f; border: 1px solid #dadce0; border-radius: var(--md-corner-full); box-shadow: var(--md-shadow-1);">
+              <svg width="18" height="18" viewBox="0 0 18 18" style="margin-right: 8px;"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/><path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.173 0 7.548 0 9s.347 2.827.957 4.039l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/></svg>
+              <span>Zaloguj się przez konto Google</span>
+            </button>
+
+            <details style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); cursor: pointer; margin-top: 2px;">
+              <summary style="font-weight: 600; padding: 4px 0;">Opcje deweloperskie (Własny Google Client ID)</summary>
+              <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
+                <input type="text" id="m3-gdrive-client-id" placeholder="Wklej opcjonalny Client ID..." style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-high); color: inherit; font-size: 0.78rem;">
+                <span style="font-size: 0.7rem; color: var(--md-sys-color-on-surface-variant); opacity: 0.8;">Domyślnie aplikacja korzysta z wbudowanej integracji Google Identity Services.</span>
+              </div>
+            </details>
+          </div>
+
+          <!-- Connected State -->
+          <div id="m3-drive-connected-box" style="display: none; flex-direction: column; gap: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--md-corner-l); padding: 10px 14px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="material-symbols-rounded" style="font-size: 20px; color: #10b981;">cloud_done</span>
+                <div>
+                  <div style="font-size: 0.84rem; font-weight: 700; color: var(--md-sys-color-on-surface);">Dysk Google: Połączono</div>
+                  <div style="font-size: 0.72rem; color: #10b981; font-weight: 600;">● Automatyczna synchronizacja aktywna</div>
+                </div>
+              </div>
+              <span style="font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); font-weight: 600;" id="m3-gdrive-last-sync-time">Auto-Sync</span>
+            </div>
+
+            <!-- Main Actions -->
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <button type="button" class="m3-btn-action-primary" id="m3-btn-gdrive-push" style="justify-content: center; width: 100%; font-size: 0.86rem; padding: 11px 16px; font-weight: 700;">
+                <span class="material-symbols-rounded" style="font-size: 19px;">sync</span>
+                <span>Synchronizuj teraz (Wyślij do Chmury)</span>
+              </button>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <button type="button" class="m3-chip active" id="m3-btn-gdrive-pull" style="justify-content: center; font-size: 0.78rem; padding: 9px 8px; font-weight: 700;">
+                  <span class="material-symbols-rounded" style="font-size: 17px;">cloud_download</span>
+                  <span>Pobierz z Dysku</span>
+                </button>
+                <button type="button" class="m3-chip" id="m3-btn-gdrive-merge" style="justify-content: center; font-size: 0.78rem; padding: 9px 8px; font-weight: 700;">
+                  <span class="material-symbols-rounded" style="font-size: 17px;">call_merge</span>
+                  <span>Scal obie bazy</span>
+                </button>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: center; margin-top: 2px;">
+              <button type="button" id="m3-btn-gdrive-disconnect" style="background: transparent; border: none; font-size: 0.76rem; font-weight: 600; color: var(--md-sys-color-error); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--md-corner-full); opacity: 0.85;">
+                <span class="material-symbols-rounded" style="font-size: 16px;">link_off</span>
+                <span>Rozłącz konto Google</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Local File Import & Export Section -->
+        <div style="background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-corner-xl); padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 22px;">folder_zip</span>
+              <span style="font-weight: 700; font-size: 0.88rem;">Kopia i Import z pliku (JSON / CSV)</span>
+            </div>
+            <span style="font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant);">Filmweb • Letterboxd • IMDb • CineLog</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <button type="button" class="m3-chip active" id="m3-btn-import-json" style="justify-content: center; font-size: 0.8rem; padding: 10px; border-radius: var(--md-corner-full); font-weight: 700;">
+              <span class="material-symbols-rounded" style="font-size: 18px;">upload_file</span> <span>Importuj plik (JSON/CSV)</span>
+            </button>
+            <input type="file" id="m3-import-json-file" accept=".json,.csv" style="display: none;">
+            <a href="/api/export" class="m3-chip" id="m3-btn-export-backup" download="cinelog_backup.json" style="justify-content: center; font-size: 0.8rem; padding: 10px; border-radius: var(--md-corner-full); text-decoration: none; font-weight: 700;">
+              <span class="material-symbols-rounded" style="font-size: 18px;">download</span> <span>Pobierz kopię JSON</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel 2: API Keys Management -->
+      <div id="m3-panel-cloud-keys" style="display: none; flex-direction: column; gap: 14px;">
+        <div class="m3-gdrive-card" style="background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-corner-xl); padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+          <!-- M3 Keys Info Card -->
+          <div class="m3-cloud-info-card" style="display: flex; align-items: flex-start; gap: 12px; background: var(--md-sys-color-surface-container-high); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-corner-l); padding: 12px 14px;">
+            <div style="display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); flex-shrink: 0; margin-top: 2px;">
+              <span class="material-symbols-rounded" style="font-size: 20px;">vpn_key</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap;">
+                <span style="font-weight: 700; font-size: 0.84rem; color: var(--md-sys-color-on-surface);">Prywatne Klucze API (BYOK)</span>
+                <span style="font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: var(--md-corner-full); background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container);">100% Prywatności</span>
+              </div>
+              <div style="font-size: 0.78rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.45;">
+                Twoje klucze są przechowywane wyłącznie w pamięci Twojej przeglądarki (<code>localStorage</code>) i nigdy nie trafiają na zewnętrzne serwery.
+              </div>
+            </div>
+          </div>
+
+          <!-- TMDb API Key -->
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label for="m3-key-tmdb-input" style="font-size: 0.75rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant);">
+                🎬 Klucz TMDb API (The Movie Database):
+              </label>
+              <a href="https://www.themoviedb.org/settings/api" target="_blank" style="font-size: 0.7rem; color: var(--md-sys-color-primary); text-decoration: none; font-weight: 600;">
+                Darmowy klucz TMDb ↗
+              </a>
+            </div>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="text" id="m3-key-tmdb-input" placeholder="np. a1b2c3d4e5f6..." style="width: 100%; padding: 10px 42px 10px 12px; border-radius: 8px; border: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-high); color: inherit; font-size: 0.82rem; font-family: monospace; -webkit-text-security: disc;">
+              <span class="material-symbols-rounded" id="m3-key-tmdb-vis" style="position: absolute; right: 10px; cursor: pointer; font-size: 20px; color: var(--md-sys-color-on-surface-variant);" title="Pokaż/Ukryj klucz">visibility</span>
+            </div>
+            <div style="font-size: 0.7rem; color: var(--md-sys-color-on-surface-variant); opacity: 0.8;">
+              Odpowiada za wyszukiwarkę, plakaty HD, silnik rekomendacji, trendy oraz katalog VOD.
+            </div>
+          </div>
+
+          <!-- OMDb / IMDb API Key -->
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label for="m3-key-omdb-input" style="font-size: 0.75rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant);">
+                ⭐ Klucz OMDb / IMDb API (Open Movie Database):
+              </label>
+              <a href="https://www.omdbapi.com/apikey.aspx" target="_blank" style="font-size: 0.7rem; color: var(--md-sys-color-primary); text-decoration: none; font-weight: 600;">
+                Darmowy klucz OMDb ↗
+              </a>
+            </div>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="text" id="m3-key-omdb-input" placeholder="np. e1a2b3c4" style="width: 100%; padding: 10px 42px 10px 12px; border-radius: 8px; border: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-high); color: inherit; font-size: 0.82rem; font-family: monospace; -webkit-text-security: disc;">
+              <span class="material-symbols-rounded" id="m3-key-omdb-vis" style="position: absolute; right: 10px; cursor: pointer; font-size: 20px; color: var(--md-sys-color-on-surface-variant);" title="Pokaż/Ukryj klucz">visibility</span>
+            </div>
+            <div style="font-size: 0.7rem; color: var(--md-sys-color-on-surface-variant); opacity: 0.8;">
+              Pobiera oceny z serwisów IMDb, Rotten Tomatoes i Metacritic oraz służy jako rezerwowa wyszukiwarka.
+            </div>
+          </div>
+
+          <!-- Key Test Status Box -->
+          <div id="m3-keys-test-status" style="display: none; padding: 8px 12px; border-radius: 8px; font-size: 0.78rem; font-weight: 600;"></div>
+
+          <!-- Action Buttons -->
+          <div style="display: flex; gap: 8px; margin-top: 4px;">
+            <button type="button" class="m3-chip active" id="m3-btn-test-api-keys" style="flex: 1; justify-content: center; padding: 10px; font-weight: 700; border-radius: var(--md-corner-full);">
+              <span class="material-symbols-rounded" style="font-size: 18px;">bolt</span> <span>Testuj klucze</span>
+            </button>
+            <button type="button" class="m3-btn-action-primary" id="m3-btn-save-api-keys" style="flex: 1; justify-content: center; padding: 10px; font-weight: 700; border-radius: var(--md-corner-full);">
+              <span class="material-symbols-rounded" style="font-size: 18px;">check</span> <span>Zapisz klucze</span>
+            </button>
+          </div>
+
+          <button type="button" class="m3-chip" id="m3-btn-clear-api-keys" style="justify-content: center; width: 100%; font-size: 0.78rem; padding: 6px; color: var(--md-sys-color-error); border-color: rgba(242, 184, 181, 0.3); border-radius: var(--md-corner-full);">
+            <span class="material-symbols-rounded" style="font-size: 16px;">delete_outline</span> <span>Wyczyść zapisane klucze</span>
+          </button>
+        </div>
+
+        <!-- Local Flask .env note -->
+        <div style="background: var(--md-sys-color-surface-container-high); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-corner-xl); padding: 12px; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.45;">
+          💡 <strong>Wskazówka dla serwera lokalnego:</strong> Jeśli uruchamiasz CineLog z poziomu Pythona (<code>python app.py</code>), możesz również podać klucz bezpośrednio w pliku <code>.env</code> jako <code>TMDB_API_KEY=...</code>.
+        </div>
+      </div>
+
+      <!-- Panel 3: AI Assistant & BYOK Settings -->
+      <div id="m3-panel-cloud-ai" style="display: none; flex-direction: column; gap: 14px;">
+        <div class="m3-gdrive-card" style="background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-corner-xl); padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+          <!-- M3 AI Info Card -->
+          <div class="m3-cloud-info-card" style="display: flex; align-items: flex-start; gap: 12px; background: var(--md-sys-color-surface-container-high); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-corner-l); padding: 12px 14px;">
+            <div style="display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); flex-shrink: 0; margin-top: 2px;">
+              <span class="material-symbols-rounded" style="font-size: 20px;">neurology</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap;">
+                <span style="font-weight: 700; font-size: 0.84rem; color: var(--md-sys-color-on-surface);">Asystent & Rekomendacje AI</span>
+                <span style="font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: var(--md-corner-full); background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container);">Model BYOK</span>
+              </div>
+              <div style="font-size: 0.78rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.45;">
+                Podłącz swój własny model AI (OpenAI, DeepSeek, Groq, OpenRouter lub Ollama offline), aby korzystać z podsumowań bez spoilerów, analizy gustu i rekomendacji.
+              </div>
+            </div>
+          </div>
+
+          <!-- Provider Chips Selector -->
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <span style="font-size: 0.75rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant);">Wybierz dostawcę:</span>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;" id="m3-ai-provider-chips">
+              <button type="button" class="m3-chip active" data-provider="openai" style="justify-content: center; font-size: 0.78rem; font-weight: 700; padding: 8px;">🟢 OpenAI</button>
+              <button type="button" class="m3-chip" data-provider="deepseek" style="justify-content: center; font-size: 0.78rem; font-weight: 700; padding: 8px;">🐳 DeepSeek</button>
+              <button type="button" class="m3-chip" data-provider="groq" style="justify-content: center; font-size: 0.78rem; font-weight: 700; padding: 8px;">⚡ Groq</button>
+              <button type="button" class="m3-chip" data-provider="openrouter" style="justify-content: center; font-size: 0.78rem; font-weight: 700; padding: 8px;">🔵 OpenRouter</button>
+              <button type="button" class="m3-chip" data-provider="ollama" style="justify-content: center; font-size: 0.78rem; font-weight: 700; padding: 8px;">🟣 Ollama</button>
+              <button type="button" class="m3-chip" data-provider="custom" style="justify-content: center; font-size: 0.78rem; font-weight: 700; padding: 8px;">⚙️ Własne API</button>
+            </div>
+          </div>
+
+          <!-- API Key Input -->
+          <div style="display: flex; flex-direction: column; gap: 4px;" id="m3-ai-key-container">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label for="m3-ai-api-key" style="font-size: 0.75rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant);">Klucz API (API Key):</label>
+              <span id="m3-ai-key-hint" style="font-size: 0.7rem; color: var(--md-sys-color-primary);">Zapisywany w pamięci przeglądarki</span>
+            </div>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="text" id="m3-ai-api-key" name="cinelog_ai_token_field" autocomplete="off" data-lpignore="true" data-form-type="other" placeholder="sk-proj-..." style="width: 100%; padding: 10px 42px 10px 12px; border-radius: 8px; border: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-high); color: inherit; font-size: 0.82rem; font-family: monospace; -webkit-text-security: disc;">
+              <span class="material-symbols-rounded" id="m3-ai-toggle-key-vis" style="position: absolute; right: 10px; cursor: pointer; font-size: 20px; color: var(--md-sys-color-on-surface-variant);" title="Pokaż/Ukryj klucz">visibility</span>
+            </div>
+          </div>
+
+          <!-- Model & Endpoint Form -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label for="m3-ai-model" style="font-size: 0.75rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant);">Nazwa modelu:</label>
+              <input type="text" id="m3-ai-model" value="gpt-4o-mini" style="width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-high); color: inherit; font-size: 0.78rem;">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label for="m3-ai-base-url" style="font-size: 0.75rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant);">Adres API (Base URL):</label>
+              <input type="text" id="m3-ai-base-url" value="https://api.openai.com/v1" style="width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-high); color: inherit; font-size: 0.78rem;">
+            </div>
+          </div>
+
+          <!-- Connection Test Banner & Live Status -->
+          <div id="m3-ai-test-status" style="display: none; padding: 8px 12px; border-radius: 8px; font-size: 0.78rem; font-weight: 600;"></div>
+
+          <!-- Action Buttons -->
+          <div style="display: flex; gap: 8px; margin-top: 4px;">
+            <button type="button" class="m3-chip active" id="m3-btn-ai-test" style="flex: 1; justify-content: center; padding: 10px; font-weight: 700; border-radius: var(--md-corner-full);">
+              <span class="material-symbols-rounded" style="font-size: 18px;">bolt</span> <span>Testuj połączenie</span>
+            </button>
+            <button type="button" class="m3-btn-action-primary" id="m3-btn-ai-save" style="flex: 1; justify-content: center; padding: 10px; font-weight: 700; border-radius: var(--md-corner-full);">
+              <span class="material-symbols-rounded" style="font-size: 18px;">check</span> <span>Zapisz ustawienia</span>
+            </button>
+          </div>
+
+          <button type="button" class="m3-chip" id="m3-btn-ai-clear" style="justify-content: center; width: 100%; font-size: 0.78rem; padding: 6px; color: var(--md-sys-color-error); border-color: rgba(242, 184, 181, 0.3); border-radius: var(--md-corner-full);">
+            <span class="material-symbols-rounded" style="font-size: 16px;">delete_outline</span> <span>Usuń klucz i zresetuj AI</span>
+          </button>
+        </div>
+
+        <!-- Privacy & Security Reassurance Card -->
+        <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: var(--md-corner-xl); padding: 12px; display: flex; align-items: flex-start; gap: 10px;">
+          <span class="material-symbols-rounded" style="color: #10b981; font-size: 22px; flex-shrink: 0; margin-top: 2px;">verified_user</span>
+          <div style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.4;">
+            <strong style="color: var(--md-sys-color-on-surface);">100% Prywatności:</strong> Twój klucz API jest zapisany wyłącznie w pamięci Twojej przeglądarki (<code style="font-size: 0.72rem;">localStorage</code>). Aplikacja nie posiada zewnętrznych trackerów ani serwerów pośredniczących — wszystkie zapytania wysyłane są bezpośrednio do Twojego dostawcy.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Series AI Zero-Spoiler Assistant Sheet / Modal -->
+  <div class="m3-bottom-sheet" id="m3-sheet-ai-series" style="z-index: 250;">
+    <div class="m3-sheet-content" style="max-width: 580px; max-height: 90vh; overflow-y: auto; padding: 22px; gap: 12px;">
+      <!-- Header -->
+      <div class="m3-sheet-header" style="border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 10px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 38px; height: 38px; border-radius: 12px; background: rgba(168, 85, 247, 0.15); color: #a855f7; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <span class="material-symbols-rounded" style="font-size: 22px;">auto_awesome</span>
+          </div>
+          <div style="flex: 1; min-width: 0;">
+            <h3 id="m3-ai-series-title" style="font-size: 1.15rem; font-weight: 700; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Asystent Serialu</h3>
+            <div id="m3-ai-series-progress" style="font-size: 0.75rem; color: #a855f7; font-weight: 700;">Postęp: S01E01 • 🛡️ 100% Bez spoilerów</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <button type="button" class="m3-chip" id="m3-ai-btn-reset-series" style="font-size: 0.72rem; padding: 2px 8px; gap: 4px; display: inline-flex; align-items: center;" title="Zacznij nową rozmowę">
+            <span class="material-symbols-rounded" style="font-size: 14px;">restart_alt</span>
+            <span>Nowa rozmowa</span>
+          </button>
+          <button type="button" class="m3-chip" id="m3-btn-copy-series-ai" style="font-size: 0.72rem; padding: 2px 8px; gap: 4px; display: inline-flex; align-items: center;" title="Kopiuj do schowka">
+            <span class="material-symbols-rounded" style="font-size: 14px;">content_copy</span>
+            <span>Kopiuj</span>
+          </button>
+          <span class="material-symbols-rounded" id="m3-ai-series-close" style="cursor: pointer; padding: 4px;">close</span>
+        </div>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 0.75rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant);">Szybkie zapytania:</span>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <button type="button" class="m3-chip" id="m3-ai-btn-recap-previous" style="font-size: 0.78rem; padding: 6px 12px;">
+            <span class="material-symbols-rounded" style="font-size: 16px;">history_edu</span> Podsumuj poprzednie sezony
+          </button>
+          <button type="button" class="m3-chip" id="m3-ai-btn-who-is-who" style="font-size: 0.78rem; padding: 6px 12px;">
+            <span class="material-symbols-rounded" style="font-size: 16px;">groups</span> Kto jest kim do tego odcinka?
+          </button>
+          <button type="button" class="m3-chip" id="m3-ai-btn-last-events" style="font-size: 0.78rem; padding: 6px 12px;">
+            <span class="material-symbols-rounded" style="font-size: 16px;">help_center</span> Co wydarzyło się przed chwilą?
+          </button>
+        </div>
+      </div>
+
+      <!-- Custom Question Input -->
+      <div style="display: flex; gap: 8px; margin-top: 4px;">
+        <input type="text" id="m3-ai-series-input" placeholder="Zadaj pytanie o fabułę (np. dlaczego Logan nie ufa Tomowi?)..." style="flex: 1; padding: 10px 14px; border-radius: var(--md-corner-full); border: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container); color: inherit; font-size: 0.82rem;">
+        <button type="button" class="m3-btn-action-primary" id="m3-ai-series-send-btn" style="padding: 10px 16px; border-radius: var(--md-corner-full);">
+          <span class="material-symbols-rounded" style="font-size: 18px;">send</span>
+        </button>
+      </div>
+
+      <!-- AI Response Container -->
+      <div id="m3-ai-series-output" style="min-height: 80px; max-height: 380px; overflow-y: auto; background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-corner-l); padding: 14px; font-size: 0.82rem; line-height: 1.5; color: var(--md-sys-color-on-surface);">
+        <span style="color: var(--md-sys-color-on-surface-variant); font-style: italic;">Kliknij jedno z szybkich zapytań lub wpisz własne pytanie powyżej. Asystent odpowie bez zdradzania przyszłych wątków.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Material 3 Dynamic Theme & Color Scheme Modal -->
+  <div class="m3-bottom-sheet" id="m3-sheet-theme-settings" style="z-index: 270;">
+    <div class="m3-sheet-content" style="max-width: 480px; padding: 22px; gap: 16px;">
+      <div class="m3-sheet-header" style="border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 26px;">palette</span>
+          <h3 style="font-size: 1.15rem; font-weight: 700;">Wygląd i Motyw Material 3</h3>
+        </div>
+        <span class="material-symbols-rounded" id="m3-theme-settings-close" style="cursor: pointer;">close</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <!-- Mode Switcher: System / Dark / Light -->
+        <div>
+          <label style="font-size: 0.8rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant); display: block; margin-bottom: 8px;">Tryb kolorystyczny:</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+            <button type="button" class="m3-theme-mode-btn" data-theme-mode="system" style="padding: 10px 6px; display: flex; flex-direction: column; align-items: center; gap: 6px; border-radius: 12px; border: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container); color: inherit; cursor: pointer; font-weight: 600; font-size: 0.8rem;">
+              <span class="material-symbols-rounded">brightness_auto</span>
+              <span>Systemowy</span>
+            </button>
+            <button type="button" class="m3-theme-mode-btn" data-theme-mode="dark" style="padding: 10px 6px; display: flex; flex-direction: column; align-items: center; gap: 6px; border-radius: 12px; border: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container); color: inherit; cursor: pointer; font-weight: 600; font-size: 0.8rem;">
+              <span class="material-symbols-rounded">dark_mode</span>
+              <span>Ciemny</span>
+            </button>
+            <button type="button" class="m3-theme-mode-btn" data-theme-mode="light" style="padding: 10px 6px; display: flex; flex-direction: column; align-items: center; gap: 6px; border-radius: 12px; border: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container); color: inherit; cursor: pointer; font-weight: 600; font-size: 0.8rem;">
+              <span class="material-symbols-rounded">light_mode</span>
+              <span>Jasny</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Material You Color Seeds -->
+        <div>
+          <label style="font-size: 0.8rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant); display: block; margin-bottom: 8px;">Kolor wiodący (Dynamic Color / Akcent M3):</label>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;" id="m3-color-seeds-grid">
+            <button type="button" class="m3-color-seed-btn" data-seed="#9333ea" style="background-color: #9333ea;" title="Fiolet M3"></button>
+            <button type="button" class="m3-color-seed-btn" data-seed="#2563eb" style="background-color: #2563eb;" title="Błękit"></button>
+            <button type="button" class="m3-color-seed-btn" data-seed="#059669" style="background-color: #059669;" title="Szmaragd"></button>
+            <button type="button" class="m3-color-seed-btn" data-seed="#d97706" style="background-color: #d97706;" title="Bursztyn"></button>
+            <button type="button" class="m3-color-seed-btn" data-seed="#e11d48" style="background-color: #e11d48;" title="Karmin"></button>
+            <button type="button" class="m3-color-seed-btn" data-seed="#db2777" style="background-color: #db2777;" title="Róż"></button>
+            
+            <label class="m3-color-seed-custom" title="Wybierz własny kolor z palety">
+              <input type="color" id="m3-color-seed-picker" value="#9333ea" style="opacity: 0; width: 0; height: 0; position: absolute; pointer-events: none;">
+              <span class="material-symbols-rounded" style="font-size: 18px;">colorize</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Live Preview Box -->
+        <div style="background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; padding: 12px; display: flex; align-items: center; justify-content: space-between;">
+          <div style="font-size: 0.8rem; font-weight: 600;">Podgląd akcentu:</div>
+          <div style="display: flex; gap: 6px;">
+            <button type="button" class="m3-chip active" style="padding: 4px 12px; font-size: 0.75rem; pointer-events: none;">Aktywny chip</button>
+            <button type="button" class="m3-btn-action-primary" style="padding: 4px 12px; font-size: 0.75rem; pointer-events: none;">Przycisk M3</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Universal Importer Modal / Bottom Sheet -->
+  <div class="m3-bottom-sheet" id="m3-sheet-importer" style="z-index: 260;">
+    <div class="m3-sheet-content" style="max-height: 90vh; overflow-y: auto; max-width: 580px; margin: 0 auto; gap: 14px;">
+      <div class="m3-sheet-header" style="border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 38px; height: 38px; border-radius: 10px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center;">
+            <span class="material-symbols-rounded">download_for_offline</span>
+          </div>
+          <div>
+            <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0;">Uniwersalny Importer</h2>
+            <p style="font-size: 0.78rem; color: var(--md-sys-color-on-surface-variant); margin: 0;">Filmweb, Letterboxd, IMDb oraz kopie JSON</p>
+          </div>
+        </div>
+        <span class="material-symbols-rounded" id="m3-importer-close" style="cursor: pointer; font-size: 26px; padding: 4px;">close</span>
+      </div>
+
+      <!-- Supported Formats Badges -->
+      <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+        <span style="font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); font-weight: 700; text-transform: uppercase;">Obsługiwane:</span>
+        <span class="m3-chip" style="font-size: 0.72rem; padding: 2px 8px; pointer-events: none;">🎬 Filmweb CSV</span>
+        <span class="m3-chip" style="font-size: 0.72rem; padding: 2px 8px; pointer-events: none;">💚 Letterboxd CSV</span>
+        <span class="m3-chip" style="font-size: 0.72rem; padding: 2px 8px; pointer-events: none;">⭐ IMDb CSV</span>
+        <span class="m3-chip" style="font-size: 0.72rem; padding: 2px 8px; pointer-events: none;">📦 CineLog JSON</span>
+      </div>
+
+      <!-- Drag & Drop Zone -->
+      <div id="m3-import-dropzone" style="display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed var(--md-sys-color-outline-variant); border-radius: 16px; padding: 32px 20px; text-align: center; gap: 12px; background: var(--md-sys-color-surface-container); transition: all 0.2s ease;">
+        <div style="width: 56px; height: 56px; border-radius: 50%; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center;">
+          <span class="material-symbols-rounded" style="font-size: 32px;">upload_file</span>
+        </div>
+        <div>
+          <div style="font-weight: 700; font-size: 0.95rem;">Przeciągnij i upuść plik CSV lub JSON tutaj</div>
+          <div style="font-size: 0.78rem; color: var(--md-sys-color-on-surface-variant); margin-top: 4px;">Plik zostanie w 100% przetworzony lokalnie w Twojej przeglądarce</div>
+        </div>
+        <input type="file" id="m3-importer-file-input" accept=".csv,.json,.txt" style="display: none;">
+        <button type="button" class="m3-btn-action-primary" id="m3-btn-select-import-file" style="padding: 8px 18px; font-size: 0.82rem; font-weight: 700; border-radius: var(--md-corner-full);">
+          <span class="material-symbols-rounded" style="font-size: 18px;">folder_open</span> Wybierz plik z dysku
+        </button>
+      </div>
+
+      <!-- Preview Summary Box (Hidden until file selected) -->
+      <div id="m3-import-preview-box" style="display: none; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; background: var(--md-sys-color-surface-container-high); border-radius: 12px; padding: 12px 14px;">
+          <div>
+            <div style="font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); font-weight: 700; text-transform: uppercase;">Wykryto format:</div>
+            <div id="m3-import-format-badge" style="font-size: 0.92rem; font-weight: 800; color: var(--md-sys-color-primary); margin-top: 2px;">Letterboxd CSV</div>
+          </div>
+          <button type="button" class="m3-chip" id="m3-btn-reset-import" style="font-size: 0.72rem; padding: 4px 10px;">
+            <span class="material-symbols-rounded" style="font-size: 16px;">refresh</span> Zmień plik
+          </button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+          <div style="background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; padding: 8px; text-align: center;">
+            <div style="font-size: 0.68rem; color: var(--md-sys-color-on-surface-variant);">W pliku</div>
+            <div id="m3-import-stat-total" style="font-size: 1.1rem; font-weight: 800;">0</div>
+          </div>
+          <div style="background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; padding: 8px; text-align: center;">
+            <div style="font-size: 0.68rem; color: var(--md-sys-color-on-surface-variant);">Nowe filmy</div>
+            <div id="m3-import-stat-movies" style="font-size: 1.1rem; font-weight: 800; color: var(--md-sys-color-primary);">0</div>
+          </div>
+          <div style="background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; padding: 8px; text-align: center;">
+            <div style="font-size: 0.68rem; color: var(--md-sys-color-on-surface-variant);">Nowe seriale</div>
+            <div id="m3-import-stat-shows" style="font-size: 1.1rem; font-weight: 800; color: #10b981;">0</div>
+          </div>
+          <div style="background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; padding: 8px; text-align: center;">
+            <div style="font-size: 0.68rem; color: var(--md-sys-color-on-surface-variant);">Duplikaty</div>
+            <div id="m3-import-stat-duplicates" style="font-size: 1.1rem; font-weight: 800; color: var(--md-sys-color-outline);">0</div>
+          </div>
+        </div>
+
+        <div style="font-size: 0.75rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant); margin-top: 4px;">Przykładowe wykryte pozycje:</div>
+        <div id="m3-import-sample-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto;"></div>
+      </div>
+
+      <!-- Live Progress Box (Hidden until import started) -->
+      <div id="m3-import-progress-box" style="display: none; flex-direction: column; gap: 10px; padding: 16px; background: var(--md-sys-color-surface-container); border-radius: 12px; border: 1px solid var(--md-sys-color-outline-variant);">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span id="m3-import-progress-text" style="font-size: 0.82rem; font-weight: 700;">Przetwarzanie: 0 / 0 (0%)</span>
+          <span class="material-symbols-rounded m3-spin" style="font-size: 20px; color: var(--md-sys-color-primary);">sync</span>
+        </div>
+        <div style="width: 100%; height: 8px; background: var(--md-sys-color-surface-container-highest); border-radius: 999px; overflow: hidden;">
+          <div id="m3-import-progress-bar-fill" style="width: 0%; height: 100%; background: var(--md-sys-color-primary); border-radius: 999px; transition: width 0.2s ease;"></div>
+        </div>
+        <div id="m3-import-current-title" style="font-size: 0.74rem; color: var(--md-sys-color-on-surface-variant); font-style: italic;">Pobieranie danych z TMDb...</div>
+      </div>
+
+      <!-- Action Button -->
+      <button type="button" class="m3-btn-action-primary" id="m3-btn-start-import" style="display: none; width: 100%; justify-content: center; padding: 12px; font-weight: 800; font-size: 0.88rem; border-radius: var(--md-corner-full); margin-top: 4px;">
+        Rozpocznij import
+      </button>
+    </div>
+  </div>
+
+  <!-- Environment Info Modal / Bottom Sheet -->
+  <div class="m3-bottom-sheet" id="m3-sheet-env-status" style="z-index: 260;">
+    <div class="m3-sheet-content" style="max-height: 85vh; overflow-y: auto; max-width: 560px; margin: 0 auto; gap: 16px;">
+      <div class="m3-sheet-header" style="border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 40px; height: 40px; border-radius: 12px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-primary); display: flex; align-items: center; justify-content: center;">
+            <span class="material-symbols-rounded">dns</span>
+          </div>
+          <div>
+            <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0;">Tryb i Środowisko</h2>
+            <p style="font-size: 0.78rem; color: var(--md-sys-color-on-surface-variant); margin: 0;">Wybierz tryb pracy i źródło bazy danych</p>
+          </div>
+        </div>
+        <span class="material-symbols-rounded" id="m3-env-status-close" style="cursor: pointer; font-size: 26px; padding: 4px;">close</span>
+      </div>
+
+      <!-- Detected environment summary -->
+      <div id="m3-env-status-card" style="padding: 14px 16px; border-radius: 14px; background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant); display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+          <span style="font-size: 0.78rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant); text-transform: uppercase; letter-spacing: 0.5px;">Wykryte połączenie:</span>
+          <span id="m3-env-detected-badge" class="m3-chip active" style="font-weight: 800; font-size: 0.76rem;">Klient (GitHub Pages)</span>
+        </div>
+        <div id="m3-env-description-text" style="font-size: 0.82rem; line-height: 1.5; color: var(--md-sys-color-on-surface);">
+          Ładowanie informacji o środowisku...
+        </div>
+      </div>
+
+      <!-- Mode Selector Section -->
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="font-weight: 700; font-size: 0.82rem; color: var(--md-sys-color-on-surface-variant); text-transform: uppercase; letter-spacing: 0.5px;">Wybierz tryb biblioteki:</div>
+
+        <!-- Mode Card 1: Flask Local Server -->
+        <div class="m3-cloud-info-card" id="m3-mode-card-flask" style="flex-direction: column; gap: 8px; transition: all 0.2s ease;">
+          <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 12px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 200px;">
+              <span class="material-symbols-rounded" id="m3-flask-card-icon" style="color: var(--md-sys-color-primary); font-size: 26px; flex-shrink: 0;">terminal</span>
+              <div style="min-width: 0;">
+                <div style="font-weight: 700; font-size: 0.9rem; color: var(--md-sys-color-on-surface);">Lokalny Serwer Flask (Backend)</div>
+                <div id="m3-flask-card-desc" style="font-size: 0.74rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.35;">Baza danych z plików na Twoim dysku (export data/)</div>
+              </div>
+            </div>
+            <button type="button" class="m3-btn-action-primary" id="m3-btn-switch-flask" style="flex-shrink: 0; padding: 7px 18px; font-size: 0.78rem; font-weight: 700; border-radius: var(--md-corner-full); white-space: nowrap;">
+              Wczytaj
+            </button>
+          </div>
+        </div>
+
+        <!-- Mode Card 2: Demo Database -->
+        <div class="m3-cloud-info-card" id="m3-mode-card-demo" style="flex-direction: column; gap: 8px; transition: all 0.2s ease;">
+          <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 12px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 200px;">
+              <span class="material-symbols-rounded" style="color: #f59e0b; font-size: 26px; flex-shrink: 0;">science</span>
+              <div style="min-width: 0;">
+                <div style="font-weight: 700; font-size: 0.9rem; color: var(--md-sys-color-on-surface);">Baza Demonstracyjna (Demo)</div>
+                <div style="font-size: 0.74rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.35;">Wzorcowa kolekcja 400+ filmów i seriali do testowania</div>
+              </div>
+            </div>
+            <button type="button" class="m3-chip" id="m3-btn-switch-demo" style="flex-shrink: 0; padding: 7px 18px; font-size: 0.78rem; font-weight: 700; border-radius: var(--md-corner-full); white-space: nowrap;">
+              Załaduj Demo
+            </button>
+          </div>
+        </div>
+
+        <!-- Mode Card 3: GitHub Pages / Client LocalStorage -->
+        <div class="m3-cloud-info-card" id="m3-mode-card-client" style="flex-direction: column; gap: 8px; transition: all 0.2s ease;">
+          <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 12px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 200px;">
+              <span class="material-symbols-rounded" style="color: #38bdf8; font-size: 26px; flex-shrink: 0;">language</span>
+              <div style="min-width: 0;">
+                <div style="font-weight: 700; font-size: 0.9rem; color: var(--md-sys-color-on-surface);">Tryb Klienta / GitHub Pages</div>
+                <div style="font-size: 0.74rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.35;">100% offline w przeglądarce (własna baza lub Dysk Google)</div>
+              </div>
+            </div>
+            <button type="button" class="m3-chip" id="m3-btn-switch-client" style="flex-shrink: 0; padding: 7px 18px; font-size: 0.78rem; font-weight: 700; border-radius: var(--md-corner-full); white-space: nowrap;">
+              Wybierz
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Setup Guide -->
+      <div id="m3-env-key-guide-box"></div>
+
+      <!-- Features list -->
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-weight: 700; font-size: 0.8rem; color: var(--md-sys-color-on-surface-variant); text-transform: uppercase; letter-spacing: 0.5px;">Dostępne funkcje:</div>
+        <ul id="m3-env-features-list" style="margin: 0; padding-left: 20px; font-size: 0.8rem; line-height: 1.5; color: var(--md-sys-color-on-surface);">
+          <li>Przeglądanie biblioteki filmów i seriali (100% offline w przeglądarce)</li>
+          <li>Filtrowanie VOD, wyszukiwanie lokalne i sortowanie</li>
+          <li>Statystyki, katalog reżyserów i osiągnięcia</li>
+          <li>Import bazy (Filmweb, Letterboxd, IMDb, JSON)</li>
+          <li>Asystent AI (własny klucz API / Ollama) i Kopia Google Drive</li>
+        </ul>
+      </div>
+
+      <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px;">
+        <button type="button" class="m3-chip" id="m3-btn-recheck-env" style="font-weight: 700;">
+          <span class="material-symbols-rounded" style="font-size: 16px;">refresh</span> Sprawdź ponownie
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="static/js/config.js?v=1.0" onerror="/* config.js is optional */"></script>
+  <script src="static/js/drive_sync.js?v=10.11"></script>
+  <script type="module" src="static/js/main.js?v=10.11"></script>
+  
+  <!-- Service Worker Registration for PWA -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('static/sw.js?v=10.11')
+          .then(reg => {
+            console.log('CineLog PWA Service Worker zarejestrowany!', reg.scope);
+            reg.update();
+          })
+          .catch(err => console.warn('Błąd rejestracji Service Worker:', err));
+      });
+    }
+  </script>
+</body>
+</html>
