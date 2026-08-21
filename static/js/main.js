@@ -216,6 +216,7 @@ window.renderMovies = renderMovies;
 window.renderShows = renderShows;
 window.updateStats = updateStats;
 window.openImporterModal = openImporterModal;
+window.updateDriveModalUI = updateDriveModalUI;
 
 // Setup DOM Events
 function initApp() {

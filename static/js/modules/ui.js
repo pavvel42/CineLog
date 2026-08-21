@@ -302,10 +302,10 @@ export function updateEnvStatusModalContent(isBackendAvailable) {
       list.innerHTML = `
         <li>✅ 100% prywatności – dane przechowywane wyłącznie w Twojej przeglądarce</li>
         <li>✅ Pełne przeglądanie, sortowanie, filtry VOD i statystyki biblioteki</li>
+        <li>✅ Wyszukiwarka online TMDb – bezpośrednie dodawanie pozycji po wpisaniu klucza API</li>
         <li>✅ Uniwersalny import (Filmweb, TV Time, Letterboxd, IMDb, JSON)</li>
         <li>✅ Eksport do JSON, CSV oraz kalendarza iCal</li>
         <li>✅ Asystent AI (własny klucz API w przeglądarce) i kopia zapasowa Google Drive</li>
-        <li>ℹ️ <em>Wyszukiwarka online TMDb wymaga uruchomienia lokalnego backendu: <code>python app.py</code></em></li>
       `;
     }
 

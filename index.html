@@ -1856,14 +1856,14 @@
   </div>
 
   <script src="static/js/config.js?v=1.0" onerror="/* config.js is optional */"></script>
-  <script src="static/js/drive_sync.js?v=10.12"></script>
-  <script type="module" src="static/js/main.js?v=10.12"></script>
+  <script src="static/js/drive_sync.js?v=10.13"></script>
+  <script type="module" src="static/js/main.js?v=10.13"></script>
   
   <!-- Service Worker Registration for PWA -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('static/sw.js?v=10.12', { scope: './' })
+        navigator.serviceWorker.register('static/sw.js?v=10.13', { scope: './' })
           .then(reg => {
             console.log('CineLog PWA Service Worker zarejestrowany!', reg.scope);
             reg.update();

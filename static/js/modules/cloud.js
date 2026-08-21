@@ -613,3 +613,6 @@ export function initCloudSyncHandlers() {
 }
 
 window.openCloudSyncModal = openCloudSyncModal;
+window.updateDriveModalUI = updateDriveModalUI;
+window.updateApiKeysUI = updateApiKeysUI;
+window.updateAiSettingsUI = updateAiSettingsUI;
