@@ -855,37 +855,46 @@ export function askBatchConfirmation({ message, season, episode, onAllSeasons, o
 
 export async function toggleShowFavorite(uuid, currentFav) {
   const nextFav = !currentFav;
-  try {
-    const res = await fetch(`/api/shows/${uuid}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_favorite: nextFav })
-    });
-    if (res.ok) {
-      const found = state.shows.find(s => s.uuid === uuid);
-      if (found) found.is_favorite = nextFav;
-      renderShows();
-      updateStats();
-      saveLocalDatabase();
-    }
-  } catch (e) {}
+  const found = state.shows.find(s => s.uuid === uuid || s.id === uuid || String(s.tmdb_id) === String(uuid));
+  if (found) found.is_favorite = nextFav;
+  renderShows();
+  updateStats();
+  saveLocalDatabase();
+
+  if (window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
+    try {
+      await fetch(`/api/shows/${encodeURIComponent(uuid)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_favorite: nextFav })
+      });
+    } catch (e) {}
+  }
 }
 
-export async function deleteShow(uuid) {
-  try {
-    const res = await fetch(`/api/shows/${uuid}`, { method: "DELETE" });
-    if (res.ok) {
-      state.shows = state.shows.filter(s => s.uuid !== uuid);
-      updateStats();
-      renderShows();
-      document.getElementById("m3-sheet-episodes").classList.remove("active");
-      saveLocalDatabase();
-      showToastNotification("Serial został usunięty z biblioteki.", "info");
-    } else {
-      showToastNotification("Błąd podczas usuwania serialu.", "error");
-    }
-  } catch (err) {
-    console.error("Error deleting show:", err);
+export async function deleteShow(itemOrUuid) {
+  const targetId = typeof itemOrUuid === "object" ? (itemOrUuid.uuid || itemOrUuid.id || itemOrUuid.tmdb_id) : itemOrUuid;
+
+  state.shows = state.shows.filter(s => {
+    if (s.uuid && String(s.uuid) === String(targetId)) return false;
+    if (s.id && String(s.id) === String(targetId)) return false;
+    if (s.tmdb_id && String(s.tmdb_id) === String(targetId)) return false;
+    return true;
+  });
+
+  saveLocalDatabase();
+  updateStats();
+  renderShows();
+
+  const sheet = document.getElementById("m3-sheet-episodes");
+  if (sheet) sheet.classList.remove("active");
+
+  showToastNotification("Serial został usunięty z biblioteki.", "info");
+
+  if (window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
+    try {
+      await fetch(`/api/shows/${encodeURIComponent(targetId)}`, { method: "DELETE" });
+    } catch (err) {}
   }
 }
 

@@ -502,88 +502,93 @@ export async function openMovieDetail(movie) {
 
 export async function toggleMovieFavorite(uuid, currentFav) {
   const nextFav = !currentFav;
-  try {
-    const res = await fetch(`/api/movies/${uuid}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_favorite: nextFav })
-    });
-    if (res.ok) {
-      const found = state.movies.find(m => m.uuid === uuid);
-      if (found) found.is_favorite = nextFav;
-      renderMovies();
-      updateStats();
-      saveLocalDatabase();
-    }
-  } catch (e) {
-    console.error("Error toggling fav:", e);
+  const found = state.movies.find(m => m.uuid === uuid || m.id === uuid || String(m.tmdb_id) === String(uuid));
+  if (found) found.is_favorite = nextFav;
+  renderMovies();
+  updateStats();
+  saveLocalDatabase();
+
+  if (window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
+    try {
+      await fetch(`/api/movies/${encodeURIComponent(uuid)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_favorite: nextFav })
+      });
+    } catch (e) {}
   }
 }
 
 export async function updateMovieStatus(uuid, status) {
-  try {
-    const payload = { status };
-    if (status === "watched") {
-      payload.watch_date = new Date().toISOString().replace("T", " ").substring(0, 19);
+  const payload = { status };
+  if (status === "watched") {
+    payload.watch_date = new Date().toISOString().replace("T", " ").substring(0, 19);
+  }
+  const found = state.movies.find(m => m.uuid === uuid || m.id === uuid || String(m.tmdb_id) === String(uuid));
+  if (found) {
+    found.status = status;
+    if (status === "watched" && !found.watch_date) {
+      found.watch_date = payload.watch_date;
     }
-    const res = await fetch(`/api/movies/${uuid}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    if (res.ok) {
-      const found = state.movies.find(m => m.uuid === uuid);
-      if (found) {
-        found.status = status;
-        if (status === "watched" && !found.watch_date) {
-          found.watch_date = payload.watch_date;
-        }
-      }
-      renderMovies();
-      updateStats();
-      saveLocalDatabase();
-      showToastNotification(status === "watched" ? "Oznaczono jako obejrzane! 🎉" : "Przeniesiono do Do obejrzenia.");
-    }
-  } catch (e) {
-    console.error("Error updating status:", e);
+  }
+  renderMovies();
+  updateStats();
+  saveLocalDatabase();
+  showToastNotification(status === "watched" ? "Oznaczono jako obejrzane! 🎉" : "Przeniesiono do Do obejrzenia.");
+
+  if (window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
+    try {
+      await fetch(`/api/movies/${encodeURIComponent(uuid)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {}
   }
 }
 
 export async function updateMovieRating(uuid, rating) {
-  try {
-    const res = await fetch(`/api/movies/${uuid}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rating })
-    });
-    if (res.ok) {
-      const found = state.movies.find(m => m.uuid === uuid);
-      if (found) found.rating = rating;
-      renderMovies();
-      updateStats();
-      saveLocalDatabase();
-      showToastNotification(rating ? `Oceniono na ${rating}★` : "Usunięto ocenę.");
-    }
-  } catch (e) {
-    console.error("Error rating movie:", e);
+  const found = state.movies.find(m => m.uuid === uuid || m.id === uuid || String(m.tmdb_id) === String(uuid));
+  if (found) found.rating = rating;
+  renderMovies();
+  updateStats();
+  saveLocalDatabase();
+  showToastNotification(rating ? `Oceniono na ${rating}★` : "Usunięto ocenę.");
+
+  if (window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
+    try {
+      await fetch(`/api/movies/${encodeURIComponent(uuid)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating })
+      });
+    } catch (e) {}
   }
 }
 
-export async function deleteMovie(uuid) {
-  try {
-    const res = await fetch(`/api/movies/${uuid}`, { method: "DELETE" });
-    if (res.ok) {
-      state.movies = state.movies.filter(m => m.uuid !== uuid);
-      updateStats();
-      renderMovies();
-      document.getElementById("m3-sheet-movie-detail").classList.remove("active");
-      saveLocalDatabase();
-      showToastNotification("Film został usunięty z biblioteki.", "info");
-    } else {
-      showToastNotification("Błąd podczas usuwania filmu.", "error");
-    }
-  } catch (err) {
-    console.error("Error deleting movie:", err);
+export async function deleteMovie(itemOrUuid) {
+  const targetId = typeof itemOrUuid === "object" ? (itemOrUuid.uuid || itemOrUuid.id || itemOrUuid.tmdb_id) : itemOrUuid;
+  
+  state.movies = state.movies.filter(m => {
+    if (m.uuid && String(m.uuid) === String(targetId)) return false;
+    if (m.id && String(m.id) === String(targetId)) return false;
+    if (m.tmdb_id && String(m.tmdb_id) === String(targetId)) return false;
+    return true;
+  });
+
+  saveLocalDatabase();
+  updateStats();
+  renderMovies();
+
+  const sheet = document.getElementById("m3-sheet-movie-detail");
+  if (sheet) sheet.classList.remove("active");
+
+  showToastNotification("Film został usunięty z biblioteki.", "info");
+
+  if (window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
+    try {
+      await fetch(`/api/movies/${encodeURIComponent(targetId)}`, { method: "DELETE" });
+    } catch (err) {}
   }
 }
 
