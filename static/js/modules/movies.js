@@ -2,7 +2,7 @@
 // CineLog - Movies Management & Details Modal Module
 // ==========================================================================
 
-import { state, getGradientForTitle, saveLocalDatabase } from './state.js';
+import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
@@ -309,7 +309,7 @@ export async function openMovieDetail(movie) {
         isDestructive: true
       });
       if (!confirmed) return;
-      await deleteMovie(movie.uuid);
+      await deleteMovie(movie);
     };
   }
 
@@ -383,8 +383,18 @@ export async function openMovieDetail(movie) {
             year: (tData.release_date || movie.release_year || "").substring(0, 4),
             runtime: tData.runtime,
             vote_average: tData.vote_average,
-            cast: (tData.credits && tData.credits.cast) ? tData.credits.cast.slice(0, 8).map(c => ({ name: c.name, character: c.character, profile_path: c.profile_path })) : [],
-            directors: (tData.credits && tData.credits.crew) ? tData.credits.crew.filter(c => c.job === "Director").map(c => ({ name: c.name, profile_path: c.profile_path })) : []
+            cast: (tData.credits && tData.credits.cast) ? tData.credits.cast.slice(0, 10).map(c => ({
+              id: c.id,
+              name: c.name,
+              character: c.character,
+              profile_url: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null
+            })) : [],
+            directors: (tData.credits && tData.credits.crew) ? tData.credits.crew.filter(c => c.job === "Director").map(c => ({
+              id: c.id,
+              name: c.name,
+              job: "Reżyser",
+              profile_url: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null
+            })) : []
           };
         }
       } catch(e) {}
@@ -567,16 +577,24 @@ export async function updateMovieRating(uuid, rating) {
 }
 
 export async function deleteMovie(itemOrUuid) {
-  const targetId = typeof itemOrUuid === "object" ? (itemOrUuid.uuid || itemOrUuid.id || itemOrUuid.tmdb_id) : itemOrUuid;
-  
+  const isObj = typeof itemOrUuid === "object" && itemOrUuid !== null;
+  const targetUuid = isObj ? itemOrUuid.uuid : itemOrUuid;
+  const targetId = isObj ? itemOrUuid.id : itemOrUuid;
+  const targetTmdb = isObj ? itemOrUuid.tmdb_id : null;
+  const targetTitle = isObj ? itemOrUuid.title : (typeof itemOrUuid === "string" ? itemOrUuid : null);
+  const targetNorm = targetTitle ? normalizeTitleForLibrary(targetTitle) : null;
+
   state.movies = state.movies.filter(m => {
-    if (m.uuid && String(m.uuid) === String(targetId)) return false;
-    if (m.id && String(m.id) === String(targetId)) return false;
-    if (m.tmdb_id && String(m.tmdb_id) === String(targetId)) return false;
+    if (isObj && m === itemOrUuid) return false;
+    if (targetUuid && m.uuid && String(m.uuid) === String(targetUuid)) return false;
+    if (targetId && m.id && String(m.id) === String(targetId)) return false;
+    if (targetTmdb && m.tmdb_id && String(m.tmdb_id) === String(targetTmdb)) return false;
+    if (targetNorm && m.title && normalizeTitleForLibrary(m.title) === targetNorm) return false;
     return true;
   });
 
   saveLocalDatabase();
+  syncWindowAliases();
   updateStats();
   renderMovies();
 
@@ -585,9 +603,10 @@ export async function deleteMovie(itemOrUuid) {
 
   showToastNotification("Film został usunięty z biblioteki.", "info");
 
-  if (window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
+  const backendId = targetUuid || targetId || targetTmdb;
+  if (backendId && window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
     try {
-      await fetch(`/api/movies/${encodeURIComponent(targetId)}`, { method: "DELETE" });
+      await fetch(`/api/movies/${encodeURIComponent(backendId)}`, { method: "DELETE" });
     } catch (err) {}
   }
 }

@@ -13,6 +13,18 @@ export function normalizeTitleForMatch(str) {
     .replace(/[^a-z0-9]/g, "");
 }
 
+function resolveProfileUrl(obj) {
+  if (!obj) return null;
+  const raw = obj.profile_url || obj.photo || obj.image || obj.avatar || obj.profile_path;
+  if (!raw) return null;
+  if (typeof raw === "string") {
+    if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+    if (raw.startsWith("/")) return `https://image.tmdb.org/t/p/w185${raw}`;
+    return `https://image.tmdb.org/t/p/w185/${raw}`;
+  }
+  return null;
+}
+
 export function renderCastRail(containerId, castList = [], directorsList = []) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -24,12 +36,13 @@ export function renderCastRail(containerId, castList = [], directorsList = []) {
   (directorsList || []).forEach(d => {
     if (!d || !d.name) return;
     const key = (d.id ? `id_${d.id}` : `name_${normalizeTitleForMatch(d.name)}`);
+    const photoUrl = resolveProfileUrl(d);
     peopleMap.set(key, {
       id: d.id,
       name: d.name,
       roles: [d.job || "Reżyser"],
       isCrew: true,
-      profile_url: d.profile_url
+      profile_url: photoUrl
     });
   });
 
@@ -38,13 +51,15 @@ export function renderCastRail(containerId, castList = [], directorsList = []) {
     if (!c || !c.name) return;
     const key = (c.id ? `id_${c.id}` : `name_${normalizeTitleForMatch(c.name)}`);
     const charRole = c.character ? `jako ${c.character}` : "Aktor";
+    const photoUrl = resolveProfileUrl(c);
+
     if (peopleMap.has(key)) {
       const existing = peopleMap.get(key);
       if (!existing.roles.includes(charRole)) {
         existing.roles.push(charRole);
       }
-      if (!existing.profile_url && c.profile_url) {
-        existing.profile_url = c.profile_url;
+      if (!existing.profile_url && photoUrl) {
+        existing.profile_url = photoUrl;
       }
       if (!existing.id && c.id) {
         existing.id = c.id;
@@ -55,7 +70,7 @@ export function renderCastRail(containerId, castList = [], directorsList = []) {
         name: c.name,
         roles: [charRole],
         isCrew: false,
-        profile_url: c.profile_url
+        profile_url: photoUrl
       });
     }
   });

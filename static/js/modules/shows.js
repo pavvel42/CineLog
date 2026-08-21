@@ -2,7 +2,7 @@
 // CineLog - TV Shows Management & Episode Tracker Module
 // ==========================================================================
 
-import { state, getGradientForTitle, saveLocalDatabase } from './state.js';
+import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
@@ -298,7 +298,7 @@ export async function openEpisodeTracker(show) {
         isDestructive: true
       });
       if (!confirmed) return;
-      await deleteShow(show.uuid);
+      await deleteShow(show);
     };
   }
 
@@ -873,16 +873,24 @@ export async function toggleShowFavorite(uuid, currentFav) {
 }
 
 export async function deleteShow(itemOrUuid) {
-  const targetId = typeof itemOrUuid === "object" ? (itemOrUuid.uuid || itemOrUuid.id || itemOrUuid.tmdb_id) : itemOrUuid;
+  const isObj = typeof itemOrUuid === "object" && itemOrUuid !== null;
+  const targetUuid = isObj ? itemOrUuid.uuid : itemOrUuid;
+  const targetId = isObj ? itemOrUuid.id : itemOrUuid;
+  const targetTmdb = isObj ? itemOrUuid.tmdb_id : null;
+  const targetTitle = isObj ? itemOrUuid.title : (typeof itemOrUuid === "string" ? itemOrUuid : null);
+  const targetNorm = targetTitle ? normalizeTitleForLibrary(targetTitle) : null;
 
   state.shows = state.shows.filter(s => {
-    if (s.uuid && String(s.uuid) === String(targetId)) return false;
-    if (s.id && String(s.id) === String(targetId)) return false;
-    if (s.tmdb_id && String(s.tmdb_id) === String(targetId)) return false;
+    if (isObj && s === itemOrUuid) return false;
+    if (targetUuid && s.uuid && String(s.uuid) === String(targetUuid)) return false;
+    if (targetId && s.id && String(s.id) === String(targetId)) return false;
+    if (targetTmdb && s.tmdb_id && String(s.tmdb_id) === String(targetTmdb)) return false;
+    if (targetNorm && s.title && normalizeTitleForLibrary(s.title) === targetNorm) return false;
     return true;
   });
 
   saveLocalDatabase();
+  syncWindowAliases();
   updateStats();
   renderShows();
 
@@ -891,9 +899,10 @@ export async function deleteShow(itemOrUuid) {
 
   showToastNotification("Serial został usunięty z biblioteki.", "info");
 
-  if (window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
+  const backendId = targetUuid || targetId || targetTmdb;
+  if (backendId && window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
     try {
-      await fetch(`/api/shows/${encodeURIComponent(targetId)}`, { method: "DELETE" });
+      await fetch(`/api/shows/${encodeURIComponent(backendId)}`, { method: "DELETE" });
     } catch (err) {}
   }
 }
