@@ -89,19 +89,24 @@ export function setMode(mode) {
   const navMovies = document.getElementById("m3-nav-movies");
   const navShows = document.getElementById("m3-nav-shows");
   const fabText = document.getElementById("m3-fab-text");
-  const mobileToggleIcon = document.getElementById("m3-mobile-mode-icon");
-  const mobileToggleLabel = document.getElementById("m3-mobile-mode-label");
-
-  const currentTab = (mode === "movies") ? state.activeMovieTab : state.activeShowTab;
+  
+  const mobileBtnMovies = document.getElementById("m3-mobile-btn-movies");
+  const mobileBtnShows = document.getElementById("m3-mobile-btn-shows");
 
   if (mode === "movies") {
     if (btnMovies) btnMovies.classList.add("active");
     if (btnShows) btnShows.classList.remove("active");
+    if (mobileBtnMovies) {
+      mobileBtnMovies.style.background = "var(--md-sys-color-primary)";
+      mobileBtnMovies.style.color = "var(--md-sys-color-on-primary)";
+    }
+    if (mobileBtnShows) {
+      mobileBtnShows.style.background = "transparent";
+      mobileBtnShows.style.color = "var(--md-sys-color-on-surface-variant)";
+    }
     if (navMovies) navMovies.style.display = "flex";
     if (navShows) navShows.style.display = "none";
     if (fabText) fabText.innerText = "Dodaj film";
-    if (mobileToggleIcon) mobileToggleIcon.innerText = "movie";
-    if (mobileToggleLabel) mobileToggleLabel.innerText = "Filmy";
 
     const bnav = document.querySelector(".m3-bottom-nav");
     if (bnav) {
@@ -112,14 +117,23 @@ export function setMode(mode) {
       if (items[3]) { items[3].setAttribute("data-tab", "upcoming"); const icon = items[3].querySelector(".material-symbols-rounded"); if (icon) icon.innerText = "event_upcoming"; const text = items[3].querySelector("span:not(.material-symbols-rounded)"); if (text) text.innerText = "Nadchodzące"; }
       if (items[4]) { items[4].setAttribute("data-tab", "recommendations"); const icon = items[4].querySelector(".material-symbols-rounded"); if (icon) icon.innerText = "auto_awesome"; const text = items[4].querySelector("span:not(.material-symbols-rounded)"); if (text) text.innerText = "Dla Ciebie"; }
     }
+
+    if (state.activeMovieTab === "watching") state.activeMovieTab = "watched";
+    switchTab(state.activeMovieTab || "all");
   } else {
     if (btnShows) btnShows.classList.add("active");
     if (btnMovies) btnMovies.classList.remove("active");
+    if (mobileBtnShows) {
+      mobileBtnShows.style.background = "var(--md-sys-color-primary)";
+      mobileBtnShows.style.color = "var(--md-sys-color-on-primary)";
+    }
+    if (mobileBtnMovies) {
+      mobileBtnMovies.style.background = "transparent";
+      mobileBtnMovies.style.color = "var(--md-sys-color-on-surface-variant)";
+    }
     if (navShows) navShows.style.display = "flex";
     if (navMovies) navMovies.style.display = "none";
     if (fabText) fabText.innerText = "Dodaj serial";
-    if (mobileToggleIcon) mobileToggleIcon.innerText = "tv";
-    if (mobileToggleLabel) mobileToggleLabel.innerText = "Seriale";
 
     const bnav = document.querySelector(".m3-bottom-nav");
     if (bnav) {
@@ -130,9 +144,11 @@ export function setMode(mode) {
       if (items[3]) { items[3].setAttribute("data-tab", "upcoming"); const icon = items[3].querySelector(".material-symbols-rounded"); if (icon) icon.innerText = "event_upcoming"; const text = items[3].querySelector("span:not(.material-symbols-rounded)"); if (text) text.innerText = "Nadchodzące"; }
       if (items[4]) { items[4].setAttribute("data-tab", "recommendations"); const icon = items[4].querySelector(".material-symbols-rounded"); if (icon) icon.innerText = "auto_awesome"; const text = items[4].querySelector("span:not(.material-symbols-rounded)"); if (text) text.innerText = "Dla Ciebie"; }
     }
+
+    if (state.activeShowTab === "watched") state.activeShowTab = "watching";
+    switchTab(state.activeShowTab || "all");
   }
 
-  switchTab(currentTab);
   updateStats();
 }
 
@@ -218,15 +234,13 @@ function initApp() {
     // 1. Mode switcher listeners
     const btnMovies = document.getElementById("m3-mode-movies");
     const btnShows = document.getElementById("m3-mode-shows");
-    const mobileToggle = document.getElementById("m3-mobile-mode-toggle");
+    const mobileBtnMovies = document.getElementById("m3-mobile-btn-movies");
+    const mobileBtnShows = document.getElementById("m3-mobile-btn-shows");
 
     if (btnMovies) btnMovies.addEventListener("click", () => setMode("movies"));
     if (btnShows) btnShows.addEventListener("click", () => setMode("shows"));
-    if (mobileToggle) {
-      mobileToggle.addEventListener("click", () => {
-        setMode(state.mode === "movies" ? "shows" : "movies");
-      });
-    }
+    if (mobileBtnMovies) mobileBtnMovies.addEventListener("click", () => setMode("movies"));
+    if (mobileBtnShows) mobileBtnShows.addEventListener("click", () => setMode("shows"));
 
     // 2. Navigation tab listeners
     document.querySelectorAll(".m3-nav-item, .m3-bottom-nav-item").forEach(item => {
