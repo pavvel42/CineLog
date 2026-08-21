@@ -482,11 +482,81 @@ export async function executeBatchImport() {
       }
 
       let detail = null;
-      try {
-        const res = await fetch(`/api/search_detail?${params.toString()}`);
-        if (res.ok) detail = await res.json();
-      } catch (e) {
-        console.warn("Failed detail fetch for", item.title, e);
+      if (window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
+        try {
+          const res = await fetch(`/api/search_detail?${params.toString()}`);
+          if (res.ok) detail = await res.json();
+        } catch (e) {
+          console.warn("Failed detail fetch for", item.title, e);
+        }
+      }
+
+      // Direct client-side enrichment on GitHub Pages / offline
+      if (!detail && localTmdb) {
+        try {
+          const isSeries = item.type === "series";
+          let resolvedTid = item.tmdb_id;
+
+          if (!resolvedTid && item.imdb_id) {
+            try {
+              const findRes = await fetch(`https://api.themoviedb.org/3/find/${encodeURIComponent(item.imdb_id)}?api_key=${encodeURIComponent(localTmdb)}&external_source=imdb_id&language=${userLang}`);
+              if (findRes.ok) {
+                const findJson = await findRes.json();
+                const resArr = isSeries ? findJson.tv_results : findJson.movie_results;
+                if (resArr && resArr.length > 0) resolvedTid = resArr[0].id;
+              }
+            } catch(e) {}
+          }
+
+          if (!resolvedTid) {
+            const cleanTitle = (item.title || "").replace(/\s*\([^)]*\)/g, "").trim();
+            const sUrl = `https://api.themoviedb.org/3/search/${isSeries ? 'tv' : 'movie'}?api_key=${encodeURIComponent(localTmdb)}&query=${encodeURIComponent(cleanTitle)}&language=${userLang}${item.year ? (isSeries ? `&first_air_date_year=${item.year}` : `&year=${item.year}`) : ''}`;
+            const sRes = await fetch(sUrl);
+            if (sRes.ok) {
+              const sData = await sRes.json();
+              if (sData.results && sData.results.length > 0) resolvedTid = sData.results[0].id;
+            }
+          }
+
+          if (resolvedTid) {
+            const dUrl = `https://api.themoviedb.org/3/${isSeries ? 'tv' : 'movie'}/${resolvedTid}?api_key=${encodeURIComponent(localTmdb)}&language=${userLang}&append_to_response=credits`;
+            const dRes = await fetch(dUrl);
+            if (dRes.ok) {
+              const dData = await dRes.json();
+              let plot = dData.overview || "";
+              if (!plot) {
+                try {
+                  const dResEn = await fetch(`https://api.themoviedb.org/3/${isSeries ? 'tv' : 'movie'}/${resolvedTid}?api_key=${encodeURIComponent(localTmdb)}&language=en-US`);
+                  if (dResEn.ok) {
+                    const dDataEn = await dResEn.json();
+                    plot = dDataEn.overview || "";
+                  }
+                } catch(e) {}
+              }
+
+              detail = {
+                title: dData.title || dData.name || item.title,
+                original_title: dData.original_title || dData.original_name || item.title,
+                year: (dData.release_date || dData.first_air_date || item.year || "").substring(0, 4),
+                genre: (dData.genres || []).map(g => g.name).join(", "),
+                poster_url: dData.poster_path ? `https://image.tmdb.org/t/p/w500${dData.poster_path}` : "",
+                tmdb_id: dData.id,
+                imdb_id: (dData.imdb_id || (dData.external_ids && dData.external_ids.imdb_id)) || item.imdb_id || null,
+                plot: plot || "",
+                runtime: dData.runtime || (dData.episode_run_time ? dData.episode_run_time[0] : 0),
+                vote_average: dData.vote_average || 0,
+                total_seasons: dData.number_of_seasons || (dData.seasons ? dData.seasons.filter(s => s.season_number > 0).length : 1),
+                cast: (dData.credits && dData.credits.cast) ? dData.credits.cast.slice(0, 10).map(c => ({
+                  id: c.id,
+                  name: c.name,
+                  character: c.character,
+                  profile_url: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null
+                })) : [],
+                director: (dData.credits && dData.credits.crew) ? (dData.credits.crew.find(c => c.job === "Director")?.name || "") : ""
+              };
+            }
+          }
+        } catch(e) {}
       }
 
       const finalTitle = (detail && detail.title) || item.title;

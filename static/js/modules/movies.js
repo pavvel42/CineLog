@@ -370,32 +370,121 @@ export async function openMovieDetail(movie) {
     ]);
 
     let detail = null;
-    if (detailRes.ok) {
+    if (detailRes && detailRes.ok) {
       detail = await detailRes.json();
-    } else if (localTmdbKey && movie.tmdb_id) {
+    }
+
+    // 1. Direct client TMDb lookup
+    if (!detail && localTmdbKey) {
       try {
-        const tmdbRes = await fetch(`https://api.themoviedb.org/3/movie/${movie.tmdb_id}?api_key=${encodeURIComponent(localTmdbKey)}&language=${getUserLanguage()}&append_to_response=credits,release_dates`);
-        if (tmdbRes.ok) {
-          const tData = await tmdbRes.json();
-          detail = {
-            plot: tData.overview || movie.plot || "",
-            genre: (tData.genres || []).map(g => g.name).join(", "),
-            year: (tData.release_date || movie.release_year || "").substring(0, 4),
-            runtime: tData.runtime,
-            vote_average: tData.vote_average,
-            cast: (tData.credits && tData.credits.cast) ? tData.credits.cast.slice(0, 10).map(c => ({
-              id: c.id,
-              name: c.name,
-              character: c.character,
-              profile_url: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null
-            })) : [],
-            directors: (tData.credits && tData.credits.crew) ? tData.credits.crew.filter(c => c.job === "Director").map(c => ({
-              id: c.id,
-              name: c.name,
-              job: "Reżyser",
-              profile_url: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null
-            })) : []
-          };
+        let resolvedTmdbId = movie.tmdb_id;
+
+        // Lookup by IMDb ID if available
+        if (!resolvedTmdbId && movie.imdb_id) {
+          try {
+            const findRes = await fetch(`https://api.themoviedb.org/3/find/${encodeURIComponent(movie.imdb_id)}?api_key=${encodeURIComponent(localTmdbKey)}&external_source=imdb_id&language=${getUserLanguage()}`);
+            if (findRes.ok) {
+              const findJson = await findRes.json();
+              if (findJson.movie_results && findJson.movie_results.length > 0) {
+                resolvedTmdbId = findJson.movie_results[0].id;
+                movie.tmdb_id = resolvedTmdbId;
+              }
+            }
+          } catch(e) {}
+        }
+
+        // Lookup by Title + Year
+        if (!resolvedTmdbId) {
+          const cleanTitle = (movie.title || "").replace(/\s*\([^)]*\)/g, "").trim();
+          const queryParams = new URLSearchParams({
+            api_key: localTmdbKey,
+            query: cleanTitle,
+            language: getUserLanguage(),
+            include_adult: "false"
+          });
+          if (movieYear) queryParams.set("year", movieYear);
+
+          const searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?${queryParams.toString()}`);
+          if (searchRes.ok) {
+            const sData = await searchRes.json();
+            if (sData.results && sData.results.length > 0) {
+              resolvedTmdbId = sData.results[0].id;
+              movie.tmdb_id = resolvedTmdbId;
+            }
+          }
+        }
+
+        // Fetch full details with credits & release_dates
+        if (resolvedTmdbId) {
+          const tmdbRes = await fetch(`https://api.themoviedb.org/3/movie/${resolvedTmdbId}?api_key=${encodeURIComponent(localTmdbKey)}&language=${getUserLanguage()}&append_to_response=credits,release_dates`);
+          if (tmdbRes.ok) {
+            const tData = await tmdbRes.json();
+            let plot = tData.overview || "";
+            if (!plot) {
+              try {
+                const tmdbResEn = await fetch(`https://api.themoviedb.org/3/movie/${resolvedTmdbId}?api_key=${encodeURIComponent(localTmdbKey)}&language=en-US`);
+                if (tmdbResEn.ok) {
+                  const tDataEn = await tmdbResEn.json();
+                  plot = tDataEn.overview || "";
+                }
+              } catch(e) {}
+            }
+
+            detail = {
+              plot: plot || movie.plot || "",
+              genre: (tData.genres || []).map(g => g.name).join(", "),
+              year: (tData.release_date || movie.release_year || "").substring(0, 4),
+              runtime: tData.runtime,
+              vote_average: tData.vote_average,
+              cast: (tData.credits && tData.credits.cast) ? tData.credits.cast.slice(0, 10).map(c => ({
+                id: c.id,
+                name: c.name,
+                character: c.character,
+                profile_url: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null
+              })) : [],
+              directors: (tData.credits && tData.credits.crew) ? tData.credits.crew.filter(c => c.job === "Director").map(c => ({
+                id: c.id,
+                name: c.name,
+                job: "Reżyser",
+                profile_url: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null
+              })) : []
+            };
+          }
+        }
+      } catch(e) {}
+    }
+
+    // 2. Direct client OMDb API fallback
+    if ((!detail || !detail.plot) && localOmdbKey) {
+      try {
+        const cleanTitle = (movie.title || "").replace(/\s*\([^)]*\)/g, "").trim();
+        const omdbParam = movie.imdb_id ? `i=${encodeURIComponent(movie.imdb_id)}` : `t=${encodeURIComponent(cleanTitle)}${movieYear ? `&y=${movieYear}` : ''}`;
+        const omdbRes = await fetch(`https://www.omdbapi.com/?apikey=${encodeURIComponent(localOmdbKey)}&${omdbParam}&plot=full`);
+        if (omdbRes.ok) {
+          const omdbData = await omdbRes.json();
+          if (omdbData.Response === "True") {
+            if (!detail) detail = {};
+            if (!detail.plot && omdbData.Plot && omdbData.Plot !== "N/A") detail.plot = omdbData.Plot;
+            if (!detail.genre && omdbData.Genre && omdbData.Genre !== "N/A") detail.genre = omdbData.Genre;
+            if (!detail.year && omdbData.Year && omdbData.Year !== "N/A") detail.year = omdbData.Year;
+            if (!detail.runtime && omdbData.Runtime && omdbData.Runtime !== "N/A") {
+              const parsedMins = parseInt(omdbData.Runtime, 10);
+              if (!isNaN(parsedMins)) detail.runtime = parsedMins;
+            }
+            if (!detail.vote_average && omdbData.imdbRating && omdbData.imdbRating !== "N/A") {
+              detail.vote_average = parseFloat(omdbData.imdbRating);
+            }
+            if (!detail.cast || detail.cast.length === 0) {
+              if (omdbData.Actors && omdbData.Actors !== "N/A") {
+                detail.cast = omdbData.Actors.split(",").map(a => ({ name: a.trim(), character: "Aktor", profile_url: null }));
+              }
+            }
+            if (!detail.directors || detail.directors.length === 0) {
+              if (omdbData.Director && omdbData.Director !== "N/A") {
+                detail.directors = omdbData.Director.split(",").map(d => ({ name: d.trim(), job: "Reżyser", profile_url: null }));
+              }
+            }
+          }
         }
       } catch(e) {}
     }

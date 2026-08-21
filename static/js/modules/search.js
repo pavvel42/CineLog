@@ -229,42 +229,101 @@ export async function selectProductionDetail(item) {
     }
 
     // Direct TMDb client-side fetch for GitHub Pages / offline
-    if (!backendSuccess && localTmdbKey && (item.tmdb_id || item.id)) {
+    if (!backendSuccess && localTmdbKey) {
       try {
         const tmdbType = (item.type === "series" || searchType === "series") ? "tv" : "movie";
-        const tmdbId = item.tmdb_id || item.id;
-        const tmdbRes = await fetch(`https://api.themoviedb.org/3/${tmdbType}/${tmdbId}?api_key=${encodeURIComponent(localTmdbKey)}&language=${getUserLanguage()}&append_to_response=credits,watch/providers,release_dates`);
-        if (tmdbRes.ok) {
-          const tData = await tmdbRes.json();
-          detail = {
-            id: item.id || `tmdb_${tData.id}`,
-            tmdb_id: tData.id,
-            imdb_id: tData.imdb_id || (tData.external_ids && tData.external_ids.imdb_id) || "",
-            title: tData.title || tData.name || item.title,
-            original_title: tData.original_title || tData.original_name || item.original_title || "",
-            year: (tData.release_date || tData.first_air_date || item.year || "").substring(0, 4),
-            type: tmdbType === "tv" ? "series" : "movie",
-            genre: (tData.genres || []).map(g => g.name).join(", "),
-            director: (tData.credits && tData.credits.crew) ? (tData.credits.crew.find(c => c.job === "Director")?.name || "") : "",
-            cast: (tData.credits && tData.credits.cast) ? tData.credits.cast.slice(0, 5).map(c => c.name).join(", ") : "",
-            plot: tData.overview || item.plot || "Brak opisu.",
-            runtime: tData.runtime ? `${tData.runtime} min` : (tData.episode_run_time && tData.episode_run_time[0] ? `${tData.episode_run_time[0]} min` : ""),
-            poster_url: tData.poster_path ? `https://image.tmdb.org/t/p/w500${tData.poster_path}` : (item.poster_url || ""),
-            total_seasons: tData.number_of_seasons || 1,
-            total_episodes: tData.number_of_episodes || 0,
-            season_ep_counts: {}
-          };
-          if (tData.seasons && Array.isArray(tData.seasons)) {
-            tData.seasons.forEach(s => {
-              if (s.season_number > 0) {
-                detail.season_ep_counts[s.season_number] = s.episode_count || 10;
-              }
-            });
+        let tmdbId = item.tmdb_id || (item.id && !String(item.id).startsWith("tt") ? item.id : null);
+        const imdbId = item.imdb_id || (item.id && String(item.id).startsWith("tt") ? item.id : null);
+
+        // If we have an IMDb ID but no numeric TMDb ID, resolve it via /find/tt...
+        if (!tmdbId && imdbId) {
+          try {
+            const findRes = await fetch(`https://api.themoviedb.org/3/find/${encodeURIComponent(imdbId)}?api_key=${encodeURIComponent(localTmdbKey)}&external_source=imdb_id&language=${getUserLanguage()}`);
+            if (findRes.ok) {
+              const findJson = await findRes.json();
+              const resArr = tmdbType === "tv" ? findJson.tv_results : findJson.movie_results;
+              if (resArr && resArr.length > 0) tmdbId = resArr[0].id;
+            }
+          } catch(e) {}
+        }
+
+        // If still no tmdbId, search TMDb by title
+        if (!tmdbId && item.title) {
+          try {
+            const cleanTitle = (item.title || "").replace(/\s*\([^)]*\)/g, "").trim();
+            const sUrl = `https://api.themoviedb.org/3/search/${tmdbType}?api_key=${encodeURIComponent(localTmdbKey)}&query=${encodeURIComponent(cleanTitle)}&language=${getUserLanguage()}${item.year ? (tmdbType === 'tv' ? `&first_air_date_year=${item.year}` : `&year=${item.year}`) : ''}`;
+            const sRes = await fetch(sUrl);
+            if (sRes.ok) {
+              const sData = await sRes.json();
+              if (sData.results && sData.results.length > 0) tmdbId = sData.results[0].id;
+            }
+          } catch(e) {}
+        }
+
+        if (tmdbId) {
+          const tmdbRes = await fetch(`https://api.themoviedb.org/3/${tmdbType}/${tmdbId}?api_key=${encodeURIComponent(localTmdbKey)}&language=${getUserLanguage()}&append_to_response=credits,watch/providers,release_dates`);
+          if (tmdbRes.ok) {
+            const tData = await tmdbRes.json();
+            let plot = tData.overview || item.plot || "";
+            if (!plot) {
+              try {
+                const tmdbResEn = await fetch(`https://api.themoviedb.org/3/${tmdbType}/${tmdbId}?api_key=${encodeURIComponent(localTmdbKey)}&language=en-US`);
+                if (tmdbResEn.ok) {
+                  const tDataEn = await tmdbResEn.json();
+                  plot = tDataEn.overview || "";
+                }
+              } catch(e) {}
+            }
+
+            detail = {
+              id: item.id || `tmdb_${tData.id}`,
+              tmdb_id: tData.id,
+              imdb_id: tData.imdb_id || (tData.external_ids && tData.external_ids.imdb_id) || imdbId || "",
+              title: tData.title || tData.name || item.title,
+              original_title: tData.original_title || tData.original_name || item.original_title || "",
+              year: (tData.release_date || tData.first_air_date || item.year || "").substring(0, 4),
+              type: tmdbType === "tv" ? "series" : "movie",
+              genre: (tData.genres || []).map(g => g.name).join(", "),
+              director: (tData.credits && tData.credits.crew) ? (tData.credits.crew.find(c => c.job === "Director")?.name || "") : "",
+              cast: (tData.credits && tData.credits.cast) ? tData.credits.cast.slice(0, 8).map(c => c.name).join(", ") : "",
+              plot: plot || "Brak opisu.",
+              runtime: tData.runtime ? `${tData.runtime} min` : (tData.episode_run_time && tData.episode_run_time[0] ? `${tData.episode_run_time[0]} min` : ""),
+              poster_url: tData.poster_path ? `https://image.tmdb.org/t/p/w500${tData.poster_path}` : (item.poster_url || ""),
+              total_seasons: tData.number_of_seasons || 1,
+              total_episodes: tData.number_of_episodes || 0,
+              season_ep_counts: {}
+            };
+            if (tData.seasons && Array.isArray(tData.seasons)) {
+              tData.seasons.forEach(s => {
+                if (s.season_number > 0) {
+                  detail.season_ep_counts[s.season_number] = s.episode_count || 10;
+                }
+              });
+            }
           }
         }
       } catch (tmdbErr) {
         console.warn("Direct TMDb detail fetch failed:", tmdbErr);
       }
+    }
+
+    // Direct client OMDb fallback
+    if ((!detail || !detail.plot || detail.plot === "Brak opisu.") && localOmdbKey) {
+      try {
+        const cleanTitle = (item.title || "").replace(/\s*\([^)]*\)/g, "").trim();
+        const omdbParam = item.imdb_id ? `i=${encodeURIComponent(item.imdb_id)}` : `t=${encodeURIComponent(cleanTitle)}${item.year ? `&y=${item.year}` : ''}`;
+        const omdbRes = await fetch(`https://www.omdbapi.com/?apikey=${encodeURIComponent(localOmdbKey)}&${omdbParam}&plot=full`);
+        if (omdbRes.ok) {
+          const omdbData = await omdbRes.json();
+          if (omdbData.Response === "True") {
+            if (!detail) detail = { ...item };
+            if (omdbData.Plot && omdbData.Plot !== "N/A") detail.plot = omdbData.Plot;
+            if (omdbData.Genre && omdbData.Genre !== "N/A") detail.genre = omdbData.Genre;
+            if (omdbData.Director && omdbData.Director !== "N/A") detail.director = omdbData.Director;
+            if (omdbData.Actors && omdbData.Actors !== "N/A") detail.cast = omdbData.Actors;
+          }
+        }
+      } catch(e) {}
     }
 
     currentPreviewData = detail;
