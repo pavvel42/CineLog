@@ -203,17 +203,69 @@ export async function selectProductionDetail(item) {
       lang: getUserLanguage()
     });
     
-    const localTmdbKey = localStorage.getItem("cinelog_tmdb_key");
-    const localOmdbKey = localStorage.getItem("cinelog_omdb_key") || localStorage.getItem("cinelog_imdb_key");
+    const localTmdbKey = localStorage.getItem("cinelog_tmdb_key") || (window.CINELOG_CONFIG && window.CINELOG_CONFIG.TMDB_API_KEY) || "";
+    const localOmdbKey = localStorage.getItem("cinelog_omdb_key") || localStorage.getItem("cinelog_imdb_key") || "";
     if (localTmdbKey) params.append("tmdb_key", localTmdbKey);
     if (localOmdbKey) {
       params.append("omdb_key", localOmdbKey);
       params.append("imdb_key", localOmdbKey);
     }
 
-    let url = `/api/search_detail?${params.toString()}`;
-    const res = await fetch(url);
-    const detail = res.ok ? await res.json() : item;
+    let detail = item;
+    let backendSuccess = false;
+
+    // Try backend if not purely static
+    if (window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
+      try {
+        const url = `/api/search_detail?${params.toString()}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          detail = await res.json();
+          backendSuccess = true;
+        }
+      } catch (e) {
+        console.warn("Backend detail fetch error, trying client TMDb API:", e);
+      }
+    }
+
+    // Direct TMDb client-side fetch for GitHub Pages / offline
+    if (!backendSuccess && localTmdbKey && (item.tmdb_id || item.id)) {
+      try {
+        const tmdbType = (item.type === "series" || searchType === "series") ? "tv" : "movie";
+        const tmdbId = item.tmdb_id || item.id;
+        const tmdbRes = await fetch(`https://api.themoviedb.org/3/${tmdbType}/${tmdbId}?api_key=${encodeURIComponent(localTmdbKey)}&language=${getUserLanguage()}&append_to_response=credits,watch/providers,release_dates`);
+        if (tmdbRes.ok) {
+          const tData = await tmdbRes.json();
+          detail = {
+            id: item.id || `tmdb_${tData.id}`,
+            tmdb_id: tData.id,
+            imdb_id: tData.imdb_id || (tData.external_ids && tData.external_ids.imdb_id) || "",
+            title: tData.title || tData.name || item.title,
+            original_title: tData.original_title || tData.original_name || item.original_title || "",
+            year: (tData.release_date || tData.first_air_date || item.year || "").substring(0, 4),
+            type: tmdbType === "tv" ? "series" : "movie",
+            genre: (tData.genres || []).map(g => g.name).join(", "),
+            director: (tData.credits && tData.credits.crew) ? (tData.credits.crew.find(c => c.job === "Director")?.name || "") : "",
+            cast: (tData.credits && tData.credits.cast) ? tData.credits.cast.slice(0, 5).map(c => c.name).join(", ") : "",
+            plot: tData.overview || item.plot || "Brak opisu.",
+            runtime: tData.runtime ? `${tData.runtime} min` : (tData.episode_run_time && tData.episode_run_time[0] ? `${tData.episode_run_time[0]} min` : ""),
+            poster_url: tData.poster_path ? `https://image.tmdb.org/t/p/w500${tData.poster_path}` : (item.poster_url || ""),
+            total_seasons: tData.number_of_seasons || 1,
+            total_episodes: tData.number_of_episodes || 0,
+            season_ep_counts: {}
+          };
+          if (tData.seasons && Array.isArray(tData.seasons)) {
+            tData.seasons.forEach(s => {
+              if (s.season_number > 0) {
+                detail.season_ep_counts[s.season_number] = s.episode_count || 10;
+              }
+            });
+          }
+        }
+      } catch (tmdbErr) {
+        console.warn("Direct TMDb detail fetch failed:", tmdbErr);
+      }
+    }
 
     currentPreviewData = detail;
 
@@ -414,13 +466,55 @@ export function initSearchAndAddModal() {
       }
       if (searchError) searchError.style.display = "none";
 
-      try {
-        const rawOmdbKey = localStorage.getItem("cinelog_omdb_key") || localStorage.getItem("cinelog_imdb_key") || "";
-        const omdbKeyParam = rawOmdbKey ? `&omdb_key=${encodeURIComponent(rawOmdbKey)}&imdb_key=${encodeURIComponent(rawOmdbKey)}` : "";
-        const res = await fetch(`/api/search_preview?q=${encodeURIComponent(query)}&type=${searchType}&lang=${getUserLanguage()}${tmdbKeyParam}${omdbKeyParam}`);
-        const data = await res.json();
+      const rawTmdbKey = localStorage.getItem("cinelog_tmdb_key") || (window.CINELOG_CONFIG && window.CINELOG_CONFIG.TMDB_API_KEY) || "";
+      const rawOmdbKey = localStorage.getItem("cinelog_omdb_key") || localStorage.getItem("cinelog_imdb_key") || "";
+      const isStaticEnv = window.location.protocol === "file:" || window.location.hostname.includes("github.io");
 
-        if (data.found && data.results && data.results.length > 0) {
+      let data = null;
+
+      // 1. If backend server might be available, try it
+      if (!isStaticEnv) {
+        try {
+          const tmdbKeyParam = rawTmdbKey ? `&tmdb_key=${encodeURIComponent(rawTmdbKey)}` : "";
+          const omdbKeyParam = rawOmdbKey ? `&omdb_key=${encodeURIComponent(rawOmdbKey)}&imdb_key=${encodeURIComponent(rawOmdbKey)}` : "";
+          const res = await fetch(`/api/search_preview?q=${encodeURIComponent(query)}&type=${searchType}&lang=${getUserLanguage()}${tmdbKeyParam}${omdbKeyParam}`);
+          if (res.ok) {
+            data = await res.json();
+          }
+        } catch (backendErr) {
+          console.warn("Backend search failed, falling back to client TMDb API:", backendErr);
+        }
+      }
+
+      // 2. Direct client-side TMDb API call (for GitHub Pages / offline mode)
+      if (!data && rawTmdbKey) {
+        try {
+          const tmdbEndpoint = searchType === "series" ? "tv" : "movie";
+          const res = await fetch(`https://api.themoviedb.org/3/search/${tmdbEndpoint}?api_key=${encodeURIComponent(rawTmdbKey)}&query=${encodeURIComponent(query)}&language=${getUserLanguage()}&include_adult=false`);
+          if (res.ok) {
+            const tmdbJson = await res.json();
+            const results = (tmdbJson.results || []).map(item => ({
+              title: item.title || item.name || "",
+              original_title: item.original_title || item.original_name || "",
+              year: (item.release_date || item.first_air_date || "").substring(0, 4),
+              poster_url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : "",
+              type: searchType === "series" ? "series" : "movie",
+              tmdb_id: item.id,
+              plot: item.overview || "",
+              rating: item.vote_average || null
+            }));
+            data = {
+              found: results.length > 0,
+              results: results
+            };
+          }
+        } catch (tmdbErr) {
+          console.error("Direct TMDb API fetch failed:", tmdbErr);
+        }
+      }
+
+      try {
+        if (data && data.found && data.results && data.results.length > 0) {
           lastSearchResults = data.results;
 
           if (data.results.length === 1) {
@@ -464,16 +558,49 @@ export function initSearchAndAddModal() {
             if (stepSearch) stepSearch.style.display = "none";
             if (stepResults) stepResults.style.display = "flex";
           }
+        } else if (data && !data.found) {
+          if (searchErrorText) searchErrorText.innerText = "Nie znaleziono pozycji o podanym tytule. Sprawdź pisownię.";
+          if (searchError) searchError.style.display = "flex";
         } else {
-          if (searchErrorText) searchErrorText.innerText = data.message || "Nie znaleziono pozycji o podanym tytule. Sprawdź pisownię.";
+          // If no key and on static host
+          if (searchErrorText) {
+            searchErrorText.innerHTML = `
+              <div style="display: flex; flex-direction: column; gap: 8px; text-align: left; width: 100%;">
+                <div style="font-weight: 700; font-size: 0.9rem; color: #fff;">
+                  🔑 Wyszukiwanie online na GitHub Pages wymaga darmowego klucza TMDb API
+                </div>
+                <div style="font-size: 0.8rem; color: rgba(255,255,255,0.88); line-height: 1.4;">
+                  W wersji hostowanej (GitHub Pages) zapytania wyszukiwarki wykonuje bezpośrednio Twoja przeglądarka. Darmowy klucz TMDb API możesz wpisać w 10 sekund w oknie <em>Klucze & Funkcje</em>.
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
+                  <button type="button" id="m3-btn-err-open-keys" class="m3-chip" style="background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); font-weight: 700; padding: 6px 12px; border: none; cursor: pointer;">
+                    <span class="material-symbols-rounded" style="font-size: 16px;">key</span> Wpisz klucz TMDb
+                  </button>
+                  <button type="button" id="m3-btn-err-open-import" class="m3-chip" style="background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); font-weight: 700; padding: 6px 12px; border: none; cursor: pointer;">
+                    <span class="material-symbols-rounded" style="font-size: 16px;">upload_file</span> Otwórz Importer
+                  </button>
+                </div>
+              </div>
+            `;
+            setTimeout(() => {
+              const btnKeys = document.getElementById("m3-btn-err-open-keys");
+              const btnImport = document.getElementById("m3-btn-err-open-import");
+              if (btnKeys) {
+                btnKeys.addEventListener("click", () => {
+                  if (window.openCloudSyncModal) window.openCloudSyncModal('keys');
+                });
+              }
+              if (btnImport) {
+                btnImport.addEventListener("click", () => {
+                  if (window.openImporterModal) window.openImporterModal();
+                });
+              }
+            }, 50);
+          }
           if (searchError) searchError.style.display = "flex";
         }
       } catch (err) {
-        console.error("Search preview error:", err);
-        if (searchErrorText) {
-          searchErrorText.innerHTML = `Wyszukiwarka online TMDb wymaga uruchomionego serwera lokalnego (<code>python app.py</code>) z kluczem w pliku <code>.env</code>.<br><span style="font-size:0.75rem; opacity:0.85; margin-top:4px; display:inline-block;">W wersji statycznej (GitHub Pages) możesz skorzystać z Uniwersalnego Importera (Filmweb/TV Time/Letterboxd/IMDb).</span>`;
-        }
-        if (searchError) searchError.style.display = "flex";
+        console.error("Search preview process error:", err);
       } finally {
         if (btnSearchTrigger) {
           btnSearchTrigger.innerHTML = origHtml;
@@ -551,36 +678,63 @@ export function initSearchAndAddModal() {
           is_favorite: false
         };
 
-        const res = await fetch("/api/movies/add", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-
-        if (res.ok) {
-          const savedMovie = await res.json();
-          const existingIdx = state.movies.findIndex(m => 
-            (m.uuid && m.uuid === savedMovie.uuid) || 
-            (savedMovie.tmdb_id && m.tmdb_id && String(m.tmdb_id) === String(savedMovie.tmdb_id)) || 
-            (normalizeTitleForLibrary(m.title) === normalizeTitleForLibrary(savedMovie.title))
-          );
-
-          if (existingIdx !== -1) {
-            state.movies[existingIdx] = savedMovie;
-            showToastNotification(`Zaktualizowano "${savedMovie.title}" w bibliotece! ✨`);
-          } else {
-            state.movies.unshift(savedMovie);
-            showToastNotification(`Zapisano "${savedMovie.title}" w bibliotece! 🎬`);
+        let savedMovie = null;
+        try {
+          const res = await fetch("/api/movies/add", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          if (res.ok) {
+            savedMovie = await res.json();
           }
-
-          if (state.mode === "movies") renderMovies();
-          updateStats();
-          saveLocalDatabase();
-          if (window.updateAiCardBadges) {
-            window.updateAiCardBadges(savedMovie.title, savedMovie.tmdb_id, savedMovie.status, savedMovie, "movie");
-          }
-          if (sheetAdd) sheetAdd.classList.remove("active");
+        } catch (backendErr) {
+          console.warn("Backend add movie failed, using client storage:", backendErr);
         }
+
+        // Client-side save for GitHub Pages & offline
+        if (!savedMovie) {
+          savedMovie = {
+            uuid: `movie_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+            title: currentPreviewData.title,
+            original_title: currentPreviewData.original_title || currentPreviewData.title,
+            year: currentPreviewData.year || "",
+            genre: currentPreviewData.genre || "",
+            director: currentPreviewData.director || "",
+            cast: currentPreviewData.cast || "",
+            plot: currentPreviewData.plot || "",
+            runtime: currentPreviewData.runtime || "",
+            poster_url: currentPreviewData.poster_url || "",
+            status: status,
+            rating: rating,
+            tmdb_id: currentPreviewData.tmdb_id || currentPreviewData.id,
+            imdb_id: currentPreviewData.imdb_id || "",
+            is_favorite: false,
+            user_date: new Date().toISOString().split("T")[0]
+          };
+        }
+
+        const existingIdx = state.movies.findIndex(m => 
+          (m.uuid && m.uuid === savedMovie.uuid) || 
+          (savedMovie.tmdb_id && m.tmdb_id && String(m.tmdb_id) === String(savedMovie.tmdb_id)) || 
+          (normalizeTitleForLibrary(m.title) === normalizeTitleForLibrary(savedMovie.title))
+        );
+
+        if (existingIdx !== -1) {
+          state.movies[existingIdx] = { ...state.movies[existingIdx], ...savedMovie };
+          showToastNotification(`Zaktualizowano "${savedMovie.title}" w bibliotece! ✨`);
+        } else {
+          state.movies.unshift(savedMovie);
+          showToastNotification(`Zapisano "${savedMovie.title}" w bibliotece! 🎬`);
+        }
+
+        if (state.mode === "movies") renderMovies();
+        updateStats();
+        saveLocalDatabase();
+        if (window.updateAiCardBadges) {
+          window.updateAiCardBadges(savedMovie.title, savedMovie.tmdb_id, savedMovie.status, savedMovie, "movie");
+        }
+        if (sheetAdd) sheetAdd.classList.remove("active");
       } else {
         const episodesList = (status === "watchlist") ? [] : Array.from(preAddWatchedSet).map(key => {
           const [s, ep] = key.split("_");
@@ -596,36 +750,63 @@ export function initSearchAndAddModal() {
           episodes_watched: episodesList
         };
 
-        const res = await fetch("/api/shows/add", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-
-        if (res.ok) {
-          const savedShow = await res.json();
-          const existingIdx = state.shows.findIndex(s => 
-            (s.uuid && s.uuid === savedShow.uuid) || 
-            (savedShow.tmdb_id && s.tmdb_id && String(s.tmdb_id) === String(savedShow.tmdb_id)) || 
-            (normalizeTitleForLibrary(s.title) === normalizeTitleForLibrary(savedShow.title))
-          );
-
-          if (existingIdx !== -1) {
-            state.shows[existingIdx] = savedShow;
-            showToastNotification(`Zaktualizowano "${savedShow.title}" w bibliotece! ✨`);
-          } else {
-            state.shows.unshift(savedShow);
-            showToastNotification(`Zapisano "${savedShow.title}" w bibliotece! 📺`);
+        let savedShow = null;
+        try {
+          const res = await fetch("/api/shows/add", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          if (res.ok) {
+            savedShow = await res.json();
           }
-
-          if (state.mode === "shows") renderShows();
-          updateStats();
-          saveLocalDatabase();
-          if (window.updateAiCardBadges) {
-            window.updateAiCardBadges(savedShow.title, savedShow.tmdb_id, savedShow.status, savedShow, "series");
-          }
-          if (sheetAdd) sheetAdd.classList.remove("active");
+        } catch (backendErr) {
+          console.warn("Backend add show failed, using client storage:", backendErr);
         }
+
+        // Client-side save for GitHub Pages & offline
+        if (!savedShow) {
+          savedShow = {
+            uuid: `show_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+            title: currentPreviewData.title,
+            original_title: currentPreviewData.original_title || currentPreviewData.title,
+            year: currentPreviewData.year || "",
+            genre: currentPreviewData.genre || "",
+            plot: currentPreviewData.plot || "",
+            poster_url: currentPreviewData.poster_url || "",
+            status: status,
+            rating: rating,
+            tmdb_id: currentPreviewData.tmdb_id || currentPreviewData.id,
+            imdb_id: currentPreviewData.imdb_id || "",
+            total_seasons: currentPreviewData.total_seasons || 1,
+            total_episodes: currentPreviewData.total_episodes || 0,
+            season_ep_counts: currentPreviewData.season_ep_counts || {},
+            episodes_watched: episodesList,
+            user_date: new Date().toISOString().split("T")[0]
+          };
+        }
+
+        const existingIdx = state.shows.findIndex(s => 
+          (s.uuid && s.uuid === savedShow.uuid) || 
+          (savedShow.tmdb_id && s.tmdb_id && String(s.tmdb_id) === String(savedShow.tmdb_id)) || 
+          (normalizeTitleForLibrary(s.title) === normalizeTitleForLibrary(savedShow.title))
+        );
+
+        if (existingIdx !== -1) {
+          state.shows[existingIdx] = { ...state.shows[existingIdx], ...savedShow };
+          showToastNotification(`Zaktualizowano "${savedShow.title}" w bibliotece! ✨`);
+        } else {
+          state.shows.unshift(savedShow);
+          showToastNotification(`Zapisano "${savedShow.title}" w bibliotece! 📺`);
+        }
+
+        if (state.mode === "shows") renderShows();
+        updateStats();
+        saveLocalDatabase();
+        if (window.updateAiCardBadges) {
+          window.updateAiCardBadges(savedShow.title, savedShow.tmdb_id, savedShow.status, savedShow, "series");
+        }
+        if (sheetAdd) sheetAdd.classList.remove("active");
       }
     });
   }
