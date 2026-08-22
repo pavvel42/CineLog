@@ -4,6 +4,7 @@ import uuid
 import shutil
 import urllib.request
 import urllib.parse
+import urllib.error
 import re
 from datetime import datetime, date
 from concurrent.futures import ThreadPoolExecutor
@@ -268,6 +269,14 @@ def search_preview():
                         "vote_count": item.get("vote_count", 0),
                         "overview": plot
                     })
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 403):
+                return jsonify({
+                    "found": False,
+                    "needs_key": True,
+                    "message": f"Klucz TMDb został odrzucony przez API (HTTP {e.code}). Sprawdź, czy klucz jest poprawny w zakładce „Chmura & Asystent AI” → „Klucze API”."
+                })
+            print("TMDb search preview error:", e)
         except Exception as e:
             print("TMDb search preview error:", e)
 
