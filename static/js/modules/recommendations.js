@@ -1,4 +1,4 @@
-import { state, isItemInLibrary, saveLocalDatabase, getGradientForTitle } from './state.js';
+import { state, isItemInLibrary, saveLocalDatabase, getGradientForTitle, escapeHtml } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, getUserLanguage, TMDB_GLOBAL_VOD_MAP, getCountryDisplayName } from './vod.js';
@@ -533,6 +533,7 @@ export function updateAiCardBadges(title, tmdbId, status, savedItem, type) {
 window.updateAiCardBadges = updateAiCardBadges;
 
 let curatorConversation = [];
+let aiCuratorListenersBound = false;
 
 export function initAiCuratorControls() {
   const inputEl = document.getElementById("m3-rec-ai-input");
@@ -740,7 +741,7 @@ export function initAiCuratorControls() {
       }
     } catch (err) {
       if (contentEl) {
-        contentEl.innerHTML = `<div style="color: var(--md-sys-color-error); font-weight: 600;">🔴 Błąd AI: ${err.message}</div>`;
+        contentEl.innerHTML = `<div style="color: var(--md-sys-color-error); font-weight: 600;">🔴 Błąd AI: ${escapeHtml(err.message)}</div>`;
       }
     }
   };
@@ -878,11 +879,11 @@ export function initAiCuratorControls() {
     }
 
     mentionDropdown.innerHTML = suggestions.slice(0, 8).map((s, idx) => `
-      <div class="m3-mention-item" data-mention-tag="${s.tag}" data-mention-idx="${idx}" style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; cursor: pointer; transition: background 0.15s ease; font-size: 0.8rem;">
-        <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-primary); flex-shrink: 0;">${s.icon}</span>
+      <div class="m3-mention-item" data-mention-tag="${escapeHtml(s.tag)}" data-mention-idx="${idx}" style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; cursor: pointer; transition: background 0.15s ease; font-size: 0.8rem;">
+        <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-primary); flex-shrink: 0;">${escapeHtml(s.icon)}</span>
         <div style="flex: 1; min-width: 0;">
-          <div style="font-weight: 700; color: var(--md-sys-color-on-surface); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${s.displayTag}</div>
-          <div style="font-size: 0.68rem; color: var(--md-sys-color-on-surface-variant); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${s.desc}</div>
+          <div style="font-weight: 700; color: var(--md-sys-color-on-surface); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(s.displayTag)}</div>
+          <div style="font-size: 0.68rem; color: var(--md-sys-color-on-surface-variant); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(s.desc)}</div>
         </div>
       </div>
     `).join("");
@@ -916,59 +917,63 @@ export function initAiCuratorControls() {
     });
   };
 
-  inputEl.addEventListener("input", updateMentionDropdown);
-  inputEl.addEventListener("click", updateMentionDropdown);
+  // Bind persistent listeners only once (guard against accumulation on repeated tab switches)
+  if (!aiCuratorListenersBound) {
+    aiCuratorListenersBound = true;
+    inputEl.addEventListener("input", updateMentionDropdown);
+    inputEl.addEventListener("click", updateMentionDropdown);
 
-  // Keyboard navigation inside dropdown (ArrowUp, ArrowDown, Enter, Escape)
-  inputEl.addEventListener("keydown", (e) => {
-    if (!mentionDropdown || mentionDropdown.style.display === "none") return;
+    // Keyboard navigation inside dropdown (ArrowUp, ArrowDown, Enter, Escape)
+    inputEl.addEventListener("keydown", (e) => {
+      if (!mentionDropdown || mentionDropdown.style.display === "none") return;
 
-    const items = mentionDropdown.querySelectorAll(".m3-mention-item");
-    if (!items.length) return;
+      const items = mentionDropdown.querySelectorAll(".m3-mention-item");
+      if (!items.length) return;
 
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      activeMentionIndex = (activeMentionIndex + 1) % items.length;
-      items.forEach((it, i) => {
-        it.style.background = (i === activeMentionIndex) ? "var(--md-sys-color-surface-container-highest)" : "transparent";
-      });
-      items[activeMentionIndex]?.scrollIntoView({ block: "nearest" });
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      activeMentionIndex = (activeMentionIndex - 1 + items.length) % items.length;
-      items.forEach((it, i) => {
-        it.style.background = (i === activeMentionIndex) ? "var(--md-sys-color-surface-container-highest)" : "transparent";
-      });
-      items[activeMentionIndex]?.scrollIntoView({ block: "nearest" });
-    } else if (e.key === "Enter" && activeMentionIndex >= 0) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      const chosenTag = items[activeMentionIndex]?.getAttribute("data-mention-tag");
-      if (chosenTag) {
-        const val = inputEl.value;
-        const cursorPos = inputEl.selectionStart || val.length;
-        const textBeforeCursor = val.substring(0, cursorPos);
-        const atMatch = textBeforeCursor.match(/@([a-zA-Z0-9_\u00C0-\u017E\s]*)$/);
-        if (atMatch) {
-          const beforeAt = textBeforeCursor.substring(0, atMatch.index);
-          const afterCursor = val.substring(cursorPos);
-          inputEl.value = `${beforeAt}${chosenTag} ${afterCursor}`;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        activeMentionIndex = (activeMentionIndex + 1) % items.length;
+        items.forEach((it, i) => {
+          it.style.background = (i === activeMentionIndex) ? "var(--md-sys-color-surface-container-highest)" : "transparent";
+        });
+        items[activeMentionIndex]?.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        activeMentionIndex = (activeMentionIndex - 1 + items.length) % items.length;
+        items.forEach((it, i) => {
+          it.style.background = (i === activeMentionIndex) ? "var(--md-sys-color-surface-container-highest)" : "transparent";
+        });
+        items[activeMentionIndex]?.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "Enter" && activeMentionIndex >= 0) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const chosenTag = items[activeMentionIndex]?.getAttribute("data-mention-tag");
+        if (chosenTag) {
+          const val = inputEl.value;
+          const cursorPos = inputEl.selectionStart || val.length;
+          const textBeforeCursor = val.substring(0, cursorPos);
+          const atMatch = textBeforeCursor.match(/@([a-zA-Z0-9_\u00C0-\u017E\s]*)$/);
+          if (atMatch) {
+            const beforeAt = textBeforeCursor.substring(0, atMatch.index);
+            const afterCursor = val.substring(cursorPos);
+            inputEl.value = `${beforeAt}${chosenTag} ${afterCursor}`;
+          }
+          mentionDropdown.style.display = "none";
+          activeMentionIndex = -1;
         }
+      } else if (e.key === "Escape") {
         mentionDropdown.style.display = "none";
         activeMentionIndex = -1;
       }
-    } else if (e.key === "Escape") {
-      mentionDropdown.style.display = "none";
-      activeMentionIndex = -1;
-    }
-  });
+    });
 
-  document.addEventListener("click", (e) => {
-    if (mentionDropdown && !mentionDropdown.contains(e.target) && e.target !== inputEl) {
-      mentionDropdown.style.display = "none";
-      activeMentionIndex = -1;
-    }
-  });
+    document.addEventListener("click", (e) => {
+      if (mentionDropdown && !mentionDropdown.contains(e.target) && e.target !== inputEl) {
+        mentionDropdown.style.display = "none";
+        activeMentionIndex = -1;
+      }
+    });
+  }
 }
 
 export async function loadRecommendationsHub(forceRefresh = false) {

@@ -2,7 +2,7 @@
 // CineLog - Movies Management & Details Modal Module
 // ==========================================================================
 
-import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary } from './state.js';
+import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
@@ -134,11 +134,11 @@ export async function renderMovies() {
     let coverHtml = "";
     if (m.poster_url) {
       coverHtml = `
-        <img src="${m.poster_url}" alt="${m.title}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-        <div class="m3-card-cover-fallback" style="background: ${getGradientForTitle(m.title)}; display: none;">${m.title}</div>
+        <img src="${safeUrl(m.poster_url)}" alt="${escapeHtml(m.title)}" loading="lazy">
+        <div class="m3-card-cover-fallback" style="background: ${getGradientForTitle(m.title)}; display: none;">${escapeHtml(m.title)}</div>
       `;
     } else {
-      coverHtml = `<div class="m3-card-cover-fallback" style="background: ${getGradientForTitle(m.title)}">${m.title}</div>`;
+      coverHtml = `<div class="m3-card-cover-fallback" style="background: ${getGradientForTitle(m.title)}">${escapeHtml(m.title)}</div>`;
     }
 
     let starsHtml = "";
@@ -166,9 +166,9 @@ export async function renderMovies() {
         </button>
       </div>
       <div class="m3-card-body">
-        <div class="m3-card-title">${m.title}</div>
+        <div class="m3-card-title">${escapeHtml(m.title)}</div>
         <div class="m3-card-meta">
-          <span>${m.release_date ? m.release_date.split("-")[0] : (m.release_year || '')}</span>
+          <span>${escapeHtml(m.release_date ? m.release_date.split("-")[0] : (m.release_year || ''))}</span>
           <span class="m3-status-btn" style="cursor: pointer; font-weight: 700; color: ${statusColor}; display: inline-flex; align-items: center; gap: 4px;">
             <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: ${statusColor};"></span>
             ${statusText}
@@ -183,6 +183,14 @@ export async function renderMovies() {
     card.addEventListener("click", () => {
       openMovieDetail(m);
     });
+
+    const coverImg = card.querySelector(".m3-card-cover > img");
+    if (coverImg) {
+      coverImg.addEventListener("error", () => {
+        coverImg.style.display = "none";
+        if (coverImg.nextElementSibling) coverImg.nextElementSibling.style.display = "flex";
+      });
+    }
 
     const favBtn = card.querySelector(".m3-card-fav-btn");
     favBtn.addEventListener("click", (e) => {

@@ -269,14 +269,18 @@ function initApp() {
       });
     });
 
-    // 3. Search Input in Header
+    // 3. Search Input in Header (single binding + debounce to avoid re-render storms)
     const searchInput = document.getElementById("m3-search-input");
     const searchClear = document.getElementById("m3-search-clear");
     if (searchInput) {
+      let searchRenderTimer = null;
       searchInput.addEventListener("input", () => {
         if (searchClear) searchClear.style.display = searchInput.value ? "inline-block" : "none";
-        if (state.mode === "movies") renderMovies();
-        else renderShows();
+        clearTimeout(searchRenderTimer);
+        searchRenderTimer = setTimeout(() => {
+          if (state.mode === "movies") renderMovies();
+          else renderShows();
+        }, 180);
       });
     }
     if (searchClear && searchInput) {

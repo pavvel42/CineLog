@@ -2,7 +2,7 @@
 // CineLog - TV Shows Management & Episode Tracker Module
 // ==========================================================================
 
-import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary } from './state.js';
+import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
@@ -337,8 +337,8 @@ export async function openEpisodeTracker(show) {
         const typeLabel = isFreeService ? '(Darmowe / Reklamy)' : (flat.some(f => f.name === p.name) ? '(Abonament)' : '(Wypożycz/Kup)');
         item.title = `${p.name} ${typeLabel}`;
         item.innerHTML = `
-          ${p.logo_url ? `<img src="${p.logo_url}" alt="${p.name}">` : `<span class="material-symbols-rounded" style="font-size: 16px;">tv</span>`}
-          <span>${p.name}</span>
+          ${p.logo_url ? `<img src="${safeUrl(p.logo_url)}" alt="${escapeHtml(p.name)}">` : `<span class="material-symbols-rounded" style="font-size: 16px;">tv</span>`}
+          <span>${escapeHtml(p.name)}</span>
           ${isFreeService ? `<span style="font-size: 0.65rem; font-weight: 800; color: var(--md-sys-color-primary); background: var(--md-sys-color-primary-container); padding: 1px 6px; border-radius: 999px; margin-left: 2px;">FREE</span>` : ''}
         `;
         vodLogosContainer.appendChild(item);
@@ -712,7 +712,7 @@ export function renderSeasonEpisodes(shouldScroll = true) {
     const epMeta = currentShowMeta[metaKey];
     const isWatched = watchedInThisSeason.has(e);
 
-    const epTitle = epMeta && epMeta.name ? epMeta.name : (e === 0 ? "Odcinek specjalny / Prolog" : `Odcinek ${e}`);
+    const epTitle = epMeta && epMeta.name ? escapeHtml(epMeta.name) : (e === 0 ? "Odcinek specjalny / Prolog" : `Odcinek ${e}`);
     const epMetaInfo = epMeta && epMeta.airdate ? `${epMeta.airdate}${epMeta.runtime ? ' • ' + epMeta.runtime + ' min' : ''}` : `S${selectedSeason < 10 ? '0' + selectedSeason : selectedSeason}E${e < 10 ? '0' + e : e}`;
     const epSummary = epMeta && epMeta.summary ? epMeta.summary : "";
 
@@ -729,9 +729,10 @@ export function renderSeasonEpisodes(shouldScroll = true) {
     let summaryHtml = "";
     if (epSummary) {
       const isLong = epSummary.length > 125;
+      const safeSummary = escapeHtml(epSummary);
       if (isLong) {
         summaryHtml = `
-          <div class="m3-ep-desc" id="desc-${epId}" title="Kliknij, aby rozwinąć pełny opis">${epSummary}</div>
+          <div class="m3-ep-desc" id="desc-${epId}" title="Kliknij, aby rozwinąć pełny opis">${safeSummary}</div>
           <button type="button" class="m3-ep-desc-toggle" data-target="desc-${epId}">
             <span>Rozwiń</span>
             <span class="material-symbols-rounded" style="font-size: 14px;">expand_more</span>
@@ -739,7 +740,7 @@ export function renderSeasonEpisodes(shouldScroll = true) {
         `;
       } else {
         summaryHtml = `
-          <div class="m3-ep-desc short">${epSummary}</div>
+          <div class="m3-ep-desc short">${safeSummary}</div>
         `;
       }
     }

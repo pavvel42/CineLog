@@ -2,7 +2,7 @@
 // CineLog - Google Drive Cloud Sync, Local Backup & AI Configuration Module
 // ==========================================================================
 
-import { state, saveLocalDatabase, markUserDatabaseCustom, syncWindowAliases } from './state.js';
+import { state, saveLocalDatabase, markUserDatabaseCustom, syncWindowAliases, escapeHtml } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { renderMovies } from './movies.js';
@@ -454,12 +454,12 @@ export function initCloudSyncHandlers() {
           statusBox.style.background = "rgba(16, 185, 129, 0.12)";
           statusBox.style.color = "#10b981";
           statusBox.style.border = "1px solid rgba(16, 185, 129, 0.35)";
-          statusBox.innerHTML = `🟢 <strong>Połączono pomyślnie!</strong> Model <em>${res.model}</em> odpowiedział w ${res.elapsed}ms.`;
+          statusBox.innerHTML = `🟢 <strong>Połączono pomyślnie!</strong> Model <em>${escapeHtml(res.model)}</em> odpowiedział w ${escapeHtml(res.elapsed)}ms.`;
         } else {
           statusBox.style.background = "rgba(239, 68, 68, 0.12)";
           statusBox.style.color = "#ef4444";
           statusBox.style.border = "1px solid rgba(239, 68, 68, 0.35)";
-          statusBox.innerHTML = `🔴 <strong>Błąd połączenia:</strong> ${res.error}`;
+          statusBox.innerHTML = `🔴 <strong>Błąd połączenia:</strong> ${escapeHtml(res.error)}`;
         }
       }
     });

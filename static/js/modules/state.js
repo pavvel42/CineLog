@@ -80,6 +80,22 @@ export function formatWatchTimeMinutes(totalMinutes) {
   return `${days}d ${remHours > 0 ? remHours + 'h' : ''}`.trim();
 }
 
+export function escapeHtml(value) {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+export function safeUrl(value) {
+  const url = String(value || "").trim();
+  if (/^(https?:)?\/\//i.test(url) || url.startsWith("data:image/") || url === "") return url;
+  return "";
+}
+
 export function getGradientForTitle(title) {
   let hash = 0;
   for (let i = 0; i < (title || "").length; i++) {

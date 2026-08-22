@@ -1,4 +1,4 @@
-import { state, saveLocalDatabase, getGradientForTitle, findDuplicateInLibrary, normalizeTitleForLibrary } from './state.js';
+import { state, saveLocalDatabase, getGradientForTitle, findDuplicateInLibrary, normalizeTitleForLibrary, escapeHtml, safeUrl } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { getUserLanguage } from './vod.js';
@@ -405,17 +405,9 @@ export function initSearchAndAddModal() {
   const searchInput = document.getElementById("m3-search-input");
   const searchClearBtn = document.getElementById("m3-search-clear");
 
+  // NOTE: header search input filtering/rendering is bound once in main.js
+  // (previously duplicated here, causing double grid re-renders per keystroke).
   if (searchInput && searchClearBtn) {
-    searchInput.addEventListener("input", () => {
-      if (searchInput.value.trim().length > 0) {
-        searchClearBtn.style.display = "block";
-      } else {
-        searchClearBtn.style.display = "none";
-      }
-      if (state.mode === "movies") renderMovies();
-      else renderShows();
-    });
-
     searchClearBtn.addEventListener("click", () => {
       searchInput.value = "";
       searchClearBtn.style.display = "none";
@@ -591,9 +583,9 @@ export function initSearchAndAddModal() {
                 const row = document.createElement("div");
                 row.className = "m3-result-item";
                 
-                let posterHtml = item.poster_url 
-                  ? `<img src="${item.poster_url}" class="m3-result-poster" alt="${item.title}">`
-                  : `<div class="m3-result-poster" style="background: ${getGradientForTitle(item.title)}; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; text-align: center; color: white;">${item.title.substring(0, 10)}</div>`;
+                let posterHtml = item.poster_url
+                  ? `<img src="${safeUrl(item.poster_url)}" class="m3-result-poster" alt="${escapeHtml(item.title)}">`
+                  : `<div class="m3-result-poster" style="background: ${getGradientForTitle(item.title)}; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; text-align: center; color: white;">${escapeHtml(item.title.substring(0, 10))}</div>`;
 
                 row.innerHTML = `
                   ${posterHtml}
@@ -602,10 +594,10 @@ export function initSearchAndAddModal() {
                       <span class="m3-preview-type-badge" style="font-size: 0.65rem; padding: 2px 6px;">
                         ${isSeries ? '📺 SERIAL' : '🎬 FILM'}
                       </span>
-                      <span style="font-size: 0.8rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant);">${item.year || ''}</span>
+                      <span style="font-size: 0.8rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant);">${escapeHtml(item.year || '')}</span>
                     </div>
                     <div style="font-weight: 700; font-size: 0.95rem; color: var(--md-sys-color-on-surface); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                      ${item.title}
+                      ${escapeHtml(item.title)}
                     </div>
                   </div>
                   <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">chevron_right</span>

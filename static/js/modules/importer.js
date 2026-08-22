@@ -2,7 +2,7 @@
 // CineLog - Universal Importer Module (Filmweb, Letterboxd, IMDb, JSON)
 // ==========================================================================
 
-import { state, saveLocalDatabase, isItemInLibrary, generateUUID, markUserDatabaseCustom } from './state.js';
+import { state, saveLocalDatabase, isItemInLibrary, generateUUID, markUserDatabaseCustom, escapeHtml } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { renderMovies } from './movies.js';
@@ -400,8 +400,8 @@ function renderImportPreview() {
       row.innerHTML = `
         <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
           <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-primary);">${item.type === 'series' ? 'tv' : 'movie'}</span>
-          <span style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.title}</span>
-          ${item.year ? `<span style="color: var(--md-sys-color-outline); font-size: 0.72rem;">(${item.year})</span>` : ''}
+          <span style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.title)}</span>
+          ${item.year ? `<span style="color: var(--md-sys-color-outline); font-size: 0.72rem;">(${escapeHtml(item.year)})</span>` : ''}
         </div>
         <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
           ${starHtml}
