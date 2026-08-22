@@ -1327,7 +1327,12 @@ def precache_vod_batch():
             res = fetch_live_watch_providers(clean_t, m_type, region)
             cache[k] = res
             updated_count += 1
-            
+
+    if updated_count:
+        save_vod_cache(cache)
+
+    return jsonify({"status": "ok", "updated": updated_count, "total": len(items)})
+
 # --- UPCOMING & RELEASE RADAR API ---
 @app.route("/api/upcoming", methods=["GET"])
 def get_upcoming_schedule():
@@ -1426,6 +1431,7 @@ def get_upcoming_schedule():
         except Exception as e:
             return (k, None, False)
 
+    results = []
     if effective_tmdb_key:
         with ThreadPoolExecutor(max_workers=15) as executor:
             results = list(executor.map(fetch_show_upcoming, watching_shows))
@@ -2021,4 +2027,5 @@ def get_actor_details():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5001))
-    app.run(debug=True, port=port)
+    debug_mode = os.environ.get("FLASK_DEBUG", "0") == "1"
+    app.run(debug=debug_mode, port=port)
