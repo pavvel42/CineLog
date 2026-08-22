@@ -60,7 +60,7 @@ def get_poster_omdb(title, expected_year):
 
     # 1. Search with title + year
     for t in titles_to_try:
-        url = f"http://www.omdbapi.com/?apikey={OMDB_API_KEY}&t={urllib.parse.quote(t)}"
+        url = f"https://www.omdbapi.com/?apikey={OMDB_API_KEY}&t={urllib.parse.quote(t)}"
         if expected_year:
             url += f"&y={expected_year}"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -80,7 +80,7 @@ def get_poster_omdb(title, expected_year):
 
     # 2. Search query without year if strict failed
     for t in titles_to_try:
-        url = f"http://www.omdbapi.com/?apikey={OMDB_API_KEY}&t={urllib.parse.quote(t)}"
+        url = f"https://www.omdbapi.com/?apikey={OMDB_API_KEY}&t={urllib.parse.quote(t)}"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         try:
             with urllib.request.urlopen(req, timeout=4) as resp:

@@ -25,7 +25,7 @@ def get_show_poster_omdb(title):
     if not OMDB_API_KEY:
         return None
     # 1. Direct type=series
-    url = f"http://www.omdbapi.com/?apikey={OMDB_API_KEY}&t={urllib.parse.quote(title)}&type=series"
+    url = f"https://www.omdbapi.com/?apikey={OMDB_API_KEY}&t={urllib.parse.quote(title)}&type=series"
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     try:
         with urllib.request.urlopen(req, timeout=4) as resp:
@@ -37,7 +37,7 @@ def get_show_poster_omdb(title):
         pass
 
     # 2. General title search
-    url2 = f"http://www.omdbapi.com/?apikey={OMDB_API_KEY}&t={urllib.parse.quote(title)}"
+    url2 = f"https://www.omdbapi.com/?apikey={OMDB_API_KEY}&t={urllib.parse.quote(title)}"
     req2 = urllib.request.Request(url2, headers={"User-Agent": "Mozilla/5.0"})
     try:
         with urllib.request.urlopen(req2, timeout=4) as resp:

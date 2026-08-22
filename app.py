@@ -134,7 +134,7 @@ def fetch_online_metadata(title, media_type="movie", omdb_key=None):
 
     if effective_omdb_key:
         # 1. Try exact OMDb query
-        url_omdb = f"http://www.omdbapi.com/?apikey={effective_omdb_key}&t={urllib.parse.quote(clean_title)}"
+        url_omdb = f"https://www.omdbapi.com/?apikey={effective_omdb_key}&t={urllib.parse.quote(clean_title)}"
         if media_type == "series":
             url_omdb += "&type=series"
         try:
@@ -159,7 +159,7 @@ def fetch_online_metadata(title, media_type="movie", omdb_key=None):
 
         # 2. Try OMDb search query (Fuzzy Search Fallback)
         if not poster_url:
-            url_omdb_search = f"http://www.omdbapi.com/?apikey={effective_omdb_key}&s={urllib.parse.quote(clean_title)}"
+            url_omdb_search = f"https://www.omdbapi.com/?apikey={effective_omdb_key}&s={urllib.parse.quote(clean_title)}"
             if media_type == "series":
                 url_omdb_search += "&type=series"
             try:
@@ -218,7 +218,7 @@ def search_preview():
     clean_title = re.sub(r"\s*\([^)]*\)", "", title).strip()
     tmdb_type = "tv" if media_type == "series" else "movie"
     tmdb_key = request.args.get("tmdb_key", "").strip() or TMDB_API_KEY
-    omdb_key = request.args.get("omdb_key", "").strip() or os.environ.get("OMDB_API_KEY", "").strip() or "trilogy"
+    omdb_key = request.args.get("omdb_key", "").strip() or os.environ.get("OMDB_API_KEY", "").strip()
     results_list = []
 
     # 1. Primary: Search TMDb with user's language (e.g. pl-PL) if key is present
@@ -266,7 +266,7 @@ def search_preview():
     # 2. Secondary fallback: Search OMDb if TMDb returned empty
     if not results_list:
         try:
-            url_omdb_search = f"http://www.omdbapi.com/?apikey={omdb_key}&s={urllib.parse.quote(clean_title)}"
+            url_omdb_search = f"https://www.omdbapi.com/?apikey={omdb_key}&s={urllib.parse.quote(clean_title)}"
             if media_type in ["movie", "series"]:
                 url_omdb_search += f"&type={media_type}"
             req = urllib.request.Request(url_omdb_search, headers={"User-Agent": "Mozilla/5.0"})
@@ -478,9 +478,9 @@ def search_detail():
     if effective_omdb_key:
         try:
             if imdb_id:
-                url_omdb = f"http://www.omdbapi.com/?apikey={effective_omdb_key}&i={imdb_id}&plot=full"
+                url_omdb = f"https://www.omdbapi.com/?apikey={effective_omdb_key}&i={imdb_id}&plot=full"
             else:
-                url_omdb = f"http://www.omdbapi.com/?apikey={effective_omdb_key}&t={urllib.parse.quote(clean_title)}&plot=full"
+                url_omdb = f"https://www.omdbapi.com/?apikey={effective_omdb_key}&t={urllib.parse.quote(clean_title)}&plot=full"
             req = urllib.request.Request(url_omdb, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(req, timeout=4) as resp:
                 data = json.loads(resp.read().decode("utf-8", errors="ignore"))
@@ -1561,7 +1561,7 @@ def reset_all():
 def test_api_keys():
     data = request.get_json(silent=True) or {}
     tmdb_key = data.get("tmdb_key", "").strip() or TMDB_API_KEY
-    omdb_key = data.get("omdb_key", "").strip() or os.environ.get("OMDB_API_KEY", "").strip() or "trilogy"
+    omdb_key = data.get("omdb_key", "").strip() or os.environ.get("OMDB_API_KEY", "").strip()
     
     results = {
         "tmdb": {"ok": False, "message": "Nie podano klucza TMDb"},
@@ -1578,9 +1578,9 @@ def test_api_keys():
         except Exception as e:
             results["tmdb"] = {"ok": False, "message": f"Błąd TMDb: {str(e)}"}
             
-    if omdb_key and omdb_key != "trilogy":
+    if omdb_key:
         try:
-            url = f"http://www.omdbapi.com/?apikey={omdb_key}&s=Inception"
+            url = f"https://www.omdbapi.com/?apikey={omdb_key}&s=Inception"
             req = urllib.request.Request(url, headers={"User-Agent": "CineLog/1.0"})
             with urllib.request.urlopen(req, timeout=4) as resp:
                 odata = json.loads(resp.read().decode("utf-8", errors="ignore"))
