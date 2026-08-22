@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200">
 
   <!-- M3 Expressive Stylesheet with cache buster -->
-  <link rel="stylesheet" href="static/css/style.css?v=10.12">
+  <link rel="stylesheet" href="static/css/style.css?v=10.20">
   
   <!-- Chart.js & Google Identity Services for Drive BYO-Cloud -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -1856,14 +1856,14 @@
   </div>
 
   <script src="static/js/config.js?v=1.0" onerror="/* config.js is optional */"></script>
-  <script src="static/js/drive_sync.js?v=10.19"></script>
-  <script type="module" src="static/js/main.js?v=10.19"></script>
+  <script src="static/js/drive_sync.js?v=10.20"></script>
+  <script type="module" src="static/js/main.js?v=10.20"></script>
   
   <!-- Service Worker Registration for PWA -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('static/sw.js?v=10.19', { scope: './' })
+        navigator.serviceWorker.register('static/sw.js?v=10.20', { scope: './' })
           .then(reg => {
             console.log('CineLog PWA Service Worker zarejestrowany!', reg.scope);
             reg.update();

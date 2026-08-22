@@ -1,12 +1,11 @@
 // CineLog Service Worker - Network-First / Stale-While-Revalidate Caching for PWA
-const CACHE_NAME = "cinelog-v10.19.0";
+const CACHE_NAME = "cinelog-v10.20.0";
 const STATIC_ASSETS = [
   "./",
   "manifest.json",
-  "static/css/style.css?v=10.19",
-  "static/js/main.js?v=10.19",
-  "static/js/drive_sync.js?v=10.19",
-  "static/manifest.json",
+  "static/css/style.css?v=10.20",
+  "static/js/main.js?v=10.20",
+  "static/js/drive_sync.js?v=10.20",
   "static/icons/icon-192.png",
   "static/icons/icon-512.png",
   "static/icons/icon-maskable.png",
