@@ -614,6 +614,43 @@ export function initSearchAndAddModal() {
             if (stepSearch) stepSearch.style.display = "none";
             if (stepResults) stepResults.style.display = "flex";
           }
+        } else if (data && data.needs_key) {
+          // Backend has no TMDb/OMDb key configured - show the key setup panel
+          if (searchErrorText) {
+            searchErrorText.innerHTML = `
+              <div style="display: flex; flex-direction: column; gap: 8px; text-align: left; width: 100%;">
+                <div style="font-weight: 700; font-size: 0.9rem; color: #fff;">
+                  🔑 Wyszukiwanie online wymaga darmowego klucza TMDb API
+                </div>
+                <div style="font-size: 0.8rem; color: rgba(255,255,255,0.88); line-height: 1.4;">
+                  Darmowy klucz TMDb API możesz wpisać w 10 sekund w oknie <em>Klucze & Funkcje</em> (Chmura & Asystent AI → Klucze API) lub w pliku <code>.env</code> na serwerze.
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
+                  <button type="button" id="m3-btn-err-open-keys" class="m3-chip" style="background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); font-weight: 700; padding: 6px 12px; border: none; cursor: pointer;">
+                    <span class="material-symbols-rounded" style="font-size: 16px;">key</span> Wpisz klucz TMDb
+                  </button>
+                  <button type="button" id="m3-btn-err-open-import" class="m3-chip" style="background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); font-weight: 700; padding: 6px 12px; border: none; cursor: pointer;">
+                    <span class="material-symbols-rounded" style="font-size: 16px;">upload_file</span> Otwórz Importer
+                  </button>
+                </div>
+              </div>
+            `;
+            setTimeout(() => {
+              const btnKeys = document.getElementById("m3-btn-err-open-keys");
+              const btnImport = document.getElementById("m3-btn-err-open-import");
+              if (btnKeys) {
+                btnKeys.addEventListener("click", () => {
+                  if (window.openCloudSyncModal) window.openCloudSyncModal('keys');
+                });
+              }
+              if (btnImport) {
+                btnImport.addEventListener("click", () => {
+                  if (window.openImporterModal) window.openImporterModal();
+                });
+              }
+            }, 50);
+          }
+          if (searchError) searchError.style.display = "flex";
         } else if (data && !data.found) {
           if (searchErrorText) searchErrorText.innerText = "Nie znaleziono pozycji o podanym tytule. Sprawdź pisownię.";
           if (searchError) searchError.style.display = "flex";

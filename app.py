@@ -221,6 +221,14 @@ def search_preview():
     omdb_key = request.args.get("omdb_key", "").strip() or os.environ.get("OMDB_API_KEY", "").strip()
     results_list = []
 
+    # Without any API key, online search is impossible - guide the user instead of returning a dead end
+    if not tmdb_key and not omdb_key:
+        return jsonify({
+            "found": False,
+            "needs_key": True,
+            "message": "Wyszukiwanie online wymaga darmowego klucza TMDb. Skonfiguruj go w zakładce „Chmura & Asystent AI” → „Klucze API” lub w pliku .env."
+        })
+
     # 1. Primary: Search TMDb with user's language (e.g. pl-PL) if key is present
     if tmdb_key:
         try:
