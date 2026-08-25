@@ -1291,269 +1291,61 @@ export function renderRecommendationsFeed() {
     }
   }
 
-  if (recFeedData.seed_movie_1 && (currentRecFilter === "all" || currentRecFilter === "personalized" || currentRecFilter === "movies")) {
-    const raw = recFeedData.seed_movie_1.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      `Bo uwielbiasz film: ${recFeedData.seed_movie_1.title}`,
-      "Produkcje o zbliżonym klimacie, motywach i fabule dopasowane do Twojej oceny",
-      "favorite",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
+  const FEED_SECTIONS = [
+  { key: "seed_movie_1", filters: ["all", "personalized", "movies"], title: () => (`Bo uwielbiasz film: ${recFeedData.seed_movie_1.title}`),
+    subtitle: () => ("Produkcje o zbliżonym klimacie, motywach i fabule dopasowane do Twojej oceny"), icon: "favorite" },
+  { key: "seed_movie_2", filters: ["all", "personalized", "movies"], title: () => (`Bo podobał Ci się film: ${recFeedData.seed_movie_2.title}`),
+    subtitle: () => ("Tytuły polecane przez widzów o podobnym guście filmowym"), icon: "movie" },
+  { key: "seed_show_1", filters: ["all", "personalized", "shows"], title: () => (`Bo oglądasz serial: ${recFeedData.seed_show_1.title}`),
+    subtitle: () => ("Seriale polecane fanom tego tytułu"), icon: "live_tv" },
+  { key: "popular_trending", filters: ["all", "popular", "movies", "myvod"], title: () => ("🔥 Najpopularniejsze teraz"),
+    subtitle: () => ("Najchętniej oglądane i najgłośniejsze produkcje filmowe na świecie"), icon: "whatshot" },
+  { key: "trending_week", filters: ["all", "popular", "trending", "myvod"], title: () => ("⚡ Trendy tygodnia"),
+    subtitle: () => ("Produkcje, o których jest najgłośniej w ostatnich 7 dniach"), icon: "bolt" },
+  { key: "genre_romcom", filters: ["all", "romcom", "movies", "myvod"], title: () => ("❤️ Komedie romantyczne & Ciepłe historie"),
+    subtitle: () => ("Czarujące historie miłosne, urok i lekki humor z najwyższymi ocenami widzów"), icon: "favorite" },
+  { key: "genre_comedy", filters: ["all", "comedy", "movies", "myvod"], title: () => ("😂 Komedie & Lekki humor"),
+    subtitle: () => ("Błyskotliwe, kultowe komedie, które gwarantują mnóstwo dobrego humoru"), icon: "sentiment_very_satisfied" },
+  { key: "genre_crime", filters: ["all", "crime", "movies", "myvod"], title: () => ("🕵️ Mroczne kryminały & Śledztwa"),
+    subtitle: () => ("Złożone zagadki detektywistyczne, kino gangsterskie i policyjne intrygi"), icon: "local_police" },
+  { key: "genre_thriller", filters: ["all", "thriller", "movies", "myvod"], title: () => ("🔥 Psychologiczne thrillery & Dreszczowce"),
+    subtitle: () => ("Gęsty klimat, tajemnice i nieprzewidywalne napięcie do ostatniej minuty"), icon: "crisis_alert" },
+  { key: "genre_horror", filters: ["all", "horror", "movies", "myvod"], title: () => ("😱 Horrory & Groza"),
+    subtitle: () => ("Kino grozy, skoki adrenaliny i mrożące krew w żyłach historie"), icon: "local_fire_department" },
+  { key: "genre_scifi", filters: ["all", "scifi", "movies", "myvod"], title: () => ("🚀 Sci-Fi & Epickie fantasy"),
+    subtitle: () => ("Niezwykłe światy, kosmiczne podróże i technologiczne wizje przyszłości"), icon: "rocket_launch" },
+  { key: "genre_action", filters: ["all", "action", "movies", "myvod"], title: () => ("💥 Epickie kino akcji & Przygody"),
+    subtitle: () => ("Widowiskowe pościgi, walki i pełne adrenaliny przygody filmowe"), icon: "sports_martial_arts" },
+  { key: "genre_animation", filters: ["all", "animation", "movies", "myvod"], title: () => ("✨ Magiczne animacje dla każdego"),
+    subtitle: () => ("Arcydzieła animacji – zachwycające perełki od studia Ghibli po Pixara"), icon: "palette" },
+  { key: "genre_drama", filters: ["all", "drama", "movies", "myvod"], title: () => ("🎭 Poruszające dramaty & Wielkie emocje"),
+    subtitle: () => ("Głębokie, nagradzane historie i wybitne kreacje aktorskie"), icon: "theater_comedy" },
+  { key: "top_classics", filters: ["all", "classics", "movies"], title: () => ("🏆 IMDb Top Arcydzieła"),
+    subtitle: () => ("Najwyżej oceniane filmy wszech czasów o statusie legendy kina"), icon: "military_tech" },
+  { key: "hidden_gems", filters: ["all", "gems", "movies"], title: () => ("💎 Ukryte perełki (Hidden Gems)"),
+    subtitle: () => ("Wybitne kino niezależne i festiwalowe o rewelacyjnych ocenach widzów"), icon: "diamond" },
+  { key: "mind_bending", filters: ["all", "gems", "thriller", "movies"], title: () => ("🤯 Szokujące zakończenia & Mind-Bending"),
+    subtitle: () => ("Tajemnice, psychologiczne łamigłówki i nieprzewidywalne zwroty akcji"), icon: "psychology" },
+  { key: "binge_miniseries", filters: ["all", "shows"], title: () => ("🍿 Binge-worthy: Miniseriale na weekend"),
+    subtitle: () => ("Wciągające, zamknięte historie z oceną powyżej 8.0★ do obejrzenia w kilka wieczorów"), icon: "play_circle" },
+  { key: "nostalgia_classics", filters: ["all", "classics", "movies"], title: () => ("📼 Złota era lat 80. i 90. (Kultowa Nostalgia)"),
+    subtitle: () => ("Niezapomniane hity ery VHS i początków kina cyfrowego"), icon: "history" },
+  { key: "vod_fresh", filters: ["all", "vod_fresh", "movies"], title: () => ("🚀 Świeżo po kinach – nowe hity na VOD"),
+    subtitle: () => ("Filmy, które niedawno zeszły z ekranów kinowych i trafiły do streamingu"), icon: "theaters" },
+  { key: "top_movies", filters: ["all", "personalized", "movies"], title: () => ("Specjalnie dla Ciebie"),
+    subtitle: () => ("Wysoko oceniane filmy dopasowane do Twoich najwyższych ocen"), icon: "auto_awesome" },
+  { key: "top_shows", filters: ["all", "shows"], title: () => ("Najlepsze Seriale"),
+    subtitle: () => ("Seriale z najwyższymi ocenami widzów na całym świecie"), icon: "tv" },
+];
 
-  if (recFeedData.seed_movie_2 && (currentRecFilter === "all" || currentRecFilter === "personalized" || currentRecFilter === "movies")) {
-    const raw = recFeedData.seed_movie_2.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      `Bo podobał Ci się film: ${recFeedData.seed_movie_2.title}`,
-      "Tytuły polecane przez widzów o podobnym guście filmowym",
-      "movie",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
-
-  if (recFeedData.seed_show_1 && (currentRecFilter === "all" || currentRecFilter === "personalized" || currentRecFilter === "shows")) {
-    const raw = recFeedData.seed_show_1.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      `Bo oglądasz serial: ${recFeedData.seed_show_1.title}`,
-      "Seriale polecane fanom tego tytułu",
-      "live_tv",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
-
-  if (recFeedData.popular_trending && (currentRecFilter === "all" || currentRecFilter === "popular" || currentRecFilter === "movies" || currentRecFilter === "myvod")) {
-    const raw = recFeedData.popular_trending.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      "🔥 Najpopularniejsze teraz",
-      "Najchętniej oglądane i najgłośniejsze produkcje filmowe na świecie",
-      "whatshot",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
-
-  if (recFeedData.trending_week && (currentRecFilter === "all" || currentRecFilter === "popular" || currentRecFilter === "trending" || currentRecFilter === "myvod")) {
-    const raw = recFeedData.trending_week.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      "⚡ Trendy tygodnia",
-      "Produkcje, o których jest najgłośniej w ostatnich 7 dniach",
-      "bolt",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
-
-  if (recFeedData.genre_romcom && (currentRecFilter === "all" || currentRecFilter === "romcom" || currentRecFilter === "movies" || currentRecFilter === "myvod")) {
-    const raw = recFeedData.genre_romcom.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      "❤️ Komedie romantyczne & Ciepłe historie",
-      "Czarujące historie miłosne, urok i lekki humor z najwyższymi ocenami widzów",
-      "favorite",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
-
-  if (recFeedData.genre_comedy && (currentRecFilter === "all" || currentRecFilter === "comedy" || currentRecFilter === "movies" || currentRecFilter === "myvod")) {
-    const raw = recFeedData.genre_comedy.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      "😂 Komedie & Lekki humor",
-      "Błyskotliwe, kultowe komedie, które gwarantują mnóstwo dobrego humoru",
-      "sentiment_very_satisfied",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
-
-  if (recFeedData.genre_crime && (currentRecFilter === "all" || currentRecFilter === "crime" || currentRecFilter === "movies" || currentRecFilter === "myvod")) {
-    const raw = recFeedData.genre_crime.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      "🕵️ Mroczne kryminały & Śledztwa",
-      "Złożone zagadki detektywistyczne, kino gangsterskie i policyjne intrygi",
-      "local_police",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
-
-  if (recFeedData.genre_thriller && (currentRecFilter === "all" || currentRecFilter === "thriller" || currentRecFilter === "movies" || currentRecFilter === "myvod")) {
-    const raw = recFeedData.genre_thriller.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      "🔥 Psychologiczne thrillery & Dreszczowce",
-      "Gęsty klimat, tajemnice i nieprzewidywalne napięcie do ostatniej minuty",
-      "crisis_alert",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
-
-  if (recFeedData.genre_horror && (currentRecFilter === "all" || currentRecFilter === "horror" || currentRecFilter === "movies" || currentRecFilter === "myvod")) {
-    const raw = recFeedData.genre_horror.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      "😱 Horrory & Groza",
-      "Kino grozy, skoki adrenaliny i mrożące krew w żyłach historie",
-      "local_fire_department",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
-
-  if (recFeedData.genre_scifi && (currentRecFilter === "all" || currentRecFilter === "scifi" || currentRecFilter === "movies" || currentRecFilter === "myvod")) {
-    const raw = recFeedData.genre_scifi.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      "🚀 Sci-Fi & Epickie fantasy",
-      "Niezwykłe światy, kosmiczne podróże i technologiczne wizje przyszłości",
-      "rocket_launch",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
-
-  if (recFeedData.genre_action && (currentRecFilter === "all" || currentRecFilter === "action" || currentRecFilter === "movies" || currentRecFilter === "myvod")) {
-    const raw = recFeedData.genre_action.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      "💥 Epickie kino akcji & Przygody",
-      "Widowiskowe pościgi, walki i pełne adrenaliny przygody filmowe",
-      "sports_martial_arts",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
-
-  if (recFeedData.genre_animation && (currentRecFilter === "all" || currentRecFilter === "animation" || currentRecFilter === "movies" || currentRecFilter === "myvod")) {
-    const raw = recFeedData.genre_animation.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      "✨ Magiczne animacje dla każdego",
-      "Arcydzieła animacji – zachwycające perełki od studia Ghibli po Pixara",
-      "palette",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
-
-  if (recFeedData.genre_drama && (currentRecFilter === "all" || currentRecFilter === "drama" || currentRecFilter === "movies" || currentRecFilter === "myvod")) {
-    const raw = recFeedData.genre_drama.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      "🎭 Poruszające dramaty & Wielkie emocje",
-      "Głębokie, nagradzane historie i wybitne kreacje aktorskie",
-      "theater_comedy",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
-
-  if (recFeedData.top_classics && (currentRecFilter === "all" || currentRecFilter === "classics" || currentRecFilter === "movies")) {
-    const raw = recFeedData.top_classics.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      "🏆 IMDb Top Arcydzieła",
-      "Najwyżej oceniane filmy wszech czasów o statusie legendy kina",
-      "military_tech",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
-
-  if (recFeedData.hidden_gems && (currentRecFilter === "all" || currentRecFilter === "gems" || currentRecFilter === "movies")) {
-    const raw = recFeedData.hidden_gems.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      "💎 Ukryte perełki (Hidden Gems)",
-      "Wybitne kino niezależne i festiwalowe o rewelacyjnych ocenach widzów",
-      "diamond",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
-
-  if (recFeedData.mind_bending && (currentRecFilter === "all" || currentRecFilter === "gems" || currentRecFilter === "thriller" || currentRecFilter === "movies")) {
-    const raw = recFeedData.mind_bending.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      "🤯 Szokujące zakończenia & Mind-Bending",
-      "Tajemnice, psychologiczne łamigłówki i nieprzewidywalne zwroty akcji",
-      "psychology",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
-
-  if (recFeedData.binge_miniseries && (currentRecFilter === "all" || currentRecFilter === "shows")) {
-    const raw = recFeedData.binge_miniseries.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      "🍿 Binge-worthy: Miniseriale na weekend",
-      "Wciągające, zamknięte historie z oceną powyżej 8.0★ do obejrzenia w kilka wieczorów",
-      "play_circle",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
-
-  if (recFeedData.nostalgia_classics && (currentRecFilter === "all" || currentRecFilter === "classics" || currentRecFilter === "movies")) {
-    const raw = recFeedData.nostalgia_classics.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      "📼 Złota era lat 80. i 90. (Kultowa Nostalgia)",
-      "Niezapomniane hity ery VHS i początków kina cyfrowego",
-      "history",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
-
-  if (recFeedData.vod_fresh && (currentRecFilter === "all" || currentRecFilter === "vod_fresh" || currentRecFilter === "movies")) {
-    const raw = recFeedData.vod_fresh.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      "🚀 Świeżo po kinach – nowe hity na VOD",
-      "Filmy, które niedawno zeszły z ekranów kinowych i trafiły do streamingu",
-      "theaters",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
-
-  if (recFeedData.top_movies && (currentRecFilter === "all" || currentRecFilter === "personalized" || currentRecFilter === "movies")) {
-    const raw = recFeedData.top_movies.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      "Specjalnie dla Ciebie",
-      "Wysoko oceniane filmy dopasowane do Twoich najwyższych ocen",
-      "auto_awesome",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
-
-  if (recFeedData.top_shows && (currentRecFilter === "all" || currentRecFilter === "shows")) {
-    const raw = recFeedData.top_shows.results || [];
-    const filtered = raw.filter(it => !isItemInLibrary(it));
-    const section = buildCarouselSection(
-      "Najlepsze Seriale",
-      "Seriale z najwyższymi ocenami widzów na całym świecie",
-      "tv",
-      filtered
-    );
-    if (section) hub.appendChild(section);
-  }
+for (const cfg of FEED_SECTIONS) {
+  if (!cfg.filters.includes(currentRecFilter)) continue;
+  const src = recFeedData[cfg.key];
+  if (!src) continue;
+  const filtered = (src.results || []).filter(it => !isItemInLibrary(it));
+  const section = buildCarouselSection(cfg.title(), cfg.subtitle(), cfg.icon, filtered);
+  if (section) hub.appendChild(section);
+}
 
   // Smart Offline / Library Fallback if online discovery returned empty
   const carouselSections = hub.querySelectorAll(".m3-carousel-section");
