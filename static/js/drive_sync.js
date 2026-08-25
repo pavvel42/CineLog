@@ -7,6 +7,8 @@ const DRIVE_SCOPES = "https://www.googleapis.com/auth/drive.file";
 class GoogleDriveSync {
   constructor() {
     this.tokenClient = null;
+    // Injected by main.js: () => ({ movies, shows }) - replaces legacy window.allMovies/allShows aliases
+    this.localLibraryProvider = null;
     this.accessToken = localStorage.getItem("gdrive_access_token") || null;
     this.tokenExpiresAt = parseInt(localStorage.getItem("gdrive_token_exp") || "0", 10);
     this.databaseFileId = localStorage.getItem("gdrive_file_id") || null;
@@ -466,8 +468,9 @@ class GoogleDriveSync {
       }
     } else {
       // If file doesn't exist yet, immediately upload local library to create the initial file on Drive
-      if (window.allMovies && window.allShows && (window.allMovies.length > 0 || window.allShows.length > 0)) {
-        await this.uploadToDrive(window.allMovies, window.allShows);
+      const local = typeof this.localLibraryProvider === "function" ? this.localLibraryProvider() : null;
+      if (local && ((local.movies && local.movies.length > 0) || (local.shows && local.shows.length > 0))) {
+        await this.uploadToDrive(local.movies, local.shows);
       }
     }
   }

@@ -54,19 +54,11 @@ export const state = {
   currentRematchCurrentId: null
 };
 
-// Global backward-compatibility window bindings
-window.allMovies = state.movies;
-window.allShows = state.shows;
-window.userVodCountry = state.userVodCountry;
-window.userVodSubscriptions = state.userVodSubscriptions;
-window.currentMode = state.mode;
+// Legacy window aliases removed - modules must read/write `state` directly.
+// (drive_sync.js receives live data via injected localLibraryProvider in main.js)
 
 export function syncWindowAliases() {
-  window.allMovies = state.movies;
-  window.allShows = state.shows;
-  window.userVodCountry = state.userVodCountry;
-  window.userVodSubscriptions = state.userVodSubscriptions;
-  window.currentMode = state.mode;
+  // Kept as no-op for backward compatibility with existing call sites.
 }
 
 export function formatWatchTimeMinutes(totalMinutes) {

@@ -539,6 +539,15 @@ export async function detectBackendEnvironment(showFeedbackToast = false) {
   return isAvailable;
 }
 
+// Bridge: Drive sync reads the live library through an injected provider
+// instead of legacy window.allMovies/window.allShows aliases.
+if (window.googleDriveSync) {
+  window.googleDriveSync.localLibraryProvider = () => ({
+    movies: state.movies,
+    shows: state.shows
+  });
+}
+
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", initApp);
 } else {
