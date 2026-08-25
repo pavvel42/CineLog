@@ -2,6 +2,9 @@ import os
 import json
 import uuid
 import shutil
+import logging
+import tempfile
+import threading
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -9,6 +12,12 @@ import re
 from datetime import datetime, date
 from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, render_template, jsonify, request, Response
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+)
+log = logging.getLogger("cinelog")
 
 # Auto-load .env file if present
 def _load_env_file():
@@ -26,13 +35,13 @@ def _load_env_file():
                     if key and key not in os.environ:
                         os.environ[key] = val
         except Exception as e:
-            print(f"Warning: Could not load .env file: {e}")
+            log.warning("Could not load .env file: %s", e)
 
 _load_env_file()
 
 TMDB_API_KEY = os.environ.get("TMDB_API_KEY", "").strip()
 if not TMDB_API_KEY:
-    print("ℹ️ TMDB_API_KEY nie został ustawiony w .env ani w środowisku. Funkcje wyszukiwania online TMDb będą wyłączone lub ograniczone.")
+    log.info("TMDB_API_KEY nie został ustawiony w .env ani w środowisku. Funkcje wyszukiwania online TMDb będą wyłączone lub ograniczone.")
 
 app = Flask(__name__)
 
@@ -44,6 +53,10 @@ UPCOMING_CACHE_FILE = os.path.join("export data", "upcoming_cache.json")
 
 EPISODES_CACHE = {}
 
+# Single lock guarding read-modify-write sequences on the JSON data files
+# (prevents lost updates when two requests mutate the library concurrently).
+DATA_LOCK = threading.RLock()
+
 def load_json(filepath):
     if not os.path.exists(filepath):
         return []
@@ -51,23 +64,44 @@ def load_json(filepath):
         with open(filepath, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
-        print(f"Error loading {filepath}: {e}")
+        log.error("Error loading %s: %s", filepath, e)
         return []
 
 def save_json(filepath, data):
     try:
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
+        # Atomic write: dump to a temp file, then atomically replace the target
+        fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(filepath) or ".", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            os.replace(tmp_path, filepath)
+        except Exception:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+            raise
         return True
     except Exception as e:
-        print(f"Error saving {filepath}: {e}")
+        log.error("Error saving %s: %s", filepath, e)
+        return False
 def normalize_title(t):
     if not t:
         return ""
     t = re.sub(r"\s*\(\d{4}\)", "", str(t))
     t = re.sub(r"[^\w\s]", "", t, flags=re.UNICODE)
     return " ".join(t.lower().split())
+
+def _safe_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+def _is_safe_media_url(value):
+    """Accept only http(s) poster/image URLs to avoid injecting javascript: data: etc."""
+    if not isinstance(value, str) or not value.strip():
+        return False
+    return value.strip().lower().startswith(("http://", "https://"))
 
 def deduplicate_items(items):
     seen = {}
@@ -276,9 +310,9 @@ def search_preview():
                     "needs_key": True,
                     "message": f"Klucz TMDb został odrzucony przez API (HTTP {e.code}). Sprawdź, czy klucz jest poprawny w zakładce „Chmura & Asystent AI” → „Klucze API”."
                 })
-            print("TMDb search preview error:", e)
+            log.warning("TMDb search preview error: %s", e)
         except Exception as e:
-            print("TMDb search preview error:", e)
+            log.warning("TMDb search preview error: %s", e)
 
     # 2. Secondary fallback: Search OMDb if TMDb returned empty
     if not results_list:
@@ -488,7 +522,7 @@ def search_detail():
                         det = json.loads(r_det.read().decode("utf-8", errors="ignore"))
                         return build_tmdb_response(det, tmdb_type)
         except Exception as e:
-            print("TMDb detail fetch error:", e)
+            log.warning("TMDb detail fetch error: %s", e)
 
     # 2. Fallback to OMDb / TVmaze
     effective_omdb_key = request.args.get("omdb_key", "").strip() or request.args.get("imdb_key", "").strip() or os.environ.get("OMDB_API_KEY", "").strip() or os.environ.get("IMDB_API_KEY", "").strip()
@@ -519,7 +553,7 @@ def search_detail():
                         "type": data.get("Type")
                     })
         except Exception as e:
-            print("OMDb detail fetch fallback error:", e)
+            log.warning("OMDb detail fetch fallback error: %s", e)
 
     return jsonify({"found": False, "message": "Nie udało się pobrać szczegółów pozycji."}), 404
 
@@ -540,56 +574,58 @@ def get_movies():
 @app.route("/api/movies/<movie_uuid>", methods=["PUT"])
 def update_movie(movie_uuid):
     data = request.get_json() or {}
-    movies = load_movies()
-    
-    movie_to_update = None
-    for m in movies:
-        if m.get("uuid") == movie_uuid:
-            movie_to_update = m
-            break
-            
-    if not movie_to_update:
-        return jsonify({"error": "Movie not found"}), 404
-        
-    if "title" in data and data["title"].strip():
-        movie_to_update["title"] = data["title"].strip()
-    if "status" in data and data["status"] in ["watched", "watchlist", "followed"]:
-        movie_to_update["status"] = data["status"]
-    if "is_favorite" in data:
-        movie_to_update["is_favorite"] = bool(data["is_favorite"])
-    if "rating" in data:
-        rating = data["rating"]
-        if rating is None or (isinstance(rating, int) and 1 <= rating <= 5):
-            movie_to_update["rating"] = rating
-    if "poster_url" in data:
-        movie_to_update["poster_url"] = data["poster_url"]
-    if "watch_date" in data:
-        movie_to_update["watch_date"] = data["watch_date"]
-    if "release_date" in data:
-        movie_to_update["release_date"] = data["release_date"]
-        
-    if save_movies(movies):
-        return jsonify(movie_to_update)
-    else:
-        return jsonify({"error": "Failed to save database"}), 500
+    with DATA_LOCK:
+        movies = load_movies()
+
+        movie_to_update = None
+        for m in movies:
+            if m.get("uuid") == movie_uuid:
+                movie_to_update = m
+                break
+
+        if not movie_to_update:
+            return jsonify({"error": "Movie not found"}), 404
+
+        if "title" in data and isinstance(data["title"], str) and data["title"].strip():
+            movie_to_update["title"] = data["title"].strip()
+        if "status" in data and data["status"] in ["watched", "watchlist", "followed"]:
+            movie_to_update["status"] = data["status"]
+        if "is_favorite" in data:
+            movie_to_update["is_favorite"] = bool(data["is_favorite"])
+        if "rating" in data:
+            rating = data["rating"]
+            if rating is None or (isinstance(rating, int) and not isinstance(rating, bool) and 1 <= rating <= 5):
+                movie_to_update["rating"] = rating
+        if "poster_url" in data and _is_safe_media_url(data["poster_url"]):
+            movie_to_update["poster_url"] = data["poster_url"]
+        if "watch_date" in data:
+            movie_to_update["watch_date"] = data["watch_date"]
+        if "release_date" in data:
+            movie_to_update["release_date"] = data["release_date"]
+
+        if save_movies(movies):
+            return jsonify(movie_to_update)
+        else:
+            return jsonify({"error": "Failed to save database"}), 500
 
 @app.route("/api/movies/<movie_uuid>", methods=["DELETE"])
 def delete_movie(movie_uuid):
-    movies = load_movies()
-    found_idx = -1
-    for i, m in enumerate(movies):
-        if m.get("uuid") == movie_uuid:
-            found_idx = i
-            break
-            
-    if found_idx == -1:
-        return jsonify({"error": "Movie not found"}), 404
-        
-    deleted_movie = movies.pop(found_idx)
-    if save_movies(movies):
-        return jsonify({"success": True, "deleted": deleted_movie})
-    else:
-        return jsonify({"error": "Failed to save database"}), 500
+    with DATA_LOCK:
+        movies = load_movies()
+        found_idx = -1
+        for i, m in enumerate(movies):
+            if m.get("uuid") == movie_uuid:
+                found_idx = i
+                break
+
+        if found_idx == -1:
+            return jsonify({"error": "Movie not found"}), 404
+
+        deleted_movie = movies.pop(found_idx)
+        if save_movies(movies):
+            return jsonify({"success": True, "deleted": deleted_movie})
+        else:
+            return jsonify({"error": "Failed to save database"}), 500
 
 @app.route("/api/movies/add", methods=["POST"])
 @app.route("/api/movies", methods=["POST"])
@@ -609,58 +645,59 @@ def add_movie():
             poster_url = fetched_poster
         if not release_date and fetched_date:
             release_date = fetched_date
-        
-    movies = load_movies()
+
     status = data.get("status", "watchlist")
     rating = data.get("rating") or None
     if status == "watchlist":
         rating = None
-    elif rating and not (1 <= rating <= 5):
+    elif not (isinstance(rating, int) and not isinstance(rating, bool) and 1 <= rating <= 5):
         rating = None
 
-    norm_title = normalize_title(title)
-    tmdb_id = data.get("tmdb_id")
-    existing_movie = next((m for m in movies if (tmdb_id and m.get("tmdb_id") and str(m.get("tmdb_id")) == str(tmdb_id)) or (normalize_title(m.get("title")) and normalize_title(m.get("title")) == norm_title)), None)
-    
-    if existing_movie:
-        existing_movie["status"] = status
-        if rating is not None:
-            existing_movie["rating"] = rating
-        elif status == "watchlist":
-            existing_movie["rating"] = None
-        if poster_url and (not existing_movie.get("poster_url") or "favicon" in existing_movie.get("poster_url", "")):
-            existing_movie["poster_url"] = poster_url
-        if release_date and not existing_movie.get("release_date"):
-            existing_movie["release_date"] = release_date
-        if status == "watched":
-            if not existing_movie.get("watch_date"):
-                existing_movie["watch_date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        if data.get("is_favorite") is not None:
-            existing_movie["is_favorite"] = bool(data.get("is_favorite"))
+    with DATA_LOCK:
+        movies = load_movies()
+        norm_title = normalize_title(title)
+        tmdb_id = data.get("tmdb_id")
+        existing_movie = next((m for m in movies if (tmdb_id and m.get("tmdb_id") and str(m.get("tmdb_id")) == str(tmdb_id)) or (normalize_title(m.get("title")) and normalize_title(m.get("title")) == norm_title)), None)
+
+        if existing_movie:
+            existing_movie["status"] = status
+            if rating is not None:
+                existing_movie["rating"] = rating
+            elif status == "watchlist":
+                existing_movie["rating"] = None
+            if poster_url and (not existing_movie.get("poster_url") or "favicon" in existing_movie.get("poster_url", "")):
+                existing_movie["poster_url"] = poster_url
+            if release_date and not existing_movie.get("release_date"):
+                existing_movie["release_date"] = release_date
+            if status == "watched":
+                if not existing_movie.get("watch_date"):
+                    existing_movie["watch_date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            if data.get("is_favorite") is not None:
+                existing_movie["is_favorite"] = bool(data.get("is_favorite"))
+            if save_movies(movies):
+                return jsonify(existing_movie), 200
+            return jsonify({"error": "Failed to save database"}), 500
+
+        new_movie = {
+            "uuid": str(uuid.uuid4()),
+            "title": title,
+            "status": status,
+            "watch_date": data.get("watch_date") or (datetime.now().strftime("%Y-%m-%d %H:%M:%S") if status == "watched" else None),
+            "follow_date": data.get("follow_date") or datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "release_date": release_date,
+            "is_favorite": bool(data.get("is_favorite", False)),
+            "rating": rating,
+            "poster_url": poster_url,
+            "raw_rating_suffix": None,
+            "rewatched": _safe_int(data.get("rewatched", 0))
+        }
+
+        movies.insert(0, new_movie)
+
         if save_movies(movies):
-            return jsonify(existing_movie), 200
-        return jsonify({"error": "Failed to save database"}), 500
-    
-    new_movie = {
-        "uuid": str(uuid.uuid4()),
-        "title": title,
-        "status": status,
-        "watch_date": data.get("watch_date") or (datetime.now().strftime("%Y-%m-%d %H:%M:%S") if status == "watched" else None),
-        "follow_date": data.get("follow_date") or datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "release_date": release_date,
-        "is_favorite": bool(data.get("is_favorite", False)),
-        "rating": rating,
-        "poster_url": poster_url,
-        "raw_rating_suffix": None,
-        "rewatched": int(data.get("rewatched", 0))
-    }
-        
-    movies.insert(0, new_movie)
-    
-    if save_movies(movies):
-        return jsonify(new_movie), 201
-    else:
-        return jsonify({"error": "Failed to save database"}), 500
+            return jsonify(new_movie), 201
+        else:
+            return jsonify({"error": "Failed to save database"}), 500
 
 # --- TV SHOWS API ---
 @app.route("/api/shows", methods=["GET"])
@@ -752,7 +789,7 @@ def get_show_episodes_meta(show_uuid):
                         except Exception:
                             pass
         except Exception as e:
-            print(f"TMDb episode meta error for {title}:", e)
+            log.warning("TMDb episode meta error for %s: %s", title, e)
 
     # 2. Enrich with TVmaze (Fills split multi-part finales and missing descriptions)
     try:
@@ -795,173 +832,181 @@ def get_show_episodes_meta(show_uuid):
 @app.route("/api/shows/<show_uuid>", methods=["PUT"])
 def update_show(show_uuid):
     data = request.get_json() or {}
-    shows = load_shows()
-    
-    show_to_update = None
-    for s in shows:
-        if s.get("uuid") == show_uuid:
-            show_to_update = s
-            break
-            
-    if not show_to_update:
-        return jsonify({"error": "Show not found"}), 404
+    with DATA_LOCK:
+        shows = load_shows()
 
-    if "title" in data and data["title"].strip():
-        show_to_update["title"] = data["title"].strip()
-    if "status" in data and data["status"] in ["watching", "watchlist", "archived"]:
-        show_to_update["status"] = data["status"]
-        show_to_update["archived"] = (data["status"] == "archived")
-    if "rating" in data:
-        rating = data["rating"]
-        if rating is None or (isinstance(rating, int) and 1 <= rating <= 5):
-            show_to_update["rating"] = rating
-    if "poster_url" in data:
-        show_to_update["poster_url"] = data["poster_url"]
-    if "tmdb_id" in data:
-        show_to_update["tmdb_id"] = data["tmdb_id"]
-    if "release_date" in data:
-        show_to_update["release_date"] = data["release_date"]
-    if "is_favorite" in data:
-        show_to_update["is_favorite"] = bool(data["is_favorite"])
+        show_to_update = None
+        for s in shows:
+            if s.get("uuid") == show_uuid:
+                show_to_update = s
+                break
 
-    if save_shows(shows):
-        return jsonify(show_to_update)
-    else:
-        return jsonify({"error": "Failed to save shows"}), 500
+        if not show_to_update:
+            return jsonify({"error": "Show not found"}), 404
+
+        if "title" in data and isinstance(data["title"], str) and data["title"].strip():
+            show_to_update["title"] = data["title"].strip()
+        if "status" in data and data["status"] in ["watching", "watchlist", "archived"]:
+            show_to_update["status"] = data["status"]
+            show_to_update["archived"] = (data["status"] == "archived")
+        if "rating" in data:
+            rating = data["rating"]
+            if rating is None or (isinstance(rating, int) and not isinstance(rating, bool) and 1 <= rating <= 5):
+                show_to_update["rating"] = rating
+        if "poster_url" in data and _is_safe_media_url(data["poster_url"]):
+            show_to_update["poster_url"] = data["poster_url"]
+        if "tmdb_id" in data:
+            show_to_update["tmdb_id"] = data["tmdb_id"]
+        if "release_date" in data:
+            show_to_update["release_date"] = data["release_date"]
+        if "is_favorite" in data:
+            show_to_update["is_favorite"] = bool(data["is_favorite"])
+
+        if save_shows(shows):
+            return jsonify(show_to_update)
+        else:
+            return jsonify({"error": "Failed to save shows"}), 500
 
 @app.route("/api/shows/<show_uuid>/episodes", methods=["POST"])
 def toggle_episode(show_uuid):
     data = request.get_json() or {}
-    season = int(data.get("season", 1))
-    episode = int(data.get("episode", 1))
-    
-    shows = load_shows()
-    show_to_update = None
-    for s in shows:
-        if s.get("uuid") == show_uuid:
-            show_to_update = s
-            break
-            
-    if not show_to_update:
-        return jsonify({"error": "Show not found"}), 404
+    season = _safe_int(data.get("season", 1), 1)
+    episode = _safe_int(data.get("episode", 1), 1)
+    if season < 0 or episode < 0:
+        return jsonify({"error": "Invalid season/episode"}), 400
 
-    eps = show_to_update.get("episodes_watched", [])
-    found_idx = -1
-    for i, ep in enumerate(eps):
-        if ep.get("season") == season and ep.get("episode") == episode:
-            found_idx = i
-            break
+    with DATA_LOCK:
+        shows = load_shows()
+        show_to_update = None
+        for s in shows:
+            if s.get("uuid") == show_uuid:
+                show_to_update = s
+                break
 
-    if found_idx != -1:
-        eps.pop(found_idx)
-    else:
-        eps.append({
-            "episode_id": str(uuid.uuid4()),
-            "season": season,
-            "episode": episode,
-            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        })
+        if not show_to_update:
+            return jsonify({"error": "Show not found"}), 404
 
-    eps.sort(key=lambda x: (x.get("season", 0), x.get("episode", 0)))
-    show_to_update["episodes_watched"] = eps
-    show_to_update["watched_count"] = len(eps)
-    
-    if eps:
-        highest_s = max(e["season"] for e in eps)
-        highest_e = max(e["episode"] for e in eps if e["season"] == highest_s)
-        show_to_update["latest_progress"] = f"S{highest_s:02d}E{highest_e:02d}"
-        show_to_update["latest_season"] = highest_s
-        show_to_update["latest_episode"] = highest_e
-    else:
-        show_to_update["latest_progress"] = None
-        show_to_update["latest_season"] = 0
-        show_to_update["latest_episode"] = 0
+        eps = show_to_update.get("episodes_watched", [])
+        found_idx = -1
+        for i, ep in enumerate(eps):
+            if ep.get("season") == season and ep.get("episode") == episode:
+                found_idx = i
+                break
 
-    if save_shows(shows):
-        return jsonify(show_to_update)
-    else:
-        return jsonify({"error": "Failed to save episode"}), 500
+        if found_idx != -1:
+            eps.pop(found_idx)
+        else:
+            eps.append({
+                "episode_id": str(uuid.uuid4()),
+                "season": season,
+                "episode": episode,
+                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            })
+
+        eps.sort(key=lambda x: (x.get("season", 0), x.get("episode", 0)))
+        show_to_update["episodes_watched"] = eps
+        show_to_update["watched_count"] = len(eps)
+
+        if eps:
+            highest_s = max(e["season"] for e in eps)
+            highest_e = max(e["episode"] for e in eps if e["season"] == highest_s)
+            show_to_update["latest_progress"] = f"S{highest_s:02d}E{highest_e:02d}"
+            show_to_update["latest_season"] = highest_s
+            show_to_update["latest_episode"] = highest_e
+        else:
+            show_to_update["latest_progress"] = None
+            show_to_update["latest_season"] = 0
+            show_to_update["latest_episode"] = 0
+
+        if save_shows(shows):
+            return jsonify(show_to_update)
+        else:
+            return jsonify({"error": "Failed to save episode"}), 500
 
 @app.route("/api/shows/<show_uuid>/batch_episodes", methods=["POST"])
 def batch_episodes(show_uuid):
     data = request.get_json() or {}
     items_to_add = data.get("episodes", [])
-    
-    shows = load_shows()
-    show_to_update = None
-    for s in shows:
-        if s.get("uuid") == show_uuid:
-            show_to_update = s
-            break
-            
-    if not show_to_update:
-        return jsonify({"error": "Show not found"}), 404
+    if not isinstance(items_to_add, list):
+        return jsonify({"error": "Invalid episodes payload"}), 400
 
-    eps = show_to_update.get("episodes_watched", [])
-    existing = set((e.get("season"), e.get("episode")) for e in eps)
+    with DATA_LOCK:
+        shows = load_shows()
+        show_to_update = None
+        for s in shows:
+            if s.get("uuid") == show_uuid:
+                show_to_update = s
+                break
 
-    for item in items_to_add:
-        s_num = int(item.get("season", 1))
-        e_num = int(item.get("episode", 1))
-        if (s_num, e_num) not in existing:
-            eps.append({
-                "episode_id": str(uuid.uuid4()),
-                "season": s_num,
-                "episode": e_num,
-                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            })
-            existing.add((s_num, e_num))
+        if not show_to_update:
+            return jsonify({"error": "Show not found"}), 404
 
-    eps.sort(key=lambda x: (x.get("season", 0), x.get("episode", 0)))
-    show_to_update["episodes_watched"] = eps
-    show_to_update["watched_count"] = len(eps)
-    
-    if eps:
-        highest_s = max(e["season"] for e in eps)
-        highest_e = max(e["episode"] for e in eps if e["season"] == highest_s)
-        show_to_update["latest_progress"] = f"S{highest_s:02d}E{highest_e:02d}"
-        show_to_update["latest_season"] = highest_s
-        show_to_update["latest_episode"] = highest_e
+        eps = show_to_update.get("episodes_watched", [])
+        existing = set((e.get("season"), e.get("episode")) for e in eps)
 
-    if save_shows(shows):
-        return jsonify(show_to_update)
-    else:
-        return jsonify({"error": "Failed to save batch episodes"}), 500
+        for item in items_to_add:
+            s_num = _safe_int(item.get("season", 1), 1)
+            e_num = _safe_int(item.get("episode", 1), 1)
+            if (s_num, e_num) not in existing:
+                eps.append({
+                    "episode_id": str(uuid.uuid4()),
+                    "season": s_num,
+                    "episode": e_num,
+                    "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                })
+                existing.add((s_num, e_num))
+
+        eps.sort(key=lambda x: (x.get("season", 0), x.get("episode", 0)))
+        show_to_update["episodes_watched"] = eps
+        show_to_update["watched_count"] = len(eps)
+
+        if eps:
+            highest_s = max(e["season"] for e in eps)
+            highest_e = max(e["episode"] for e in eps if e["season"] == highest_s)
+            show_to_update["latest_progress"] = f"S{highest_s:02d}E{highest_e:02d}"
+            show_to_update["latest_season"] = highest_s
+            show_to_update["latest_episode"] = highest_e
+
+        if save_shows(shows):
+            return jsonify(show_to_update)
+        else:
+            return jsonify({"error": "Failed to save batch episodes"}), 500
 
 @app.route("/api/shows/verify_completion", methods=["POST", "GET"])
 def verify_shows_completion():
-    shows = load_shows()
-    updated_count = 0
-    for s in shows:
-        ep_count = len(s.get("episodes_watched") or [])
-        total_eps = s.get("total_episodes") or 0
-        series_status = s.get("series_status")
-        in_prod = s.get("in_production")
-        
-        if ep_count == 0:
-            if s.get("status") != "watchlist":
-                s["status"] = "watchlist"
-                updated_count += 1
-        elif total_eps > 0 and ep_count >= total_eps and (series_status in ["Ended", "Canceled"] or in_prod is False):
-            if s.get("status") != "watched":
-                s["status"] = "watched"
-                updated_count += 1
-        elif total_eps > 0 and ep_count >= total_eps and (series_status == "Returning Series" or in_prod is True):
-            s["caught_up"] = True
-            if s.get("status") != "watching":
-                s["status"] = "watching"
-                updated_count += 1
-        else:
-            if s.get("status") != "watching":
-                s["status"] = "watching"
-                updated_count += 1
-    if updated_count > 0:
-        save_shows(shows)
-    return jsonify({
-        "success": True, 
-        "updated": updated_count, 
-        "shows": shows
-    })
+    with DATA_LOCK:
+        shows = load_shows()
+        updated_count = 0
+        for s in shows:
+            ep_count = len(s.get("episodes_watched") or [])
+            total_eps = s.get("total_episodes") or 0
+            series_status = s.get("series_status")
+            in_prod = s.get("in_production")
+
+            if ep_count == 0:
+                if s.get("status") != "watchlist":
+                    s["status"] = "watchlist"
+                    updated_count += 1
+            elif total_eps > 0 and ep_count >= total_eps and (series_status in ["Ended", "Canceled"] or in_prod is False):
+                if s.get("status") != "watched":
+                    s["status"] = "watched"
+                    updated_count += 1
+            elif total_eps > 0 and ep_count >= total_eps and (series_status == "Returning Series" or in_prod is True):
+                s["caught_up"] = True
+                if s.get("status") != "watching":
+                    s["status"] = "watching"
+                    updated_count += 1
+            else:
+                if s.get("status") != "watching":
+                    s["status"] = "watching"
+                    updated_count += 1
+        if updated_count > 0:
+            save_shows(shows)
+        return jsonify({
+            "success": True,
+            "updated": updated_count,
+            "shows": shows
+        })
 
 @app.route("/api/shows/add", methods=["POST"])
 @app.route("/api/shows", methods=["POST"])
@@ -979,21 +1024,21 @@ def add_show():
     shows = load_shows()
     
     watched_episodes = []
-    
+
     # 1. Direct list of episodes passed from UI checkbox selector
     raw_watched_list = data.get("episodes_watched")
     if raw_watched_list and isinstance(raw_watched_list, list):
         for item in raw_watched_list:
             watched_episodes.append({
                 "episode_id": str(uuid.uuid4()),
-                "season": int(item.get("season", 1)),
-                "episode": int(item.get("episode", 1)),
+                "season": _safe_int(item.get("season", 1), 1),
+                "episode": _safe_int(item.get("episode", 1), 1),
                 "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
     else:
         # Fallback to up_to_season / up_to_episode
-        up_to_season = int(data.get("up_to_season", 0))
-        up_to_episode = int(data.get("up_to_episode", 0))
+        up_to_season = _safe_int(data.get("up_to_season", 0))
+        up_to_episode = _safe_int(data.get("up_to_episode", 0))
         if up_to_season > 0 and up_to_episode > 0:
             for s in range(1, up_to_season):
                 for e in range(1, 25):
@@ -1012,7 +1057,7 @@ def add_show():
                 })
 
     watched_episodes.sort(key=lambda x: (x.get("season", 0), x.get("episode", 0)))
-    
+
     highest_s = max([e["season"] for e in watched_episodes], default=0)
     highest_e = max([e["episode"] for e in watched_episodes if e["season"] == highest_s], default=0)
     latest_progress = f"S{highest_s:02d}E{highest_e:02d}" if (highest_s > 0 and highest_e > 0) else None
@@ -1021,83 +1066,86 @@ def add_show():
     rating = data.get("rating") or None
     if status == "watchlist":
         rating = None
-    elif rating and not (1 <= rating <= 5):
+    elif not (isinstance(rating, int) and not isinstance(rating, bool) and 1 <= rating <= 5):
         rating = None
-        
-    norm_title = normalize_title(title)
-    tmdb_id = data.get("tmdb_id")
-    existing_show = next((s for s in shows if (tmdb_id and s.get("tmdb_id") and str(s.get("tmdb_id")) == str(tmdb_id)) or (normalize_title(s.get("title")) and normalize_title(s.get("title")) == norm_title)), None)
-    
-    if existing_show:
-        existing_show["status"] = status
-        if rating is not None:
-            existing_show["rating"] = rating
-        elif status == "watchlist":
-            existing_show["rating"] = None
-        if poster_url and (not existing_show.get("poster_url") or "favicon" in existing_show.get("poster_url", "")):
-            existing_show["poster_url"] = poster_url
-        if watched_episodes:
-            existing_eps = existing_show.get("episodes_watched") or []
-            existing_keys = {f"{e.get('season')}_{e.get('episode')}" for e in existing_eps}
-            for we in watched_episodes:
-                k = f"{we.get('season')}_{we.get('episode')}"
-                if k not in existing_keys:
-                    existing_eps.append(we)
-                    existing_keys.add(k)
-            existing_eps.sort(key=lambda x: (x.get("season", 0), x.get("episode", 0)))
-            existing_show["episodes_watched"] = existing_eps
-            highest_s = max([e["season"] for e in existing_eps], default=0)
-            highest_e = max([e["episode"] for e in existing_eps if e["season"] == highest_s], default=0)
-            existing_show["latest_progress"] = f"S{highest_s:02d}E{highest_e:02d}" if (highest_s > 0 and highest_e > 0) else None
-            existing_show["watched_count"] = len(existing_eps)
-            if len(existing_eps) > 0 and status == "watchlist":
-                existing_show["status"] = "watching"
-        existing_show["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        if save_shows(shows):
-            return jsonify(existing_show), 200
-        return jsonify({"error": "Failed to save database"}), 500
 
-    new_show = {
-        "uuid": str(uuid.uuid4()),
-        "show_id": None,
-        "title": title,
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "active": True,
-        "archived": False,
-        "rating": rating,
-        "poster_url": poster_url,
-        "episodes_watched": watched_episodes,
-        "watched_count": len(watched_episodes),
-        "latest_progress": latest_progress,
-        "latest_season": highest_s,
-        "latest_episode": highest_e,
-        "status": status
-    }
-    
-    shows.insert(0, new_show)
-    if save_shows(shows):
-        return jsonify(new_show), 201
-    else:
-        return jsonify({"error": "Failed to save show"}), 500
+    with DATA_LOCK:
+        shows = load_shows()
+        norm_title = normalize_title(title)
+        tmdb_id = data.get("tmdb_id")
+        existing_show = next((s for s in shows if (tmdb_id and s.get("tmdb_id") and str(s.get("tmdb_id")) == str(tmdb_id)) or (normalize_title(s.get("title")) and normalize_title(s.get("title")) == norm_title)), None)
+
+        if existing_show:
+            existing_show["status"] = status
+            if rating is not None:
+                existing_show["rating"] = rating
+            elif status == "watchlist":
+                existing_show["rating"] = None
+            if poster_url and (not existing_show.get("poster_url") or "favicon" in existing_show.get("poster_url", "")):
+                existing_show["poster_url"] = poster_url
+            if watched_episodes:
+                existing_eps = existing_show.get("episodes_watched") or []
+                existing_keys = {f"{e.get('season')}_{e.get('episode')}" for e in existing_eps}
+                for we in watched_episodes:
+                    k = f"{we.get('season')}_{we.get('episode')}"
+                    if k not in existing_keys:
+                        existing_eps.append(we)
+                        existing_keys.add(k)
+                existing_eps.sort(key=lambda x: (x.get("season", 0), x.get("episode", 0)))
+                existing_show["episodes_watched"] = existing_eps
+                highest_s = max([e["season"] for e in existing_eps], default=0)
+                highest_e = max([e["episode"] for e in existing_eps if e["season"] == highest_s], default=0)
+                existing_show["latest_progress"] = f"S{highest_s:02d}E{highest_e:02d}" if (highest_s > 0 and highest_e > 0) else None
+                existing_show["watched_count"] = len(existing_eps)
+                if len(existing_eps) > 0 and status == "watchlist":
+                    existing_show["status"] = "watching"
+            existing_show["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            if save_shows(shows):
+                return jsonify(existing_show), 200
+            return jsonify({"error": "Failed to save database"}), 500
+
+        new_show = {
+            "uuid": str(uuid.uuid4()),
+            "show_id": None,
+            "title": title,
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "active": True,
+            "archived": False,
+            "rating": rating,
+            "poster_url": poster_url,
+            "episodes_watched": watched_episodes,
+            "watched_count": len(watched_episodes),
+            "latest_progress": latest_progress,
+            "latest_season": highest_s,
+            "latest_episode": highest_e,
+            "status": status
+        }
+
+        shows.insert(0, new_show)
+        if save_shows(shows):
+            return jsonify(new_show), 201
+        else:
+            return jsonify({"error": "Failed to save show"}), 500
 
 @app.route("/api/shows/<show_uuid>", methods=["DELETE"])
 def delete_show(show_uuid):
-    shows = load_shows()
-    found_idx = -1
-    for i, s in enumerate(shows):
-        if s.get("uuid") == show_uuid:
-            found_idx = i
-            break
-            
-    if found_idx == -1:
-        return jsonify({"error": "Show not found"}), 404
-        
-    deleted_show = shows.pop(found_idx)
-    if save_shows(shows):
-        return jsonify({"success": True, "deleted": deleted_show})
-    else:
-        return jsonify({"error": "Failed to save database"}), 500
+    with DATA_LOCK:
+        shows = load_shows()
+        found_idx = -1
+        for i, s in enumerate(shows):
+            if s.get("uuid") == show_uuid:
+                found_idx = i
+                break
+
+        if found_idx == -1:
+            return jsonify({"error": "Show not found"}), 404
+
+        deleted_show = shows.pop(found_idx)
+        if save_shows(shows):
+            return jsonify({"success": True, "deleted": deleted_show})
+        else:
+            return jsonify({"error": "Failed to save database"}), 500
 
 # --- VOD WATCH PROVIDERS WITH 7-DAY TTL SMART CACHE ---
 from datetime import timedelta
@@ -1122,7 +1170,7 @@ def load_vod_cache():
                                         p["logo_url"] = "https://image.tmdb.org/t/p/original/8z7rC8uIDaTM91X0ZfkRf04ydj2.jpg"
                 return VOD_CACHE_DATA
         except Exception as e:
-            print(f"Error loading VOD cache: {e}")
+            log.error("Error loading VOD cache: %s", e)
     VOD_CACHE_DATA = {}
     return VOD_CACHE_DATA
 
@@ -1135,7 +1183,7 @@ def save_vod_cache(cache_data):
             json.dump(cache_data, f, ensure_ascii=False, indent=2)
         return True
     except Exception as e:
-        print(f"Error saving VOD cache: {e}")
+        log.error("Error saving VOD cache: %s", e)
         return False
 
 def fetch_live_watch_providers(clean_title, media_type, region, tmdb_id=None):
@@ -1174,7 +1222,7 @@ def fetch_live_watch_providers(clean_title, media_type, region, tmdb_id=None):
                         tmdb_id = best.get("id")
                         break
         except Exception as e:
-            print(f"Error searching TMDb for {clean_title}: {e}")
+            log.warning("Error searching TMDb for %s: %s", clean_title, e)
 
     # Fallback to alternate media type if not found
     if not tmdb_id:
@@ -1256,7 +1304,7 @@ def fetch_live_watch_providers(clean_title, media_type, region, tmdb_id=None):
                 "expires_at": (now + timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
             }
     except Exception as e:
-        print(f"Error fetching watch providers for TMDb {tmdb_id}: {e}")
+        log.warning("Error fetching watch providers for TMDb %s: %s", tmdb_id, e)
         now = datetime.now()
         return {
             "found": False,
@@ -1319,36 +1367,44 @@ def get_all_vod_cache():
 @app.route("/api/vod_precache", methods=["POST"])
 def precache_vod_batch():
     data = request.json or {}
-    items = data.get("items", []) # [{"title": "Inception", "type": "movie"}]
+    items = data.get("items", [])
     region = data.get("region", "PL").strip().upper()
-    
-    cache = load_vod_cache()
-    updated_count = 0
-    
-    for it in items:
-        title = it.get("title", "").strip()
-        m_type = "tv" if it.get("type") in ["series", "tv"] else "movie"
-        clean_t = re.sub(r"\s*\([^)]*\)", "", title).strip().lower()
-        k = f"{m_type}_{region}_{clean_t}"
-        
-        needs_fetch = True
-        if k in cache and "expires_at" in cache[k]:
-            try:
-                exp = datetime.strptime(cache[k]["expires_at"], "%Y-%m-%d %H:%M:%S")
-                if datetime.now() < exp:
-                    needs_fetch = False
-            except Exception:
-                pass
-                
-        if needs_fetch:
-            res = fetch_live_watch_providers(clean_t, m_type, region)
-            cache[k] = res
-            updated_count += 1
 
-    if updated_count:
-        save_vod_cache(cache)
+    # Hard cap to prevent abuse / TMDb rate-limit exhaustion via huge batches
+    MAX_PRECACHE_ITEMS = 50
+    if not isinstance(items, list):
+        return jsonify({"error": "Invalid items payload"}), 400
+    if len(items) > MAX_PRECACHE_ITEMS:
+        return jsonify({"error": f"Too many items ({len(items)}). Limit is {MAX_PRECACHE_ITEMS} per request."}), 400
 
-    return jsonify({"status": "ok", "updated": updated_count, "total": len(items)})
+    with DATA_LOCK:
+        cache = load_vod_cache()
+        updated_count = 0
+
+        for it in items:
+            title = it.get("title", "").strip()
+            m_type = "tv" if it.get("type") in ["series", "tv"] else "movie"
+            clean_t = re.sub(r"\s*\([^)]*\)", "", title).strip().lower()
+            k = f"{m_type}_{region}_{clean_t}"
+
+            needs_fetch = True
+            if k in cache and "expires_at" in cache[k]:
+                try:
+                    exp = datetime.strptime(cache[k]["expires_at"], "%Y-%m-%d %H:%M:%S")
+                    if datetime.now() < exp:
+                        needs_fetch = False
+                except Exception:
+                    pass
+
+            if needs_fetch:
+                res = fetch_live_watch_providers(clean_t, m_type, region)
+                cache[k] = res
+                updated_count += 1
+
+        if updated_count:
+            save_vod_cache(cache)
+
+        return jsonify({"status": "ok", "updated": updated_count, "total": len(items)})
 
 # --- UPCOMING & RELEASE RADAR API ---
 @app.route("/api/upcoming", methods=["GET"])
@@ -1640,7 +1696,7 @@ def get_recommendations_for_item():
                 if res:
                     tmdb_id = str(res[0].get("id"))
         except Exception as e:
-            print(f"Error searching TMDb ID for rec title {title}: {e}")
+            log.warning("Error searching TMDb ID for rec title %s: %s", title, e)
 
     if not tmdb_id:
         return jsonify({"status": "error", "message": "Missing or unresolved TMDb ID", "results": []})
@@ -1664,7 +1720,7 @@ def get_recommendations_for_item():
                     if not any(r.get("id") == item.get("id") for r in results_list):
                         results_list.append(item)
     except Exception as e:
-        print(f"Error fetching TMDb recommendations for {tmdb_type} {tmdb_id}: {e}")
+        log.warning("Error fetching TMDb recommendations for %s %s: %s", tmdb_type, tmdb_id, e)
 
     formatted = []
     for it in results_list:
@@ -1771,7 +1827,7 @@ def discover_recommendations():
                     "genre_ids": it.get("genre_ids", [])
                 })
     except Exception as e:
-        print(f"Error in discover recommendations: {e}")
+        log.warning("Error in discover recommendations: %s", e)
 
     response_data = {"status": "ok", "count": len(formatted), "results": formatted}
     RECOMMENDATIONS_CACHE[cache_key] = response_data
@@ -1822,7 +1878,7 @@ def get_trending_recommendations():
                     "genre_ids": it.get("genre_ids", [])
                 })
     except Exception as e:
-        print(f"Error in trending recommendations: {e}")
+        log.warning("Error in trending recommendations: %s", e)
 
     response_data = {"status": "ok", "count": len(formatted), "results": formatted}
     RECOMMENDATIONS_CACHE[cache_key] = response_data
@@ -1894,7 +1950,7 @@ def get_person_recommendations():
                             "job": it.get("job", "Twórca")
                         })
     except Exception as e:
-        print(f"Error fetching person recommendations for {name}: {e}")
+        log.warning("Error fetching person recommendations for %s: %s", name, e)
 
     response_data = {"status": "ok", "count": len(formatted), "results": formatted}
     RECOMMENDATIONS_CACHE[cache_key] = response_data
@@ -2028,7 +2084,7 @@ def get_actor_details():
             RECOMMENDATIONS_CACHE[cache_key] = result
             return jsonify(result)
     except Exception as e:
-        print(f"Error fetching actor details for id={person_id}, name={name}: {e}")
+        log.warning("Error fetching actor details for id=%s, name=%s: %s", person_id, name, e)
         return jsonify({
             "status": "ok",
             "id": person_id if (person_id and str(person_id).isdigit()) else None,
