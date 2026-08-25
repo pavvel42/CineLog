@@ -536,444 +536,459 @@ let curatorConversation = [];
 let aiCuratorListenersBound = false;
 
 export function initAiCuratorControls() {
-  const inputEl = document.getElementById("m3-rec-ai-input");
-  const sendBtn = document.getElementById("m3-rec-ai-send-btn");
-  const threadEl = document.getElementById("m3-rec-ai-chat-thread");
-  const resetBtn = document.getElementById("m3-rec-btn-reset-ai");
-  const chips = document.querySelectorAll("#m3-rec-ai-quick-chips [data-ai-prompt]");
+  initAiChatCore();
+  initMentionChips();
+  initMentionAutocomplete();
+}
 
-  if (!inputEl || !sendBtn || !threadEl) return;
+function initAiChatCore() {
+  // Wątek czatu AI: reset, wysyłanie promptów (szybkie chipy + własne), streaming odpowiedzi.
+const inputEl = document.getElementById("m3-rec-ai-input");
+const sendBtn = document.getElementById("m3-rec-ai-send-btn");
+const threadEl = document.getElementById("m3-rec-ai-chat-thread");
+const resetBtn = document.getElementById("m3-rec-btn-reset-ai");
+const chips = document.querySelectorAll("#m3-rec-ai-quick-chips [data-ai-prompt]");
 
-  const resetChat = () => {
-    curatorConversation = [];
-    threadEl.innerHTML = "";
-    threadEl.style.display = "none";
-    if (resetBtn) resetBtn.style.display = "none";
-    if (inputEl) inputEl.value = "";
-  };
+if (!inputEl || !sendBtn || !threadEl) return;
 
-  if (resetBtn) {
-    resetBtn.onclick = resetChat;
+const resetChat = () => {
+  curatorConversation = [];
+  threadEl.innerHTML = "";
+  threadEl.style.display = "none";
+  if (resetBtn) resetBtn.style.display = "none";
+  if (inputEl) inputEl.value = "";
+};
+
+if (resetBtn) {
+  resetBtn.onclick = resetChat;
+}
+
+const sendUserMessage = async (promptType, customText = "") => {
+  if (!isAiConfigured()) {
+    showToastNotification("Aby korzystać z Filmowego Asystenta AI, najpierw skonfiguruj swój klucz API.", "info");
+    openCloudSyncModal("ai");
+    return;
   }
 
-  const sendUserMessage = async (promptType, customText = "") => {
-    if (!isAiConfigured()) {
-      showToastNotification("Aby korzystać z Filmowego Asystenta AI, najpierw skonfiguruj swój klucz API.", "info");
-      openCloudSyncModal("ai");
-      return;
-    }
+  let userPrompt = customText;
+  let isSpecialDna = false;
 
-    let userPrompt = customText;
-    let isSpecialDna = false;
+  if (promptType === "dna") {
+    isSpecialDna = true;
+    userPrompt = "Stwórz profil DNA mojego gustu filmowego na podstawie moich ocen.";
+  } else if (promptType === "binge90") {
+    userPrompt = "Mam dokładnie 90 minut wolnego czasu. Poleć mi 2-3 zwięzłe, znakomite pozycje zoptymalizowane pod ten czas.";
+  } else if (promptType === "gems") {
+    userPrompt = "Poleć mi 3 niedocenione perełki (Hidden Gems) z moich platform VOD, które idealnie pasują do mojego profilu ocen.";
+  } else if (promptType === "dark") {
+    userPrompt = "Szukam czegoś gęstego, mrocznego, trzymającego w napięciu do ostatniej sekundy.";
+  } else if (promptType === "binge_marathon") {
+    userPrompt = "Ułóż mi idealny plan maratonu filmowego na 4-6 godzin z moich platform VOD. Połącz powiązane ze sobą klimatycznie filmy w logicznej kolejności oglądania.";
+  } else if (promptType === "vibe_search") {
+    userPrompt = "Szukam filmu o unikalnym klimacie: deszczowe miasto nocą, neony, melancholia, samotność i hipnotyzująca muzyka (styl Blade Runner, Drive, Lost in Translation).";
+  }
 
-    if (promptType === "dna") {
-      isSpecialDna = true;
-      userPrompt = "Stwórz profil DNA mojego gustu filmowego na podstawie moich ocen.";
-    } else if (promptType === "binge90") {
-      userPrompt = "Mam dokładnie 90 minut wolnego czasu. Poleć mi 2-3 zwięzłe, znakomite pozycje zoptymalizowane pod ten czas.";
-    } else if (promptType === "gems") {
-      userPrompt = "Poleć mi 3 niedocenione perełki (Hidden Gems) z moich platform VOD, które idealnie pasują do mojego profilu ocen.";
-    } else if (promptType === "dark") {
-      userPrompt = "Szukam czegoś gęstego, mrocznego, trzymającego w napięciu do ostatniej sekundy.";
-    } else if (promptType === "binge_marathon") {
-      userPrompt = "Ułóż mi idealny plan maratonu filmowego na 4-6 godzin z moich platform VOD. Połącz powiązane ze sobą klimatycznie filmy w logicznej kolejności oglądania.";
-    } else if (promptType === "vibe_search") {
-      userPrompt = "Szukam filmu o unikalnym klimacie: deszczowe miasto nocą, neony, melancholia, samotność i hipnotyzująca muzyka (styl Blade Runner, Drive, Lost in Translation).";
-    }
+  if (!userPrompt || !userPrompt.trim()) return;
 
-    if (!userPrompt || !userPrompt.trim()) return;
+  inputEl.value = "";
+  threadEl.style.display = "flex";
+  if (resetBtn) resetBtn.style.display = "inline-flex";
 
-    inputEl.value = "";
-    threadEl.style.display = "flex";
-    if (resetBtn) resetBtn.style.display = "inline-flex";
+  // 1. User Message Bubble
+  const userBubble = document.createElement("div");
+  userBubble.style.cssText = "align-self: flex-end; max-width: 85%; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); padding: 10px 14px; border-radius: 16px 16px 4px 16px; font-size: 0.84rem; font-weight: 500; word-break: break-word;";
+  userBubble.innerText = userPrompt;
+  threadEl.appendChild(userBubble);
 
-    // 1. User Message Bubble
-    const userBubble = document.createElement("div");
-    userBubble.style.cssText = "align-self: flex-end; max-width: 85%; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); padding: 10px 14px; border-radius: 16px 16px 4px 16px; font-size: 0.84rem; font-weight: 500; word-break: break-word;";
-    userBubble.innerText = userPrompt;
-    threadEl.appendChild(userBubble);
-
-    // 2. Assistant Message Bubble (starts collapsed by default for compact live streaming)
-    const msgId = "rec-ai-msg-" + Date.now();
-    const assistantBubble = document.createElement("div");
-    assistantBubble.style.cssText = "align-self: flex-start; width: 100%; background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 16px 16px 16px 4px; padding: 14px; font-size: 0.84rem; line-height: 1.55; color: var(--md-sys-color-on-surface); display: flex; flex-direction: column; gap: 8px;";
-    
-    assistantBubble.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 6px;">
-        <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #a855f7;">
-          <span class="material-symbols-rounded" style="font-size: 18px;">auto_awesome</span>
-          <span>Filmowy Asystent AI</span>
-        </div>
-        <div style="display: flex; align-items: center; gap: 6px;">
-          <button type="button" class="m3-chip" id="collapse-${msgId}" style="font-size: 0.72rem; padding: 2px 8px; gap: 4px; display: inline-flex; align-items: center;" title="Rozwiń / Zwiń tekst">
-            <span class="material-symbols-rounded" id="collapse-icon-${msgId}" style="font-size: 14px;">unfold_more</span>
-            <span id="collapse-text-${msgId}">Rozwiń</span>
-          </button>
-          <button type="button" class="m3-chip" id="copy-${msgId}" style="font-size: 0.72rem; padding: 2px 8px; gap: 4px; display: inline-flex; align-items: center;" title="Kopiuj do schowka">
-            <span class="material-symbols-rounded" style="font-size: 14px;">content_copy</span>
-            <span>Kopiuj</span>
-          </button>
-        </div>
+  // 2. Assistant Message Bubble (starts collapsed by default for compact live streaming)
+  const msgId = "rec-ai-msg-" + Date.now();
+  const assistantBubble = document.createElement("div");
+  assistantBubble.style.cssText = "align-self: flex-start; width: 100%; background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 16px 16px 16px 4px; padding: 14px; font-size: 0.84rem; line-height: 1.55; color: var(--md-sys-color-on-surface); display: flex; flex-direction: column; gap: 8px;";
+  
+  assistantBubble.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 6px;">
+      <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #a855f7;">
+        <span class="material-symbols-rounded" style="font-size: 18px;">auto_awesome</span>
+        <span>Filmowy Asystent AI</span>
       </div>
-      <details class="m3-ai-thought-accordion" id="thought-${msgId}" style="display: none; background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 8px; padding: 6px 10px; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">
-        <summary style="cursor: pointer; font-weight: 700; color: #a855f7; display: flex; align-items: center; gap: 6px; user-select: none;">
-          <span class="material-symbols-rounded" style="font-size: 16px;">psychology</span>
-          <span>Tok myślenia modelu AI (<span id="count-${msgId}">0 słów</span>)</span>
-        </summary>
-        <div id="text-${msgId}" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(168, 85, 247, 0.15); line-height: 1.45; font-style: italic; white-space: pre-wrap; max-height: 120px; overflow-y: auto;"></div>
-      </details>
-      <div id="content-${msgId}" style="line-height: 1.6; max-height: 95px; overflow-y: auto; position: relative; mask-image: linear-gradient(to bottom, black 50%, transparent 100%); -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%); transition: max-height 0.25s ease;">
-        <div style="display: flex; align-items: center; gap: 8px; color: #a855f7;">
-          <span class="material-symbols-rounded" style="animation: spin 1s linear infinite; font-size: 18px;">auto_awesome</span>
-          <span style="font-weight: 600;">Asystent pisze odpowiedź...</span>
-        </div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <button type="button" class="m3-chip" id="collapse-${msgId}" style="font-size: 0.72rem; padding: 2px 8px; gap: 4px; display: inline-flex; align-items: center;" title="Rozwiń / Zwiń tekst">
+          <span class="material-symbols-rounded" id="collapse-icon-${msgId}" style="font-size: 14px;">unfold_more</span>
+          <span id="collapse-text-${msgId}">Rozwiń</span>
+        </button>
+        <button type="button" class="m3-chip" id="copy-${msgId}" style="font-size: 0.72rem; padding: 2px 8px; gap: 4px; display: inline-flex; align-items: center;" title="Kopiuj do schowka">
+          <span class="material-symbols-rounded" style="font-size: 14px;">content_copy</span>
+          <span>Kopiuj</span>
+        </button>
       </div>
-      <div id="cards-${msgId}"></div>
-    `;
+    </div>
+    <details class="m3-ai-thought-accordion" id="thought-${msgId}" style="display: none; background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 8px; padding: 6px 10px; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">
+      <summary style="cursor: pointer; font-weight: 700; color: #a855f7; display: flex; align-items: center; gap: 6px; user-select: none;">
+        <span class="material-symbols-rounded" style="font-size: 16px;">psychology</span>
+        <span>Tok myślenia modelu AI (<span id="count-${msgId}">0 słów</span>)</span>
+      </summary>
+      <div id="text-${msgId}" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(168, 85, 247, 0.15); line-height: 1.45; font-style: italic; white-space: pre-wrap; max-height: 120px; overflow-y: auto;"></div>
+    </details>
+    <div id="content-${msgId}" style="line-height: 1.6; max-height: 95px; overflow-y: auto; position: relative; mask-image: linear-gradient(to bottom, black 50%, transparent 100%); -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%); transition: max-height 0.25s ease;">
+      <div style="display: flex; align-items: center; gap: 8px; color: #a855f7;">
+        <span class="material-symbols-rounded" style="animation: spin 1s linear infinite; font-size: 18px;">auto_awesome</span>
+        <span style="font-weight: 600;">Asystent pisze odpowiedź...</span>
+      </div>
+    </div>
+    <div id="cards-${msgId}"></div>
+  `;
 
-    threadEl.appendChild(assistantBubble);
-    threadEl.scrollTop = threadEl.scrollHeight;
+  threadEl.appendChild(assistantBubble);
+  threadEl.scrollTop = threadEl.scrollHeight;
 
-    const contentEl = document.getElementById(`content-${msgId}`);
-    const thoughtBox = document.getElementById(`thought-${msgId}`);
-    const thoughtTextEl = document.getElementById(`text-${msgId}`);
-    const thoughtCountEl = document.getElementById(`count-${msgId}`);
-    const cardsEl = document.getElementById(`cards-${msgId}`);
-    const copyBtn = document.getElementById(`copy-${msgId}`);
-    const collapseBtn = document.getElementById(`collapse-${msgId}`);
-    const collapseIcon = document.getElementById(`collapse-icon-${msgId}`);
-    const collapseText = document.getElementById(`collapse-text-${msgId}`);
+  const contentEl = document.getElementById(`content-${msgId}`);
+  const thoughtBox = document.getElementById(`thought-${msgId}`);
+  const thoughtTextEl = document.getElementById(`text-${msgId}`);
+  const thoughtCountEl = document.getElementById(`count-${msgId}`);
+  const cardsEl = document.getElementById(`cards-${msgId}`);
+  const copyBtn = document.getElementById(`copy-${msgId}`);
+  const collapseBtn = document.getElementById(`collapse-${msgId}`);
+  const collapseIcon = document.getElementById(`collapse-icon-${msgId}`);
+  const collapseText = document.getElementById(`collapse-text-${msgId}`);
 
-    let latestFullText = "";
-    let isCollapsed = true;
+  let latestFullText = "";
+  let isCollapsed = true;
 
-    if (collapseBtn && contentEl) {
-      collapseBtn.onclick = () => {
-        isCollapsed = !isCollapsed;
-        if (isCollapsed) {
-          contentEl.style.maxHeight = "95px";
-          contentEl.style.overflowY = "auto";
-          contentEl.style.position = "relative";
-          contentEl.style.maskImage = "linear-gradient(to bottom, black 50%, transparent 100%)";
-          contentEl.style.webkitMaskImage = "linear-gradient(to bottom, black 50%, transparent 100%)";
-          if (collapseIcon) collapseIcon.innerText = "unfold_more";
-          if (collapseText) collapseText.innerText = "Rozwiń";
-        } else {
-          contentEl.style.maxHeight = "none";
-          contentEl.style.overflowY = "visible";
-          contentEl.style.maskImage = "none";
-          contentEl.style.webkitMaskImage = "none";
-          if (collapseIcon) collapseIcon.innerText = "unfold_less";
-          if (collapseText) collapseText.innerText = "Zwiń";
-        }
-      };
-    }
-
-    if (copyBtn) {
-      copyBtn.onclick = () => {
-        if (latestFullText) {
-          navigator.clipboard.writeText(latestFullText).then(() => {
-            showToastNotification("Skopiowano odpowiedź do schowka!", "success");
-          }).catch(() => {
-            showToastNotification("Nie udało się skopiować do schowka.", "error");
-          });
-        }
-      };
-    }
-
-    const onToken = (delta, fullText) => {
-      latestFullText = fullText;
-      if (contentEl) {
-        contentEl.innerHTML = formatAiMarkdown(fullText);
-        if (isCollapsed) {
-          contentEl.scrollTop = contentEl.scrollHeight;
-        }
-        threadEl.scrollTop = threadEl.scrollHeight;
-      }
-    };
-
-    const onThought = (deltaThought, fullThoughtText) => {
-      if (thoughtBox && thoughtTextEl) {
-        thoughtBox.style.display = "block";
-        thoughtTextEl.innerText = fullThoughtText;
-        if (thoughtCountEl) {
-          const words = fullThoughtText.trim().split(/\s+/).length;
-          thoughtCountEl.innerText = `${words} słów`;
-        }
-      }
-    };
-
-    // Prepare payload
-    let messages = [];
-    if (isSpecialDna) {
-      const dna = buildTasteDnaPrompt();
-      messages = [
-        { role: "system", content: dna.systemPrompt },
-        { role: "user", content: dna.userMessage }
-      ];
-    } else {
-      // 1. Resolve @ mentions and custom item context
-      const { injectedContext } = resolveMentionTags(userPrompt);
-      const userPayloadContent = injectedContext 
-        ? `${userPrompt}\n\nKontekst wskazany przez użytkownika:\n${injectedContext}` 
-        : userPrompt;
-
-      // 2. Build or refresh dynamic system prompt tailored to userPrompt
-      const systemPromptText = buildCuratorSystemPrompt(userPrompt);
-      if (curatorConversation.length === 0) {
-        curatorConversation.push({ role: "system", content: systemPromptText });
+  if (collapseBtn && contentEl) {
+    collapseBtn.onclick = () => {
+      isCollapsed = !isCollapsed;
+      if (isCollapsed) {
+        contentEl.style.maxHeight = "95px";
+        contentEl.style.overflowY = "auto";
+        contentEl.style.position = "relative";
+        contentEl.style.maskImage = "linear-gradient(to bottom, black 50%, transparent 100%)";
+        contentEl.style.webkitMaskImage = "linear-gradient(to bottom, black 50%, transparent 100%)";
+        if (collapseIcon) collapseIcon.innerText = "unfold_more";
+        if (collapseText) collapseText.innerText = "Rozwiń";
       } else {
-        curatorConversation[0] = { role: "system", content: systemPromptText };
+        contentEl.style.maxHeight = "none";
+        contentEl.style.overflowY = "visible";
+        contentEl.style.maskImage = "none";
+        contentEl.style.webkitMaskImage = "none";
+        if (collapseIcon) collapseIcon.innerText = "unfold_less";
+        if (collapseText) collapseText.innerText = "Zwiń";
       }
+    };
+  }
 
-      curatorConversation.push({ role: "user", content: userPayloadContent });
-      messages = curatorConversation;
+  if (copyBtn) {
+    copyBtn.onclick = () => {
+      if (latestFullText) {
+        navigator.clipboard.writeText(latestFullText).then(() => {
+          showToastNotification("Skopiowano odpowiedź do schowka!", "success");
+        }).catch(() => {
+          showToastNotification("Nie udało się skopiować do schowka.", "error");
+        });
+      }
+    };
+  }
+
+  const onToken = (delta, fullText) => {
+    latestFullText = fullText;
+    if (contentEl) {
+      contentEl.innerHTML = formatAiMarkdown(fullText);
+      if (isCollapsed) {
+        contentEl.scrollTop = contentEl.scrollHeight;
+      }
+      threadEl.scrollTop = threadEl.scrollHeight;
     }
+  };
 
-    try {
-      const answer = await streamAiChat({ messages, temperature: 0.7, max_tokens: 1800, onToken, onThought });
-      if (!isSpecialDna) {
-        curatorConversation.push({ role: "assistant", content: answer });
-      }
-      if (cardsEl && latestFullText) {
-        await renderAiMediaCards(cardsEl, latestFullText);
-        threadEl.scrollTop = threadEl.scrollHeight;
-      }
-    } catch (err) {
-      if (contentEl) {
-        contentEl.innerHTML = `<div style="color: var(--md-sys-color-error); font-weight: 600;">🔴 Błąd AI: ${escapeHtml(err.message)}</div>`;
+  const onThought = (deltaThought, fullThoughtText) => {
+    if (thoughtBox && thoughtTextEl) {
+      thoughtBox.style.display = "block";
+      thoughtTextEl.innerText = fullThoughtText;
+      if (thoughtCountEl) {
+        const words = fullThoughtText.trim().split(/\s+/).length;
+        thoughtCountEl.innerText = `${words} słów`;
       }
     }
   };
 
-  sendBtn.onclick = () => {
+  // Prepare payload
+  let messages = [];
+  if (isSpecialDna) {
+    const dna = buildTasteDnaPrompt();
+    messages = [
+      { role: "system", content: dna.systemPrompt },
+      { role: "user", content: dna.userMessage }
+    ];
+  } else {
+    // 1. Resolve @ mentions and custom item context
+    const { injectedContext } = resolveMentionTags(userPrompt);
+    const userPayloadContent = injectedContext 
+      ? `${userPrompt}\n\nKontekst wskazany przez użytkownika:\n${injectedContext}` 
+      : userPrompt;
+
+    // 2. Build or refresh dynamic system prompt tailored to userPrompt
+    const systemPromptText = buildCuratorSystemPrompt(userPrompt);
+    if (curatorConversation.length === 0) {
+      curatorConversation.push({ role: "system", content: systemPromptText });
+    } else {
+      curatorConversation[0] = { role: "system", content: systemPromptText };
+    }
+
+    curatorConversation.push({ role: "user", content: userPayloadContent });
+    messages = curatorConversation;
+  }
+
+  try {
+    const answer = await streamAiChat({ messages, temperature: 0.7, max_tokens: 1800, onToken, onThought });
+    if (!isSpecialDna) {
+      curatorConversation.push({ role: "assistant", content: answer });
+    }
+    if (cardsEl && latestFullText) {
+      await renderAiMediaCards(cardsEl, latestFullText);
+      threadEl.scrollTop = threadEl.scrollHeight;
+    }
+  } catch (err) {
+    if (contentEl) {
+      contentEl.innerHTML = `<div style="color: var(--md-sys-color-error); font-weight: 600;">🔴 Błąd AI: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+};
+
+sendBtn.onclick = () => {
+  const val = inputEl.value.trim();
+  if (val) sendUserMessage("custom", val);
+};
+
+inputEl.onkeydown = (e) => {
+  if (e.key === "Enter") {
     const val = inputEl.value.trim();
     if (val) sendUserMessage("custom", val);
-  };
-
-  inputEl.onkeydown = (e) => {
-    if (e.key === "Enter") {
-      const val = inputEl.value.trim();
-      if (val) sendUserMessage("custom", val);
-    }
-  };
-
-  chips.forEach(chip => {
-    chip.onclick = () => {
-      const pType = chip.getAttribute("data-ai-prompt");
-      sendUserMessage(pType);
-    };
-  });
-
-  // 3. Mention Chips Click Handler
-  const mentionChips = document.querySelectorAll("#m3-rec-ai-mention-chips [data-mention]");
-  mentionChips.forEach(chip => {
-    chip.onclick = () => {
-      const tag = chip.getAttribute("data-mention");
-      if (!inputEl.value.includes(tag)) {
-        inputEl.value = inputEl.value ? `${inputEl.value.trim()} ${tag} ` : `${tag} `;
-      }
-      inputEl.focus();
-    };
-  });
-
-  // 4. Floating Autocomplete on typing @ with Smart Dynamic Positioning
-  const mentionDropdown = document.getElementById("m3-ai-mention-dropdown");
-  let activeMentionIndex = -1;
-
-  const updateMentionDropdown = () => {
-    if (!mentionDropdown) return;
-    const val = inputEl.value;
-    const cursorPos = inputEl.selectionStart || val.length;
-    const textBeforeCursor = val.substring(0, cursorPos);
-    const atMatch = textBeforeCursor.match(/@([a-zA-Z0-9_\u00C0-\u017E\s]*)$/);
-
-    if (!atMatch) {
-      mentionDropdown.style.display = "none";
-      activeMentionIndex = -1;
-      return;
-    }
-
-    const query = atMatch[1].trim().toLowerCase();
-    const suggestions = [];
-
-    // Predefined tags
-    const defaultTags = [
-      { tag: "@ulubione_filmy", displayTag: "@ulubione_filmy", desc: "Twoje najwyżej ocenione filmy", icon: "movie" },
-      { tag: "@planowane_filmy", displayTag: "@planowane_filmy", desc: "Twoja lista filmów do obejrzenia", icon: "bookmark" },
-      { tag: "@obejrzane_filmy", displayTag: "@obejrzane_filmy", desc: "Wszystkie Twoje obejrzane filmy", icon: "check_circle" },
-      { tag: "@ulubione_seriale", displayTag: "@ulubione_seriale", desc: "Twoje ulubione seriale", icon: "tv" },
-      { tag: "@planowane_seriale", displayTag: "@planowane_seriale", desc: "Twoja lista seriali do obejrzenia", icon: "bookmark" },
-      { tag: "@obejrzane_seriale", displayTag: "@obejrzane_seriale", desc: "Wszystkie Twoje obejrzane seriale", icon: "check_circle" },
-    ];
-
-    defaultTags.forEach(t => {
-      if (!query || t.tag.toLowerCase().includes(query) || t.desc.toLowerCase().includes(query)) {
-        suggestions.push(t);
-      }
-    });
-
-    // Matching titles from library
-    if (query) {
-      const matchingMovies = (state.movies || [])
-        .filter(m => (m.title || "").toLowerCase().includes(query))
-        .slice(0, 5)
-        .map(m => {
-          const hasSpecial = m.title.includes(" ") || m.title.includes(",") || m.title.includes(".") || m.title.includes("-");
-          const insertTag = hasSpecial ? `@\"${m.title}\"` : `@${m.title}`;
-          const yearStr = m.year ? ` (${m.year})` : "";
-          const statusStr = m.status === "watched" ? "Obejrzany" : "Planowany";
-          return {
-            tag: insertTag,
-            displayTag: `@${m.title}`,
-            desc: `Film${yearStr} • ${statusStr}`,
-            icon: "movie"
-          };
-        });
-      
-      const matchingShows = (state.shows || [])
-        .filter(s => (s.title || "").toLowerCase().includes(query))
-        .slice(0, 5)
-        .map(s => {
-          const hasSpecial = s.title.includes(" ") || s.title.includes(",") || s.title.includes(".") || s.title.includes("-");
-          const insertTag = hasSpecial ? `@\"${s.title}\"` : `@${s.title}`;
-          const yearStr = s.year ? ` (${s.year})` : "";
-          const statusStr = s.status === "watched" ? "Ukończony" : "Planowany";
-          return {
-            tag: insertTag,
-            displayTag: `@${s.title}`,
-            desc: `Serial${yearStr} • ${statusStr}`,
-            icon: "tv"
-          };
-        });
-
-      suggestions.push(...matchingMovies, ...matchingShows);
-    }
-
-    if (suggestions.length === 0) {
-      mentionDropdown.style.display = "none";
-      activeMentionIndex = -1;
-      return;
-    }
-
-    // Dynamic Viewport-Aware Positioning (Top vs Bottom)
-    const inputRect = inputEl.getBoundingClientRect();
-    const spaceAbove = inputRect.top;
-    const spaceBelow = window.innerHeight - inputRect.bottom;
-    const placeAbove = spaceBelow < 180 && spaceAbove >= 200;
-
-    if (placeAbove) {
-      mentionDropdown.style.top = "auto";
-      mentionDropdown.style.bottom = "100%";
-      mentionDropdown.style.marginTop = "0";
-      mentionDropdown.style.marginBottom = "8px";
-      const maxH = Math.min(220, Math.max(120, spaceAbove - 20));
-      mentionDropdown.style.maxHeight = `${maxH}px`;
-    } else {
-      mentionDropdown.style.bottom = "auto";
-      mentionDropdown.style.top = "100%";
-      mentionDropdown.style.marginTop = "8px";
-      mentionDropdown.style.marginBottom = "0";
-      const maxH = Math.min(240, Math.max(120, spaceBelow - 20));
-      mentionDropdown.style.maxHeight = `${maxH}px`;
-    }
-
-    mentionDropdown.innerHTML = suggestions.slice(0, 8).map((s, idx) => `
-      <div class="m3-mention-item" data-mention-tag="${escapeHtml(s.tag)}" data-mention-idx="${idx}" style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; cursor: pointer; transition: background 0.15s ease; font-size: 0.8rem;">
-        <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-primary); flex-shrink: 0;">${escapeHtml(s.icon)}</span>
-        <div style="flex: 1; min-width: 0;">
-          <div style="font-weight: 700; color: var(--md-sys-color-on-surface); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(s.displayTag)}</div>
-          <div style="font-size: 0.68rem; color: var(--md-sys-color-on-surface-variant); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(s.desc)}</div>
-        </div>
-      </div>
-    `).join("");
-
-    mentionDropdown.style.display = "flex";
-    mentionDropdown.style.flexDirection = "column";
-    mentionDropdown.style.gap = "2px";
-    activeMentionIndex = -1;
-
-    const selectItem = (chosenTag) => {
-      const beforeAt = textBeforeCursor.substring(0, atMatch.index);
-      const afterCursor = val.substring(cursorPos);
-      inputEl.value = `${beforeAt}${chosenTag} ${afterCursor}`;
-      mentionDropdown.style.display = "none";
-      activeMentionIndex = -1;
-      inputEl.focus();
-    };
-
-    mentionDropdown.querySelectorAll(".m3-mention-item").forEach(item => {
-      item.onclick = (e) => {
-        e.preventDefault();
-        const chosenTag = item.getAttribute("data-mention-tag");
-        selectItem(chosenTag);
-      };
-      item.onmouseenter = () => {
-        item.style.background = "var(--md-sys-color-surface-container-highest)";
-      };
-      item.onmouseleave = () => {
-        item.style.background = "transparent";
-      };
-    });
-  };
-
-  // Bind persistent listeners only once (guard against accumulation on repeated tab switches)
-  if (!aiCuratorListenersBound) {
-    aiCuratorListenersBound = true;
-    inputEl.addEventListener("input", updateMentionDropdown);
-    inputEl.addEventListener("click", updateMentionDropdown);
-
-    // Keyboard navigation inside dropdown (ArrowUp, ArrowDown, Enter, Escape)
-    inputEl.addEventListener("keydown", (e) => {
-      if (!mentionDropdown || mentionDropdown.style.display === "none") return;
-
-      const items = mentionDropdown.querySelectorAll(".m3-mention-item");
-      if (!items.length) return;
-
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        activeMentionIndex = (activeMentionIndex + 1) % items.length;
-        items.forEach((it, i) => {
-          it.style.background = (i === activeMentionIndex) ? "var(--md-sys-color-surface-container-highest)" : "transparent";
-        });
-        items[activeMentionIndex]?.scrollIntoView({ block: "nearest" });
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        activeMentionIndex = (activeMentionIndex - 1 + items.length) % items.length;
-        items.forEach((it, i) => {
-          it.style.background = (i === activeMentionIndex) ? "var(--md-sys-color-surface-container-highest)" : "transparent";
-        });
-        items[activeMentionIndex]?.scrollIntoView({ block: "nearest" });
-      } else if (e.key === "Enter" && activeMentionIndex >= 0) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        const chosenTag = items[activeMentionIndex]?.getAttribute("data-mention-tag");
-        if (chosenTag) {
-          const val = inputEl.value;
-          const cursorPos = inputEl.selectionStart || val.length;
-          const textBeforeCursor = val.substring(0, cursorPos);
-          const atMatch = textBeforeCursor.match(/@([a-zA-Z0-9_\u00C0-\u017E\s]*)$/);
-          if (atMatch) {
-            const beforeAt = textBeforeCursor.substring(0, atMatch.index);
-            const afterCursor = val.substring(cursorPos);
-            inputEl.value = `${beforeAt}${chosenTag} ${afterCursor}`;
-          }
-          mentionDropdown.style.display = "none";
-          activeMentionIndex = -1;
-        }
-      } else if (e.key === "Escape") {
-        mentionDropdown.style.display = "none";
-        activeMentionIndex = -1;
-      }
-    });
-
-    document.addEventListener("click", (e) => {
-      if (mentionDropdown && !mentionDropdown.contains(e.target) && e.target !== inputEl) {
-        mentionDropdown.style.display = "none";
-        activeMentionIndex = -1;
-      }
-    });
   }
+};
+
+chips.forEach(chip => {
+  chip.onclick = () => {
+    const pType = chip.getAttribute("data-ai-prompt");
+    sendUserMessage(pType);
+  };
+});
+}
+
+function initMentionChips() {
+  // Chipy @wzmianek wstawiające tytuł do pola wiadomości.
+const inputEl = document.getElementById("m3-rec-ai-input");
+// 3. Mention Chips Click Handler
+const mentionChips = document.querySelectorAll("#m3-rec-ai-mention-chips [data-mention]");
+mentionChips.forEach(chip => {
+  chip.onclick = () => {
+    const tag = chip.getAttribute("data-mention");
+    if (!inputEl.value.includes(tag)) {
+      inputEl.value = inputEl.value ? `${inputEl.value.trim()} ${tag} ` : `${tag} `;
+    }
+    inputEl.focus();
+  };
+});
+}
+
+function initMentionAutocomplete() {
+  // Pływające autouzupełnianie @z pozycjami biblioteki; trwałe listenery tylko raz (guard).
+const inputEl = document.getElementById("m3-rec-ai-input");
+// 4. Floating Autocomplete on typing @ with Smart Dynamic Positioning
+const mentionDropdown = document.getElementById("m3-ai-mention-dropdown");
+let activeMentionIndex = -1;
+
+const updateMentionDropdown = () => {
+  if (!mentionDropdown) return;
+  const val = inputEl.value;
+  const cursorPos = inputEl.selectionStart || val.length;
+  const textBeforeCursor = val.substring(0, cursorPos);
+  const atMatch = textBeforeCursor.match(/@([a-zA-Z0-9_\u00C0-\u017E\s]*)$/);
+
+  if (!atMatch) {
+    mentionDropdown.style.display = "none";
+    activeMentionIndex = -1;
+    return;
+  }
+
+  const query = atMatch[1].trim().toLowerCase();
+  const suggestions = [];
+
+  // Predefined tags
+  const defaultTags = [
+    { tag: "@ulubione_filmy", displayTag: "@ulubione_filmy", desc: "Twoje najwyżej ocenione filmy", icon: "movie" },
+    { tag: "@planowane_filmy", displayTag: "@planowane_filmy", desc: "Twoja lista filmów do obejrzenia", icon: "bookmark" },
+    { tag: "@obejrzane_filmy", displayTag: "@obejrzane_filmy", desc: "Wszystkie Twoje obejrzane filmy", icon: "check_circle" },
+    { tag: "@ulubione_seriale", displayTag: "@ulubione_seriale", desc: "Twoje ulubione seriale", icon: "tv" },
+    { tag: "@planowane_seriale", displayTag: "@planowane_seriale", desc: "Twoja lista seriali do obejrzenia", icon: "bookmark" },
+    { tag: "@obejrzane_seriale", displayTag: "@obejrzane_seriale", desc: "Wszystkie Twoje obejrzane seriale", icon: "check_circle" },
+  ];
+
+  defaultTags.forEach(t => {
+    if (!query || t.tag.toLowerCase().includes(query) || t.desc.toLowerCase().includes(query)) {
+      suggestions.push(t);
+    }
+  });
+
+  // Matching titles from library
+  if (query) {
+    const matchingMovies = (state.movies || [])
+      .filter(m => (m.title || "").toLowerCase().includes(query))
+      .slice(0, 5)
+      .map(m => {
+        const hasSpecial = m.title.includes(" ") || m.title.includes(",") || m.title.includes(".") || m.title.includes("-");
+        const insertTag = hasSpecial ? `@\"${m.title}\"` : `@${m.title}`;
+        const yearStr = m.year ? ` (${m.year})` : "";
+        const statusStr = m.status === "watched" ? "Obejrzany" : "Planowany";
+        return {
+          tag: insertTag,
+          displayTag: `@${m.title}`,
+          desc: `Film${yearStr} • ${statusStr}`,
+          icon: "movie"
+        };
+      });
+    
+    const matchingShows = (state.shows || [])
+      .filter(s => (s.title || "").toLowerCase().includes(query))
+      .slice(0, 5)
+      .map(s => {
+        const hasSpecial = s.title.includes(" ") || s.title.includes(",") || s.title.includes(".") || s.title.includes("-");
+        const insertTag = hasSpecial ? `@\"${s.title}\"` : `@${s.title}`;
+        const yearStr = s.year ? ` (${s.year})` : "";
+        const statusStr = s.status === "watched" ? "Ukończony" : "Planowany";
+        return {
+          tag: insertTag,
+          displayTag: `@${s.title}`,
+          desc: `Serial${yearStr} • ${statusStr}`,
+          icon: "tv"
+        };
+      });
+
+    suggestions.push(...matchingMovies, ...matchingShows);
+  }
+
+  if (suggestions.length === 0) {
+    mentionDropdown.style.display = "none";
+    activeMentionIndex = -1;
+    return;
+  }
+
+  // Dynamic Viewport-Aware Positioning (Top vs Bottom)
+  const inputRect = inputEl.getBoundingClientRect();
+  const spaceAbove = inputRect.top;
+  const spaceBelow = window.innerHeight - inputRect.bottom;
+  const placeAbove = spaceBelow < 180 && spaceAbove >= 200;
+
+  if (placeAbove) {
+    mentionDropdown.style.top = "auto";
+    mentionDropdown.style.bottom = "100%";
+    mentionDropdown.style.marginTop = "0";
+    mentionDropdown.style.marginBottom = "8px";
+    const maxH = Math.min(220, Math.max(120, spaceAbove - 20));
+    mentionDropdown.style.maxHeight = `${maxH}px`;
+  } else {
+    mentionDropdown.style.bottom = "auto";
+    mentionDropdown.style.top = "100%";
+    mentionDropdown.style.marginTop = "8px";
+    mentionDropdown.style.marginBottom = "0";
+    const maxH = Math.min(240, Math.max(120, spaceBelow - 20));
+    mentionDropdown.style.maxHeight = `${maxH}px`;
+  }
+
+  mentionDropdown.innerHTML = suggestions.slice(0, 8).map((s, idx) => `
+    <div class="m3-mention-item" data-mention-tag="${escapeHtml(s.tag)}" data-mention-idx="${idx}" style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; cursor: pointer; transition: background 0.15s ease; font-size: 0.8rem;">
+      <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-primary); flex-shrink: 0;">${escapeHtml(s.icon)}</span>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-weight: 700; color: var(--md-sys-color-on-surface); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(s.displayTag)}</div>
+        <div style="font-size: 0.68rem; color: var(--md-sys-color-on-surface-variant); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(s.desc)}</div>
+      </div>
+    </div>
+  `).join("");
+
+  mentionDropdown.style.display = "flex";
+  mentionDropdown.style.flexDirection = "column";
+  mentionDropdown.style.gap = "2px";
+  activeMentionIndex = -1;
+
+  const selectItem = (chosenTag) => {
+    const beforeAt = textBeforeCursor.substring(0, atMatch.index);
+    const afterCursor = val.substring(cursorPos);
+    inputEl.value = `${beforeAt}${chosenTag} ${afterCursor}`;
+    mentionDropdown.style.display = "none";
+    activeMentionIndex = -1;
+    inputEl.focus();
+  };
+
+  mentionDropdown.querySelectorAll(".m3-mention-item").forEach(item => {
+    item.onclick = (e) => {
+      e.preventDefault();
+      const chosenTag = item.getAttribute("data-mention-tag");
+      selectItem(chosenTag);
+    };
+    item.onmouseenter = () => {
+      item.style.background = "var(--md-sys-color-surface-container-highest)";
+    };
+    item.onmouseleave = () => {
+      item.style.background = "transparent";
+    };
+  });
+};
+
+// Bind persistent listeners only once (guard against accumulation on repeated tab switches)
+if (!aiCuratorListenersBound) {
+  aiCuratorListenersBound = true;
+  inputEl.addEventListener("input", updateMentionDropdown);
+  inputEl.addEventListener("click", updateMentionDropdown);
+
+  // Keyboard navigation inside dropdown (ArrowUp, ArrowDown, Enter, Escape)
+  inputEl.addEventListener("keydown", (e) => {
+    if (!mentionDropdown || mentionDropdown.style.display === "none") return;
+
+    const items = mentionDropdown.querySelectorAll(".m3-mention-item");
+    if (!items.length) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      activeMentionIndex = (activeMentionIndex + 1) % items.length;
+      items.forEach((it, i) => {
+        it.style.background = (i === activeMentionIndex) ? "var(--md-sys-color-surface-container-highest)" : "transparent";
+      });
+      items[activeMentionIndex]?.scrollIntoView({ block: "nearest" });
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      activeMentionIndex = (activeMentionIndex - 1 + items.length) % items.length;
+      items.forEach((it, i) => {
+        it.style.background = (i === activeMentionIndex) ? "var(--md-sys-color-surface-container-highest)" : "transparent";
+      });
+      items[activeMentionIndex]?.scrollIntoView({ block: "nearest" });
+    } else if (e.key === "Enter" && activeMentionIndex >= 0) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const chosenTag = items[activeMentionIndex]?.getAttribute("data-mention-tag");
+      if (chosenTag) {
+        const val = inputEl.value;
+        const cursorPos = inputEl.selectionStart || val.length;
+        const textBeforeCursor = val.substring(0, cursorPos);
+        const atMatch = textBeforeCursor.match(/@([a-zA-Z0-9_\u00C0-\u017E\s]*)$/);
+        if (atMatch) {
+          const beforeAt = textBeforeCursor.substring(0, atMatch.index);
+          const afterCursor = val.substring(cursorPos);
+          inputEl.value = `${beforeAt}${chosenTag} ${afterCursor}`;
+        }
+        mentionDropdown.style.display = "none";
+        activeMentionIndex = -1;
+      }
+    } else if (e.key === "Escape") {
+      mentionDropdown.style.display = "none";
+      activeMentionIndex = -1;
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    if (mentionDropdown && !mentionDropdown.contains(e.target) && e.target !== inputEl) {
+      mentionDropdown.style.display = "none";
+      activeMentionIndex = -1;
+    }
+  });
+}
 }
 
 export async function loadRecommendationsHub(forceRefresh = false) {
