@@ -22,6 +22,7 @@ from services.data_store import (
 )
 from services.tmdb_client import format_tmdb_summary
 from services.metadata import fetch_online_metadata
+from services.episodes_meta import fetch_episodes_meta
 
 logging.basicConfig(
     level=logging.INFO,
@@ -583,95 +584,7 @@ def get_show_episodes_meta(show_uuid):
         return jsonify(EPISODES_CACHE[cache_key])
 
     clean_t = re.sub(r"\s*\([^)]*\)", "", title).strip()
-    meta = {}
-
-    # 1. Primary: Fetch localized episode names & synopses from TMDb
-    if effective_tmdb_key:
-        try:
-            if not show_id:
-                url_search = f"https://api.themoviedb.org/3/search/tv?api_key={effective_tmdb_key}&query={urllib.parse.quote(clean_t)}&language={lang}"
-                req = urllib.request.Request(url_search, headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(req, timeout=4) as resp:
-                    s_data = json.loads(resp.read().decode("utf-8", errors="ignore"))
-                    results = s_data.get("results", [])
-                    if results:
-                        def score(r):
-                            pts = 0.0
-                            rn = (r.get("name") or "").lower().strip()
-                            ron = (r.get("original_name") or "").lower().strip()
-                            ct = clean_t.lower()
-                            if rn == ct or ron == ct:
-                                pts += 100.0
-                            return pts
-                        results.sort(key=score, reverse=True)
-                        show_id = results[0]["id"]
-
-            if show_id:
-                # Get show details to know season count
-                url_det = f"https://api.themoviedb.org/3/tv/{show_id}?api_key={effective_tmdb_key}&language={lang}"
-                with urllib.request.urlopen(urllib.request.Request(url_det, headers={"User-Agent": "Mozilla/5.0"}), timeout=4) as r_det:
-                    det = json.loads(r_det.read().decode("utf-8", errors="ignore"))
-                    seasons = det.get("seasons", [])
-                    
-                    for s in seasons:
-                        s_num = s.get("season_number")
-                        if s_num is None or s_num == 0:
-                            continue
-                        url_s = f"https://api.themoviedb.org/3/tv/{show_id}/season/{s_num}?api_key={effective_tmdb_key}&language={lang}"
-                        try:
-                            with urllib.request.urlopen(urllib.request.Request(url_s, headers={"User-Agent": "Mozilla/5.0"}), timeout=3) as r_s:
-                                s_content = json.loads(r_s.read().decode("utf-8", errors="ignore"))
-                                for ep in s_content.get("episodes", []):
-                                    e_num = ep.get("episode_number")
-                                    if e_num:
-                                        key = f"{s_num}_{e_num}"
-                                        still = f"https://image.tmdb.org/t/p/w300{ep.get('still_path')}" if ep.get("still_path") else None
-                                        meta[key] = {
-                                            "season": s_num,
-                                            "episode": e_num,
-                                            "name": ep.get("name") or f"Odcinek {e_num}",
-                                            "airdate": ep.get("air_date"),
-                                            "runtime": ep.get("runtime"),
-                                            "summary": ep.get("overview", ""),
-                                            "image": still
-                                        }
-                        except Exception:
-                            pass
-        except Exception as e:
-            log.warning("TMDb episode meta error for %s: %s", title, e)
-
-    # 2. Enrich with TVmaze (Fills split multi-part finales and missing descriptions)
-    try:
-        url_tvm = f"https://api.tvmaze.com/singlesearch/shows?q={urllib.parse.quote(clean_t)}&embed=episodes"
-        req_tvm = urllib.request.Request(url_tvm, headers={"User-Agent": "CineLog/1.0"})
-        with urllib.request.urlopen(req_tvm, timeout=4) as resp_tvm:
-            data_tvm = json.loads(resp_tvm.read().decode("utf-8", errors="ignore"))
-            eps_tvm = data_tvm.get("_embedded", {}).get("episodes", [])
-            for e in eps_tvm:
-                s_n = e.get("season")
-                e_n = e.get("number")
-                if s_n is None or e_n is None:
-                    continue
-                key = f"{s_n}_{e_n}"
-                sum_txt = re.sub(r"<[^>]+>", "", e.get("summary") or "").strip()
-                img_url = e.get("image", {}).get("medium") if e.get("image") else None
-
-                if key not in meta:
-                    meta[key] = {
-                        "season": s_n,
-                        "episode": e_n,
-                        "name": e.get("name") or f"Odcinek {e_n}",
-                        "airdate": e.get("airdate"),
-                        "runtime": e.get("runtime"),
-                        "summary": sum_txt,
-                        "image": img_url or (meta.get(f"{s_n}_{e_n-1}", {}).get("image"))
-                    }
-                elif not meta[key].get("summary") and sum_txt:
-                    meta[key]["summary"] = sum_txt
-                if not meta[key].get("image") and img_url:
-                    meta[key]["image"] = img_url
-    except Exception:
-        pass
+    meta = fetch_episodes_meta(clean_t, show_id, lang, effective_tmdb_key)
 
     if meta:
         EPISODES_CACHE[cache_key] = meta
