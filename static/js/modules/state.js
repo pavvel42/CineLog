@@ -61,6 +61,11 @@ export function syncWindowAliases() {
   // Kept as no-op for backward compatibility with existing call sites.
 }
 
+/**
+ * Formatuje liczbę minut do czytelnej postaci ("90 min", "2h 15m", "1d 3h").
+ * @param {number|null} totalMinutes
+ * @returns {string}
+ */
 export function formatWatchTimeMinutes(totalMinutes) {
   if (!totalMinutes || totalMinutes <= 0) return "0 min";
   if (totalMinutes < 60) return `${totalMinutes} min`;
@@ -72,6 +77,12 @@ export function formatWatchTimeMinutes(totalMinutes) {
   return `${days}d ${remHours > 0 ? remHours + 'h' : ''}`.trim();
 }
 
+/**
+ * Escapuje znaki HTML (& < > " ') - obowiązkowe przed wstrzyknięciem
+ * danych zewnętrznych do innerHTML (ochrona XSS).
+ * @param {*} value
+ * @returns {string}
+ */
 export function escapeHtml(value) {
   if (value === null || value === undefined) return "";
   return String(value)
@@ -82,6 +93,11 @@ export function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+/**
+ * Przepuszcza wyłącznie bezpieczne URL-e obrazów (http/https/protocol-relative/data:image).
+ * @param {*} value
+ * @returns {string} pusty string gdy URL podejrzany
+ */
 export function safeUrl(value) {
   const url = String(value || "").trim();
   if (/^(https?:)?\/\//i.test(url) || url.startsWith("data:image/") || url === "") return url;
@@ -90,6 +106,14 @@ export function safeUrl(value) {
 
 // Progressive rendering: append cards in chunks so large libraries don't freeze the UI.
 // A generation counter cancels pending chunks when a newer render starts.
+/**
+ * Przyrostowe renderowanie listy kart w chunkach (bez zamrażania UI przy dużych bibliotekach).
+ * Licznik generacji anuluje oczekujące chunki po rozpoczęciu nowego renderu.
+ * @param {HTMLElement} grid kontener kart
+ * @param {Array} items elementy do wyrenderowania
+ * @param {(item: *, index: number) => HTMLElement} buildCardFn fabryka karty
+ * @param {number} [chunkSize=48]
+ */
 export function renderListInChunks(grid, items, buildCardFn, chunkSize = 48) {
   grid.__cinelogRenderGen = (grid.__cinelogRenderGen || 0) + 1;
   const gen = grid.__cinelogRenderGen;
@@ -119,6 +143,11 @@ export function getGradientForTitle(title) {
   return `linear-gradient(135deg, hsl(${h1}, 65%, 45%), hsl(${h2}, 75%, 28%))`;
 }
 
+/**
+ * Normalizuje tytuł do klucza porównań (lowercase, bez roku/nawiasów/diakrytyków).
+ * @param {string} title
+ * @returns {string}
+ */
 export function normalizeTitleForLibrary(title) {
   if (!title) return "";
   return String(title)
@@ -164,6 +193,12 @@ export function getTitleVariants(itemOrTitle) {
   return Array.from(set);
 }
 
+/**
+ * Sprawdza czy pozycja (z TMDb/importu) już istnieje w bibliotece -
+ * dopasowanie po tmdb_id / imdb_id / wariantach znormalizowanego tytułu.
+ * @param {{title?: string, tmdb_id?: *, imdb_id?: string}} item
+ * @returns {boolean}
+ */
 export function isItemInLibrary(item) {
   if (!item) return false;
   const tmdbId = String(item.tmdb_id || item.id || "");
@@ -202,6 +237,13 @@ export function isItemInLibrary(item) {
   return checkList(state.movies) || checkList(state.shows);
 }
 
+/**
+ * Wyszukuje duplikat tytułu w bibliotece (filmów lub seriali).
+ * @param {string} title
+ * @param {"movie"|"series"} type
+ * @param {string|number|null} tmdbId
+ * @returns {object|undefined}
+ */
 export function findDuplicateInLibrary(title, type = "movie", tmdbId = null) {
   const normTitle = normalizeTitleForLibrary(title);
   const targetTmdb = tmdbId ? String(tmdbId) : "";
@@ -220,6 +262,10 @@ export function findDuplicateInLibrary(title, type = "movie", tmdbId = null) {
   }
 }
 
+/**
+ * UUID v4 z fallbackiem na Math.random dla starszych przeglądarek.
+ * @returns {string}
+ */
 export function generateUUID() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
@@ -231,6 +277,10 @@ export function generateUUID() {
   });
 }
 
+/**
+ * Zapisuje stan biblioteki do localStorage i ewentualnie triggeruje autosave Drive.
+ * @param {boolean} [skipCloudSync=false] true = nigdy nie dotykaj Drive (np. zapis demo)
+ */
 export function saveLocalDatabase(skipCloudSync = false) {
   try {
     localStorage.setItem("cinelog_database", JSON.stringify({
@@ -272,6 +322,10 @@ export function markUserDatabaseCustom() {
   setActiveEnvMode("client");
 }
 
+/**
+ * Przywraca bazę demonstracyjną ze static/data/*.json (z pominięciem synchronizacji Drive).
+ * @returns {Promise<{movies: object[], shows: object[]}>}
+ */
 export async function resetToDemoDatabase() {
   setActiveEnvMode("demo");
   localStorage.removeItem("cinelog_database");

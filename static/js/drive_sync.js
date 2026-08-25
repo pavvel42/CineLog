@@ -121,9 +121,7 @@ class GoogleDriveSync {
   disconnect() {
     if (this.accessToken && window.google && window.google.accounts) {
       try {
-        google.accounts.oauth2.revoke(this.accessToken, () => {
-          console.log("Google Token revoked");
-        });
+        google.accounts.oauth2.revoke(this.accessToken, () => {});
       } catch (e) {}
     }
     this.accessToken = null;
