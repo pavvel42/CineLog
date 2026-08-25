@@ -1,0 +1,28 @@
+{
+  "name": "cinelog",
+  "version": "1.0.0",
+  "description": "<p align=\"center\">   <img src=\"static/icons/icon-512.png\" width=\"120\" height=\"120\" alt=\"CineLog Logo\" style=\"border-radius: 28px; box-shadow: 0 8px 24px rgba(0,0,0,0.35);\"> </p>",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pavvel42/CineLog.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/pavvel42/CineLog/issues"
+  },
+  "homepage": "https://github.com/pavvel42/CineLog#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
+}
