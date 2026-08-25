@@ -84,7 +84,7 @@ cd CineLog
 Wymagany Python 3.9+:
 ```bash
 pip install flask
-python app.py
+python run.py
 ```
 Aplikacja uruchomi się pod adresem: **`http://localhost:5001`**.
 
