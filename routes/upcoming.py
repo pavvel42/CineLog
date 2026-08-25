@@ -7,16 +7,14 @@ dzięki czemu testy mogą je podmieniać przez monkeypatch na module `app`.
 
 import json
 import re
-import uuid
 import logging
-import shutil
 import urllib.request
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 
 import os
-from flask import Blueprint, jsonify, request, Response
+from flask import Blueprint, jsonify, request
 
 
 import app as _app
@@ -119,7 +117,7 @@ def get_upcoming_schedule():
             with urllib.request.urlopen(req_d, timeout=4) as r_d:
                 detail = json.loads(r_d.read().decode("utf-8", errors="ignore"))
                 return (k, detail, True)
-        except Exception as e:
+        except Exception:
             return (k, None, False)
 
     results = []

@@ -6,16 +6,11 @@ dzięki czemu testy mogą je podmieniać przez monkeypatch na module `app`.
 """
 
 import json
-import re
-import uuid
 import logging
-import shutil
 import urllib.request
 import urllib.parse
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, date, timedelta
 
-from flask import Blueprint, jsonify, request, Response
+from flask import Blueprint, jsonify, request
 
 import app as _app
 

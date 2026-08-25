@@ -5,17 +5,11 @@ są odczytywane z modułu aplikacji przez późne wiązanie (_app.X w czasie ż�
 dzięki czemu testy mogą je podmieniać przez monkeypatch na module `app`.
 """
 
-import json
 import re
-import uuid
 import logging
-import shutil
-import urllib.request
-import urllib.parse
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, date, timedelta
+from datetime import datetime
 
-from flask import Blueprint, jsonify, request, Response
+from flask import Blueprint, jsonify, request
 
 import app as _app
 
@@ -59,8 +53,7 @@ def get_watch_providers():
 def get_all_vod_cache():
     region = request.args.get("region", "PL").strip().upper()
     cache = _app.load_vod_cache()
-    prefix = f"_{region}_"
-    
+
     # Filter for active region
     region_cache = {}
     for key, val in cache.items():

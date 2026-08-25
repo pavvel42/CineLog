@@ -9,11 +9,9 @@ from __future__ import annotations
 import json
 import logging
 import os
-import urllib.parse
-import urllib.request
 from datetime import datetime, timedelta
 
-from .tmdb_client import TMDB_BASE, tmdb_get
+from .tmdb_client import tmdb_get
 
 log = logging.getLogger("cinelog")
 
