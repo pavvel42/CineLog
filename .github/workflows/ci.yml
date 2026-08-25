@@ -56,8 +56,11 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Syntax-check JS modules
+      - name: Syntax-check JS modules (strict ESM)
         run: |
           for f in static/js/main.js static/js/drive_sync.js static/sw.js static/js/modules/*.js; do
             node --check "$f"
           done
+
+      - name: Verify HTML sync & version consistency
+        run: python scripts/sync_version.py check

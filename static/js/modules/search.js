@@ -473,6 +473,19 @@ const openAddModal = () => {
   if (addSearchInput) setTimeout(() => addSearchInput.focus(), 150);
 };
 
+// PWA share_target: udostępnij tytuł -> otwórz modal z wypełnioną wyszukiwarką
+window.openAddModalWithQuery = (query) => {
+  openAddModal();
+  if (!query) return;
+  const formEl = document.getElementById("m3-search-preview-form");
+  const inputEl = document.getElementById("m3-search-preview-input");
+  setTimeout(() => {
+    if (inputEl) inputEl.value = query;
+    if (formEl && formEl.requestSubmit) formEl.requestSubmit();
+    else if (formEl) formEl.dispatchEvent(new Event("submit", { cancelable: true }));
+  }, 250);
+};
+
 if (btnFabAdd) btnFabAdd.addEventListener("click", openAddModal);
 if (btnSidebarAdd) btnSidebarAdd.addEventListener("click", openAddModal);
 if (addCloseBtn && sheetAdd) {

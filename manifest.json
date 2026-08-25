@@ -2,13 +2,40 @@
   "name": "CineLog - Dziennik Filmów i Seriali",
   "short_name": "CineLog",
   "description": "Nowoczesna aplikacja do śledzenia filmów, seriali i dostępności na platformach VOD.",
+  "id": "/CineLog/",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#141218",
   "theme_color": "#141218",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "categories": ["entertainment", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Filmy",
+      "short_name": "Filmy",
+      "description": "Biblioteka filmów",
+      "url": "./?mode=movies",
+      "icons": [{ "src": "static/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Seriale",
+      "short_name": "Seriale",
+      "description": "Biblioteka seriali",
+      "url": "./?mode=shows",
+      "icons": [{ "src": "static/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "share_target": {
+    "action": "./",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
   "icons": [
     {
       "src": "static/icons/icon-192.png",

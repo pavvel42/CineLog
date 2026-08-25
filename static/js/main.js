@@ -493,6 +493,24 @@ function initApp() {
   try { initBackdropDismiss(); } catch (e) { console.error("Backdrop module error:", e); }
   try { initDemoBannerHandlers(openImporterModal); } catch (e) { console.error("Demo banner module error:", e); }
 
+  // PWA share_target: tytuł/URL udostępniony do aplikacji -> prefill wyszukiwania
+  try {
+    const sp = new URLSearchParams(window.location.search);
+    const sharedText = (sp.get("text") || "").trim();
+    const sharedTitle = (sp.get("title") || "").trim();
+    const sharedUrl = (sp.get("url") || "").trim();
+    if (sharedText || sharedTitle || sharedUrl) {
+      const query = [sharedTitle, sharedText].filter(Boolean).join(" ").trim();
+      const keep = new URLSearchParams();
+      const qMode = sp.get("mode");
+      if (qMode) keep.set("mode", qMode);
+      history.replaceState({}, "", `${window.location.pathname}?${keep.toString()}`.replace(/\?$/, ""));
+      if (window.openAddModalWithQuery) {
+        window.openAddModalWithQuery(query || sharedUrl);
+      }
+    }
+  } catch (e) {}
+
   if (window.googleDriveSync) {
     try { window.googleDriveSync.init(); } catch (e) {}
   }
