@@ -96,6 +96,27 @@ export function safeUrl(value) {
   return "";
 }
 
+// Progressive rendering: append cards in chunks so large libraries don't freeze the UI.
+// A generation counter cancels pending chunks when a newer render starts.
+export function renderListInChunks(grid, items, buildCardFn, chunkSize = 48) {
+  grid.__cinelogRenderGen = (grid.__cinelogRenderGen || 0) + 1;
+  const gen = grid.__cinelogRenderGen;
+
+  const appendChunk = (start) => {
+    if (gen !== grid.__cinelogRenderGen) return;
+    const frag = document.createDocumentFragment();
+    const end = Math.min(start + chunkSize, items.length);
+    for (let i = start; i < end; i++) {
+      frag.appendChild(buildCardFn(items[i], i));
+    }
+    grid.appendChild(frag);
+    if (end < items.length) {
+      setTimeout(() => appendChunk(end), 0);
+    }
+  };
+  appendChunk(0);
+}
+
 export function getGradientForTitle(title) {
   let hash = 0;
   for (let i = 0; i < (title || "").length; i++) {

@@ -2,7 +2,7 @@
 // CineLog - Movies Management & Details Modal Module
 // ==========================================================================
 
-import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl } from './state.js';
+import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
@@ -127,7 +127,7 @@ export async function renderMovies() {
     return;
   }
 
-  filtered.forEach(m => {
+  const buildMovieCard = (m) => {
     const card = document.createElement("article");
     card.className = "m3-card";
 
@@ -215,8 +215,10 @@ export async function renderMovies() {
       });
     });
 
-    grid.appendChild(card);
-  });
+    return card;
+  };
+
+  renderListInChunks(grid, filtered, buildMovieCard);
 }
 
 export async function openMovieDetail(movie) {

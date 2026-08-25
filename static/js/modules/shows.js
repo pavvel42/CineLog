@@ -2,7 +2,7 @@
 // CineLog - TV Shows Management & Episode Tracker Module
 // ==========================================================================
 
-import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl } from './state.js';
+import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
@@ -59,18 +59,18 @@ export async function renderShows() {
     return;
   }
 
-  filtered.forEach(s => {
+  const buildShowCard = (s) => {
     const card = document.createElement("article");
     card.className = "m3-card";
 
     let coverHtml = "";
     if (s.poster_url) {
       coverHtml = `
-        <img src="${s.poster_url}" alt="${s.title}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-        <div class="m3-card-cover-fallback" style="background: ${getGradientForTitle(s.title)}; display: none;">${s.title}</div>
+        <img src="${safeUrl(s.poster_url)}" alt="${escapeHtml(s.title)}" loading="lazy">
+        <div class="m3-card-cover-fallback" style="background: ${getGradientForTitle(s.title)}; display: none;">${escapeHtml(s.title)}</div>
       `;
     } else {
-      coverHtml = `<div class="m3-card-cover-fallback" style="background: ${getGradientForTitle(s.title)}">${s.title}</div>`;
+      coverHtml = `<div class="m3-card-cover-fallback" style="background: ${getGradientForTitle(s.title)}">${escapeHtml(s.title)}</div>`;
     }
 
     let starsHtml = "";
@@ -101,9 +101,9 @@ export async function renderShows() {
         </button>
       </div>
       <div class="m3-card-body">
-        <div class="m3-card-title">${s.title}</div>
+        <div class="m3-card-title">${escapeHtml(s.title)}</div>
         <div class="m3-card-meta">
-          <span>${s.release_date ? s.release_date.split("-")[0] : (s.release_year || '')}</span>
+          <span>${escapeHtml(s.release_date ? s.release_date.split("-")[0] : (s.release_year || ''))}</span>
           <span style="font-weight: 700; color: ${statusColor}; display: inline-flex; align-items: center; gap: 4px;">
             <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: ${statusColor};"></span>
             ${statusText}
@@ -120,6 +120,14 @@ export async function renderShows() {
     card.addEventListener("click", () => {
       openEpisodeTracker(s);
     });
+
+    const coverImg = card.querySelector(".m3-card-cover > img");
+    if (coverImg) {
+      coverImg.addEventListener("error", () => {
+        coverImg.style.display = "none";
+        if (coverImg.nextElementSibling) coverImg.nextElementSibling.style.display = "flex";
+      });
+    }
 
     const favBtn = card.querySelector(".m3-card-fav-btn");
     favBtn.addEventListener("click", (e) => {
@@ -149,8 +157,10 @@ export async function renderShows() {
       });
     });
 
-    grid.appendChild(card);
-  });
+    return card;
+  };
+
+  renderListInChunks(grid, filtered, buildShowCard);
 }
 
 export async function openEpisodeTracker(show) {
