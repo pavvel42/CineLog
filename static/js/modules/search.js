@@ -402,509 +402,535 @@ export async function selectProductionDetail(item) {
 }
 
 export function initSearchAndAddModal() {
-  const searchInput = document.getElementById("m3-search-input");
-  const searchClearBtn = document.getElementById("m3-search-clear");
+  initHeaderSearchClear();
+  initAddModalShell();
+  initAddSearchFlow();
+  initConfirmAddForm();
+}
 
-  // NOTE: header search input filtering/rendering is bound once in main.js
-  // (previously duplicated here, causing double grid re-renders per keystroke).
-  if (searchInput && searchClearBtn) {
-    searchClearBtn.addEventListener("click", () => {
-      searchInput.value = "";
-      searchClearBtn.style.display = "none";
-      searchInput.focus();
-      if (state.mode === "movies") renderMovies();
-      else renderShows();
-    });
+function initHeaderSearchClear() {
+  // Czyszczenie pola wyszukiwania w nagłówku (filtrowanie biblioteki binduje main.js).
+const searchInput = document.getElementById("m3-search-input");
+const searchClearBtn = document.getElementById("m3-search-clear");
+
+// NOTE: header search input filtering/rendering is bound once in main.js
+// (previously duplicated here, causing double grid re-renders per keystroke).
+if (searchInput && searchClearBtn) {
+  searchClearBtn.addEventListener("click", () => {
+    searchInput.value = "";
+    searchClearBtn.style.display = "none";
+    searchInput.focus();
+    if (state.mode === "movies") renderMovies();
+    else renderShows();
+  });
+}
+}
+
+function initAddModalShell() {
+  // Modal "Wyszukaj i dodaj": otwieranie, kroki, przełącznik film/serial, przyciski wstecz.
+
+const sheetAdd = document.getElementById("m3-sheet-add");
+const btnFabAdd = document.getElementById("m3-fab-add");
+const btnSidebarAdd = document.getElementById("m3-btn-add");
+const addCloseBtn = document.getElementById("m3-sheet-close");
+const stepSearch = document.getElementById("m3-add-step-search");
+const stepResults = document.getElementById("m3-add-step-results");
+const stepPreview = document.getElementById("m3-add-step-preview");
+const addSearchInput = document.getElementById("m3-search-preview-input");
+const addSearchForm = document.getElementById("m3-search-preview-form");
+const btnSearchTrigger = document.getElementById("m3-btn-search-trigger");
+const resultsContainer = document.getElementById("m3-search-results-list");
+const searchError = document.getElementById("m3-search-error");
+const searchErrorText = document.getElementById("m3-search-error-text");
+const btnResultsBack = document.getElementById("m3-btn-results-back");
+const btnPreviewBack = document.getElementById("m3-btn-back-to-search");
+const btnSearchMovie = document.getElementById("m3-search-type-movie");
+const btnSearchSeries = document.getElementById("m3-search-type-series");
+
+const openAddModal = () => {
+  searchType = state.mode === "movies" ? "movie" : "series";
+  if (btnSearchMovie && btnSearchSeries) {
+    if (searchType === "movie") {
+      btnSearchMovie.classList.add("active");
+      btnSearchSeries.classList.remove("active");
+    } else {
+      btnSearchSeries.classList.add("active");
+      btnSearchMovie.classList.remove("active");
+    }
   }
 
-  // TMDb Add Modal Elements
-  const sheetAdd = document.getElementById("m3-sheet-add");
-  const btnFabAdd = document.getElementById("m3-fab-add");
-  const btnSidebarAdd = document.getElementById("m3-btn-add");
-  const addCloseBtn = document.getElementById("m3-sheet-close");
-  const stepSearch = document.getElementById("m3-add-step-search");
-  const stepResults = document.getElementById("m3-add-step-results");
-  const stepPreview = document.getElementById("m3-add-step-preview");
-  const addSearchInput = document.getElementById("m3-search-preview-input");
-  const addSearchForm = document.getElementById("m3-search-preview-form");
-  const btnSearchTrigger = document.getElementById("m3-btn-search-trigger");
-  const resultsContainer = document.getElementById("m3-search-results-list");
-  const searchError = document.getElementById("m3-search-error");
-  const searchErrorText = document.getElementById("m3-search-error-text");
-  const btnResultsBack = document.getElementById("m3-btn-results-back");
-  const btnPreviewBack = document.getElementById("m3-btn-back-to-search");
-  const btnSearchMovie = document.getElementById("m3-search-type-movie");
-  const btnSearchSeries = document.getElementById("m3-search-type-series");
+  if (stepSearch) stepSearch.style.display = "block";
+  if (stepResults) stepResults.style.display = "none";
+  if (stepPreview) stepPreview.style.display = "none";
+  if (searchError) searchError.style.display = "none";
+  if (addSearchInput) addSearchInput.value = "";
+  if (resultsContainer) resultsContainer.innerHTML = "";
 
-  const openAddModal = () => {
-    searchType = state.mode === "movies" ? "movie" : "series";
-    if (btnSearchMovie && btnSearchSeries) {
-      if (searchType === "movie") {
-        btnSearchMovie.classList.add("active");
-        btnSearchSeries.classList.remove("active");
-      } else {
-        btnSearchSeries.classList.add("active");
-        btnSearchMovie.classList.remove("active");
+  const modalTitle = document.getElementById("m3-modal-title");
+  if (modalTitle) modalTitle.innerText = "Wyszukaj i dodaj";
+
+  if (sheetAdd) sheetAdd.classList.add("active");
+  if (addSearchInput) setTimeout(() => addSearchInput.focus(), 150);
+};
+
+if (btnFabAdd) btnFabAdd.addEventListener("click", openAddModal);
+if (btnSidebarAdd) btnSidebarAdd.addEventListener("click", openAddModal);
+if (addCloseBtn && sheetAdd) {
+  addCloseBtn.addEventListener("click", () => sheetAdd.classList.remove("active"));
+}
+
+// Type Switchers
+if (btnSearchMovie && btnSearchSeries) {
+  btnSearchMovie.addEventListener("click", () => {
+    searchType = "movie";
+    btnSearchMovie.classList.add("active");
+    btnSearchSeries.classList.remove("active");
+  });
+  btnSearchSeries.addEventListener("click", () => {
+    searchType = "series";
+    btnSearchSeries.classList.add("active");
+    btnSearchMovie.classList.remove("active");
+  });
+}
+
+// Back buttons
+if (btnResultsBack) {
+  btnResultsBack.addEventListener("click", () => {
+    if (stepResults) stepResults.style.display = "none";
+    if (stepSearch) stepSearch.style.display = "block";
+    if (addSearchInput) addSearchInput.focus();
+  });
+}
+
+if (btnPreviewBack) {
+  btnPreviewBack.addEventListener("click", () => {
+    if (sheetAdd && sheetAdd.getAttribute("data-opened-from-rec") === "true") {
+      sheetAdd.removeAttribute("data-opened-from-rec");
+      sheetAdd.classList.remove("active");
+      return;
+    }
+    if (stepPreview) stepPreview.style.display = "none";
+    if (lastSearchResults.length > 1) {
+      if (stepResults) stepResults.style.display = "flex";
+    } else {
+      if (stepSearch) stepSearch.style.display = "block";
+      if (addSearchInput) addSearchInput.focus();
+    }
+  });
+}
+}
+
+function initAddSearchFlow() {
+  // Krok wyszukiwania online (backend -> TMDb client -> OMDb) i lista wyników.
+const stepSearch = document.getElementById("m3-add-step-search");
+const stepResults = document.getElementById("m3-add-step-results");
+const addSearchInput = document.getElementById("m3-search-preview-input");
+const addSearchForm = document.getElementById("m3-search-preview-form");
+const btnSearchTrigger = document.getElementById("m3-btn-search-trigger");
+const resultsContainer = document.getElementById("m3-search-results-list");
+const searchError = document.getElementById("m3-search-error");
+const searchErrorText = document.getElementById("m3-search-error-text");
+
+// Search Online Form Submit
+if (addSearchForm) {
+  addSearchForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const query = addSearchInput ? addSearchInput.value.trim() : "";
+    if (!query) return;
+
+    const origHtml = btnSearchTrigger ? btnSearchTrigger.innerHTML : "";
+    if (btnSearchTrigger) {
+      btnSearchTrigger.innerHTML = `<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">sync</span> Szukam...`;
+      btnSearchTrigger.disabled = true;
+    }
+    if (searchError) searchError.style.display = "none";
+
+    const rawTmdbKey = localStorage.getItem("cinelog_tmdb_key") || (window.CINELOG_CONFIG && window.CINELOG_CONFIG.TMDB_API_KEY) || "";
+    const rawOmdbKey = localStorage.getItem("cinelog_omdb_key") || localStorage.getItem("cinelog_imdb_key") || "";
+    const isStaticEnv = window.location.protocol === "file:" || window.location.hostname.includes("github.io");
+
+    let data = null;
+
+    // 1. If backend server might be available, try it
+    if (!isStaticEnv) {
+      try {
+        const tmdbKeyParam = rawTmdbKey ? `&tmdb_key=${encodeURIComponent(rawTmdbKey)}` : "";
+        const omdbKeyParam = rawOmdbKey ? `&omdb_key=${encodeURIComponent(rawOmdbKey)}&imdb_key=${encodeURIComponent(rawOmdbKey)}` : "";
+        const res = await fetch(`/api/search_preview?q=${encodeURIComponent(query)}&type=${searchType}&lang=${getUserLanguage()}${tmdbKeyParam}${omdbKeyParam}`);
+        if (res.ok) {
+          data = await res.json();
+        }
+      } catch (backendErr) {
+        console.warn("Backend search failed, falling back to client TMDb API:", backendErr);
       }
     }
 
-    if (stepSearch) stepSearch.style.display = "block";
-    if (stepResults) stepResults.style.display = "none";
-    if (stepPreview) stepPreview.style.display = "none";
-    if (searchError) searchError.style.display = "none";
-    if (addSearchInput) addSearchInput.value = "";
-    if (resultsContainer) resultsContainer.innerHTML = "";
-
-    const modalTitle = document.getElementById("m3-modal-title");
-    if (modalTitle) modalTitle.innerText = "Wyszukaj i dodaj";
-
-    if (sheetAdd) sheetAdd.classList.add("active");
-    if (addSearchInput) setTimeout(() => addSearchInput.focus(), 150);
-  };
-
-  if (btnFabAdd) btnFabAdd.addEventListener("click", openAddModal);
-  if (btnSidebarAdd) btnSidebarAdd.addEventListener("click", openAddModal);
-  if (addCloseBtn && sheetAdd) {
-    addCloseBtn.addEventListener("click", () => sheetAdd.classList.remove("active"));
-  }
-
-  // Type Switchers
-  if (btnSearchMovie && btnSearchSeries) {
-    btnSearchMovie.addEventListener("click", () => {
-      searchType = "movie";
-      btnSearchMovie.classList.add("active");
-      btnSearchSeries.classList.remove("active");
-    });
-    btnSearchSeries.addEventListener("click", () => {
-      searchType = "series";
-      btnSearchSeries.classList.add("active");
-      btnSearchMovie.classList.remove("active");
-    });
-  }
-
-  // Back buttons
-  if (btnResultsBack) {
-    btnResultsBack.addEventListener("click", () => {
-      if (stepResults) stepResults.style.display = "none";
-      if (stepSearch) stepSearch.style.display = "block";
-      if (addSearchInput) addSearchInput.focus();
-    });
-  }
-
-  if (btnPreviewBack) {
-    btnPreviewBack.addEventListener("click", () => {
-      if (sheetAdd && sheetAdd.getAttribute("data-opened-from-rec") === "true") {
-        sheetAdd.removeAttribute("data-opened-from-rec");
-        sheetAdd.classList.remove("active");
-        return;
-      }
-      if (stepPreview) stepPreview.style.display = "none";
-      if (lastSearchResults.length > 1) {
-        if (stepResults) stepResults.style.display = "flex";
-      } else {
-        if (stepSearch) stepSearch.style.display = "block";
-        if (addSearchInput) addSearchInput.focus();
-      }
-    });
-  }
-
-  // Search Online Form Submit
-  if (addSearchForm) {
-    addSearchForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const query = addSearchInput ? addSearchInput.value.trim() : "";
-      if (!query) return;
-
-      const origHtml = btnSearchTrigger ? btnSearchTrigger.innerHTML : "";
-      if (btnSearchTrigger) {
-        btnSearchTrigger.innerHTML = `<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">sync</span> Szukam...`;
-        btnSearchTrigger.disabled = true;
-      }
-      if (searchError) searchError.style.display = "none";
-
-      const rawTmdbKey = localStorage.getItem("cinelog_tmdb_key") || (window.CINELOG_CONFIG && window.CINELOG_CONFIG.TMDB_API_KEY) || "";
-      const rawOmdbKey = localStorage.getItem("cinelog_omdb_key") || localStorage.getItem("cinelog_imdb_key") || "";
-      const isStaticEnv = window.location.protocol === "file:" || window.location.hostname.includes("github.io");
-
-      let data = null;
-
-      // 1. If backend server might be available, try it
-      if (!isStaticEnv) {
-        try {
-          const tmdbKeyParam = rawTmdbKey ? `&tmdb_key=${encodeURIComponent(rawTmdbKey)}` : "";
-          const omdbKeyParam = rawOmdbKey ? `&omdb_key=${encodeURIComponent(rawOmdbKey)}&imdb_key=${encodeURIComponent(rawOmdbKey)}` : "";
-          const res = await fetch(`/api/search_preview?q=${encodeURIComponent(query)}&type=${searchType}&lang=${getUserLanguage()}${tmdbKeyParam}${omdbKeyParam}`);
-          if (res.ok) {
-            data = await res.json();
-          }
-        } catch (backendErr) {
-          console.warn("Backend search failed, falling back to client TMDb API:", backendErr);
-        }
-      }
-
-      // 2. Direct client-side TMDb API call (for GitHub Pages / offline mode)
-      if (!data && rawTmdbKey) {
-        try {
-          const tmdbEndpoint = searchType === "series" ? "tv" : "movie";
-          const res = await fetch(`https://api.themoviedb.org/3/search/${tmdbEndpoint}?api_key=${encodeURIComponent(rawTmdbKey)}&query=${encodeURIComponent(query)}&language=${getUserLanguage()}&include_adult=false`);
-          if (res.ok) {
-            const tmdbJson = await res.json();
-            const results = (tmdbJson.results || []).map(item => ({
-              title: item.title || item.name || "",
-              original_title: item.original_title || item.original_name || "",
-              year: (item.release_date || item.first_air_date || "").substring(0, 4),
-              poster_url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : "",
-              type: searchType === "series" ? "series" : "movie",
-              tmdb_id: item.id,
-              plot: item.overview || "",
-              rating: item.vote_average || null
-            }));
-            data = {
-              found: results.length > 0,
-              results: results
-            };
-          }
-        } catch (tmdbErr) {
-          console.error("Direct TMDb API fetch failed:", tmdbErr);
-        }
-      }
-
+    // 2. Direct client-side TMDb API call (for GitHub Pages / offline mode)
+    if (!data && rawTmdbKey) {
       try {
-        if (data && data.found && data.results && data.results.length > 0) {
-          lastSearchResults = data.results;
+        const tmdbEndpoint = searchType === "series" ? "tv" : "movie";
+        const res = await fetch(`https://api.themoviedb.org/3/search/${tmdbEndpoint}?api_key=${encodeURIComponent(rawTmdbKey)}&query=${encodeURIComponent(query)}&language=${getUserLanguage()}&include_adult=false`);
+        if (res.ok) {
+          const tmdbJson = await res.json();
+          const results = (tmdbJson.results || []).map(item => ({
+            title: item.title || item.name || "",
+            original_title: item.original_title || item.original_name || "",
+            year: (item.release_date || item.first_air_date || "").substring(0, 4),
+            poster_url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : "",
+            type: searchType === "series" ? "series" : "movie",
+            tmdb_id: item.id,
+            plot: item.overview || "",
+            rating: item.vote_average || null
+          }));
+          data = {
+            found: results.length > 0,
+            results: results
+          };
+        }
+      } catch (tmdbErr) {
+        console.error("Direct TMDb API fetch failed:", tmdbErr);
+      }
+    }
 
-          if (data.results.length === 1) {
-            selectProductionDetail(data.results[0]);
-          } else {
-            if (resultsContainer) {
-              resultsContainer.innerHTML = "";
-              data.results.forEach(item => {
-                const isSeries = item.type === "series";
-                const row = document.createElement("div");
-                row.className = "m3-result-item";
-                
-                let posterHtml = item.poster_url
-                  ? `<img src="${safeUrl(item.poster_url)}" class="m3-result-poster" alt="${escapeHtml(item.title)}">`
-                  : `<div class="m3-result-poster" style="background: ${getGradientForTitle(item.title)}; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; text-align: center; color: white;">${escapeHtml(item.title.substring(0, 10))}</div>`;
+    try {
+      if (data && data.found && data.results && data.results.length > 0) {
+        lastSearchResults = data.results;
 
-                row.innerHTML = `
-                  ${posterHtml}
-                  <div style="flex-grow: 1; min-width: 0;">
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                      <span class="m3-preview-type-badge" style="font-size: 0.65rem; padding: 2px 6px;">
-                        ${isSeries ? '📺 SERIAL' : '🎬 FILM'}
-                      </span>
-                      <span style="font-size: 0.8rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant);">${escapeHtml(item.year || '')}</span>
-                    </div>
-                    <div style="font-weight: 700; font-size: 0.95rem; color: var(--md-sys-color-on-surface); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                      ${escapeHtml(item.title)}
-                    </div>
+        if (data.results.length === 1) {
+          selectProductionDetail(data.results[0]);
+        } else {
+          if (resultsContainer) {
+            resultsContainer.innerHTML = "";
+            data.results.forEach(item => {
+              const isSeries = item.type === "series";
+              const row = document.createElement("div");
+              row.className = "m3-result-item";
+              
+              let posterHtml = item.poster_url
+                ? `<img src="${safeUrl(item.poster_url)}" class="m3-result-poster" alt="${escapeHtml(item.title)}">`
+                : `<div class="m3-result-poster" style="background: ${getGradientForTitle(item.title)}; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; text-align: center; color: white;">${escapeHtml(item.title.substring(0, 10))}</div>`;
+
+              row.innerHTML = `
+                ${posterHtml}
+                <div style="flex-grow: 1; min-width: 0;">
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <span class="m3-preview-type-badge" style="font-size: 0.65rem; padding: 2px 6px;">
+                      ${isSeries ? '📺 SERIAL' : '🎬 FILM'}
+                    </span>
+                    <span style="font-size: 0.8rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant);">${escapeHtml(item.year || '')}</span>
                   </div>
-                  <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">chevron_right</span>
-                `;
+                  <div style="font-weight: 700; font-size: 0.95rem; color: var(--md-sys-color-on-surface); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    ${escapeHtml(item.title)}
+                  </div>
+                </div>
+                <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 20px;">chevron_right</span>
+              `;
 
-                row.addEventListener("click", () => {
-                  selectProductionDetail(item);
-                });
+              row.addEventListener("click", () => {
+                selectProductionDetail(item);
+              });
 
-                resultsContainer.appendChild(row);
+              resultsContainer.appendChild(row);
+            });
+          }
+
+          if (stepSearch) stepSearch.style.display = "none";
+          if (stepResults) stepResults.style.display = "flex";
+        }
+      } else if (data && data.needs_key) {
+        // Backend has no TMDb/OMDb key configured - show the key setup panel
+        if (searchErrorText) {
+          searchErrorText.innerHTML = `
+            <div style="display: flex; flex-direction: column; gap: 8px; text-align: left; width: 100%;">
+              <div style="font-weight: 700; font-size: 0.9rem; color: #fff;">
+                🔑 Wyszukiwanie online wymaga darmowego klucza TMDb API
+              </div>
+              <div style="font-size: 0.8rem; color: rgba(255,255,255,0.88); line-height: 1.4;">
+                Darmowy klucz TMDb API możesz wpisać w 10 sekund w oknie <em>Klucze & Funkcje</em> (Chmura & Asystent AI → Klucze API) lub w pliku <code>.env</code> na serwerze.
+              </div>
+              <div style="display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
+                <button type="button" id="m3-btn-err-open-keys" class="m3-chip" style="background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); font-weight: 700; padding: 6px 12px; border: none; cursor: pointer;">
+                  <span class="material-symbols-rounded" style="font-size: 16px;">key</span> Wpisz klucz TMDb
+                </button>
+                <button type="button" id="m3-btn-err-open-import" class="m3-chip" style="background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); font-weight: 700; padding: 6px 12px; border: none; cursor: pointer;">
+                  <span class="material-symbols-rounded" style="font-size: 16px;">upload_file</span> Otwórz Importer
+                </button>
+              </div>
+            </div>
+          `;
+          setTimeout(() => {
+            const btnKeys = document.getElementById("m3-btn-err-open-keys");
+            const btnImport = document.getElementById("m3-btn-err-open-import");
+            if (btnKeys) {
+              btnKeys.addEventListener("click", () => {
+                if (window.openCloudSyncModal) window.openCloudSyncModal('keys');
               });
             }
-
-            if (stepSearch) stepSearch.style.display = "none";
-            if (stepResults) stepResults.style.display = "flex";
-          }
-        } else if (data && data.needs_key) {
-          // Backend has no TMDb/OMDb key configured - show the key setup panel
-          if (searchErrorText) {
-            searchErrorText.innerHTML = `
-              <div style="display: flex; flex-direction: column; gap: 8px; text-align: left; width: 100%;">
-                <div style="font-weight: 700; font-size: 0.9rem; color: #fff;">
-                  🔑 Wyszukiwanie online wymaga darmowego klucza TMDb API
-                </div>
-                <div style="font-size: 0.8rem; color: rgba(255,255,255,0.88); line-height: 1.4;">
-                  Darmowy klucz TMDb API możesz wpisać w 10 sekund w oknie <em>Klucze & Funkcje</em> (Chmura & Asystent AI → Klucze API) lub w pliku <code>.env</code> na serwerze.
-                </div>
-                <div style="display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
-                  <button type="button" id="m3-btn-err-open-keys" class="m3-chip" style="background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); font-weight: 700; padding: 6px 12px; border: none; cursor: pointer;">
-                    <span class="material-symbols-rounded" style="font-size: 16px;">key</span> Wpisz klucz TMDb
-                  </button>
-                  <button type="button" id="m3-btn-err-open-import" class="m3-chip" style="background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); font-weight: 700; padding: 6px 12px; border: none; cursor: pointer;">
-                    <span class="material-symbols-rounded" style="font-size: 16px;">upload_file</span> Otwórz Importer
-                  </button>
-                </div>
-              </div>
-            `;
-            setTimeout(() => {
-              const btnKeys = document.getElementById("m3-btn-err-open-keys");
-              const btnImport = document.getElementById("m3-btn-err-open-import");
-              if (btnKeys) {
-                btnKeys.addEventListener("click", () => {
-                  if (window.openCloudSyncModal) window.openCloudSyncModal('keys');
-                });
-              }
-              if (btnImport) {
-                btnImport.addEventListener("click", () => {
-                  if (window.openImporterModal) window.openImporterModal();
-                });
-              }
-            }, 50);
-          }
-          if (searchError) searchError.style.display = "flex";
-        } else if (data && !data.found) {
-          if (searchErrorText) searchErrorText.innerText = "Nie znaleziono pozycji o podanym tytule. Sprawdź pisownię.";
-          if (searchError) searchError.style.display = "flex";
-        } else {
-          // If no key and on static host
-          if (searchErrorText) {
-            searchErrorText.innerHTML = `
-              <div style="display: flex; flex-direction: column; gap: 8px; text-align: left; width: 100%;">
-                <div style="font-weight: 700; font-size: 0.9rem; color: #fff;">
-                  🔑 Wyszukiwanie online na GitHub Pages wymaga darmowego klucza TMDb API
-                </div>
-                <div style="font-size: 0.8rem; color: rgba(255,255,255,0.88); line-height: 1.4;">
-                  W wersji hostowanej (GitHub Pages) zapytania wyszukiwarki wykonuje bezpośrednio Twoja przeglądarka. Darmowy klucz TMDb API możesz wpisać w 10 sekund w oknie <em>Klucze & Funkcje</em>.
-                </div>
-                <div style="display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
-                  <button type="button" id="m3-btn-err-open-keys" class="m3-chip" style="background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); font-weight: 700; padding: 6px 12px; border: none; cursor: pointer;">
-                    <span class="material-symbols-rounded" style="font-size: 16px;">key</span> Wpisz klucz TMDb
-                  </button>
-                  <button type="button" id="m3-btn-err-open-import" class="m3-chip" style="background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); font-weight: 700; padding: 6px 12px; border: none; cursor: pointer;">
-                    <span class="material-symbols-rounded" style="font-size: 16px;">upload_file</span> Otwórz Importer
-                  </button>
-                </div>
-              </div>
-            `;
-            setTimeout(() => {
-              const btnKeys = document.getElementById("m3-btn-err-open-keys");
-              const btnImport = document.getElementById("m3-btn-err-open-import");
-              if (btnKeys) {
-                btnKeys.addEventListener("click", () => {
-                  if (window.openCloudSyncModal) window.openCloudSyncModal('keys');
-                });
-              }
-              if (btnImport) {
-                btnImport.addEventListener("click", () => {
-                  if (window.openImporterModal) window.openImporterModal();
-                });
-              }
-            }, 50);
-          }
-          if (searchError) searchError.style.display = "flex";
+            if (btnImport) {
+              btnImport.addEventListener("click", () => {
+                if (window.openImporterModal) window.openImporterModal();
+              });
+            }
+          }, 50);
         }
-      } catch (err) {
-        console.error("Search preview process error:", err);
-      } finally {
-        if (btnSearchTrigger) {
-          btnSearchTrigger.innerHTML = origHtml;
-          btnSearchTrigger.disabled = false;
-        }
-      }
-    });
-  }
-
-  // Status buttons (Watched vs Watchlist)
-  const btnStatusWatched = document.getElementById("m3-status-btn-watched");
-  const btnStatusWatchlist = document.getElementById("m3-status-btn-watchlist");
-  if (btnStatusWatched) btnStatusWatched.addEventListener("click", () => setConfirmedStatus("watched"));
-  if (btnStatusWatchlist) btnStatusWatchlist.addEventListener("click", () => setConfirmedStatus("watchlist"));
-
-  // Interactive stars
-  const starElements = document.querySelectorAll(".m3-interactive-star");
-  const starBar = document.getElementById("m3-add-star-bar");
-  const ratingClearBtn = document.getElementById("m3-add-rating-clear");
-
-  starElements.forEach(star => {
-    star.addEventListener("click", () => {
-      const val = parseInt(star.getAttribute("data-val"));
-      setAddRating(val === currentAddRating ? null : val);
-    });
-
-    star.addEventListener("mouseenter", () => {
-      const hoverVal = parseInt(star.getAttribute("data-val"));
-      starElements.forEach(s => {
-        const sVal = parseInt(s.getAttribute("data-val"));
-        if (sVal <= hoverVal) {
-          s.style.color = "var(--md-sys-color-primary)";
-          s.style.fontVariationSettings = "'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24";
-          s.style.transform = "scale(1.15)";
-        } else {
-          s.style.color = "var(--md-sys-color-outline-variant)";
-          s.style.fontVariationSettings = "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24";
-          s.style.transform = "scale(1.0)";
-        }
-      });
-      const labelEl = document.getElementById("m3-add-rating-label");
-      if (labelEl) labelEl.innerText = ratingLabels[hoverVal];
-    });
-  });
-
-  if (starBar) {
-    starBar.addEventListener("mouseleave", () => {
-      setAddRating(currentAddRating);
-    });
-  }
-
-  if (ratingClearBtn) {
-    ratingClearBtn.addEventListener("click", () => setAddRating(null));
-  }
-
-  // Confirm Add Form Handler
-  const confirmForm = document.getElementById("m3-confirm-add-form");
-  if (confirmForm) {
-    confirmForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      if (!currentPreviewData) return;
-
-      const status = document.getElementById("m3-confirm-status").value;
-      const ratingVal = document.getElementById("m3-confirm-rating").value;
-      const rating = (status === "watchlist") ? null : (ratingVal ? parseInt(ratingVal) : null);
-
-      if (confirmedType === "movie") {
-        const payload = {
-          title: currentPreviewData.title,
-          poster_url: currentPreviewData.poster_url,
-          release_date: currentPreviewData.released || (currentPreviewData.year ? `${currentPreviewData.year.substring(0, 4)}-01-01` : null),
-          status: status,
-          rating: rating,
-          tmdb_id: currentPreviewData.tmdb_id || currentPreviewData.id,
-          is_favorite: false
-        };
-
-        let savedMovie = null;
-        try {
-          const res = await fetch("/api/movies/add", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-          });
-          if (res.ok) {
-            savedMovie = await res.json();
-          }
-        } catch (backendErr) {
-          console.warn("Backend add movie failed, using client storage:", backendErr);
-        }
-
-        // Client-side save for GitHub Pages & offline
-        if (!savedMovie) {
-          savedMovie = {
-            uuid: `movie_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-            title: currentPreviewData.title,
-            original_title: currentPreviewData.original_title || currentPreviewData.title,
-            year: currentPreviewData.year || "",
-            genre: currentPreviewData.genre || "",
-            director: currentPreviewData.director || "",
-            cast: currentPreviewData.cast || "",
-            plot: currentPreviewData.plot || "",
-            runtime: currentPreviewData.runtime || "",
-            poster_url: currentPreviewData.poster_url || "",
-            status: status,
-            rating: rating,
-            tmdb_id: currentPreviewData.tmdb_id || currentPreviewData.id,
-            imdb_id: currentPreviewData.imdb_id || "",
-            is_favorite: false,
-            user_date: new Date().toISOString().split("T")[0]
-          };
-        }
-
-        const existingIdx = state.movies.findIndex(m => 
-          (m.uuid && m.uuid === savedMovie.uuid) || 
-          (savedMovie.tmdb_id && m.tmdb_id && String(m.tmdb_id) === String(savedMovie.tmdb_id)) || 
-          (normalizeTitleForLibrary(m.title) === normalizeTitleForLibrary(savedMovie.title))
-        );
-
-        if (existingIdx !== -1) {
-          state.movies[existingIdx] = { ...state.movies[existingIdx], ...savedMovie };
-          showToastNotification(`Zaktualizowano "${savedMovie.title}" w bibliotece! ✨`);
-        } else {
-          state.movies.unshift(savedMovie);
-          showToastNotification(`Zapisano "${savedMovie.title}" w bibliotece! 🎬`);
-        }
-
-        if (state.mode === "movies") renderMovies();
-        updateStats();
-        saveLocalDatabase();
-        if (window.updateAiCardBadges) {
-          window.updateAiCardBadges(savedMovie.title, savedMovie.tmdb_id, savedMovie.status, savedMovie, "movie");
-        }
-        if (sheetAdd) sheetAdd.classList.remove("active");
+        if (searchError) searchError.style.display = "flex";
+      } else if (data && !data.found) {
+        if (searchErrorText) searchErrorText.innerText = "Nie znaleziono pozycji o podanym tytule. Sprawdź pisownię.";
+        if (searchError) searchError.style.display = "flex";
       } else {
-        const episodesList = (status === "watchlist") ? [] : Array.from(preAddWatchedSet).map(key => {
-          const [s, ep] = key.split("_");
-          return { season: parseInt(s), episode: parseInt(ep) };
-        });
-
-        const payload = {
-          title: currentPreviewData.title,
-          poster_url: currentPreviewData.poster_url,
-          status: status,
-          rating: rating,
-          tmdb_id: currentPreviewData.tmdb_id || currentPreviewData.id,
-          episodes_watched: episodesList
-        };
-
-        let savedShow = null;
-        try {
-          const res = await fetch("/api/shows/add", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-          });
-          if (res.ok) {
-            savedShow = await res.json();
-          }
-        } catch (backendErr) {
-          console.warn("Backend add show failed, using client storage:", backendErr);
+        // If no key and on static host
+        if (searchErrorText) {
+          searchErrorText.innerHTML = `
+            <div style="display: flex; flex-direction: column; gap: 8px; text-align: left; width: 100%;">
+              <div style="font-weight: 700; font-size: 0.9rem; color: #fff;">
+                🔑 Wyszukiwanie online na GitHub Pages wymaga darmowego klucza TMDb API
+              </div>
+              <div style="font-size: 0.8rem; color: rgba(255,255,255,0.88); line-height: 1.4;">
+                W wersji hostowanej (GitHub Pages) zapytania wyszukiwarki wykonuje bezpośrednio Twoja przeglądarka. Darmowy klucz TMDb API możesz wpisać w 10 sekund w oknie <em>Klucze & Funkcje</em>.
+              </div>
+              <div style="display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
+                <button type="button" id="m3-btn-err-open-keys" class="m3-chip" style="background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); font-weight: 700; padding: 6px 12px; border: none; cursor: pointer;">
+                  <span class="material-symbols-rounded" style="font-size: 16px;">key</span> Wpisz klucz TMDb
+                </button>
+                <button type="button" id="m3-btn-err-open-import" class="m3-chip" style="background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); font-weight: 700; padding: 6px 12px; border: none; cursor: pointer;">
+                  <span class="material-symbols-rounded" style="font-size: 16px;">upload_file</span> Otwórz Importer
+                </button>
+              </div>
+            </div>
+          `;
+          setTimeout(() => {
+            const btnKeys = document.getElementById("m3-btn-err-open-keys");
+            const btnImport = document.getElementById("m3-btn-err-open-import");
+            if (btnKeys) {
+              btnKeys.addEventListener("click", () => {
+                if (window.openCloudSyncModal) window.openCloudSyncModal('keys');
+              });
+            }
+            if (btnImport) {
+              btnImport.addEventListener("click", () => {
+                if (window.openImporterModal) window.openImporterModal();
+              });
+            }
+          }, 50);
         }
-
-        // Client-side save for GitHub Pages & offline
-        if (!savedShow) {
-          savedShow = {
-            uuid: `show_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-            title: currentPreviewData.title,
-            original_title: currentPreviewData.original_title || currentPreviewData.title,
-            year: currentPreviewData.year || "",
-            genre: currentPreviewData.genre || "",
-            plot: currentPreviewData.plot || "",
-            poster_url: currentPreviewData.poster_url || "",
-            status: status,
-            rating: rating,
-            tmdb_id: currentPreviewData.tmdb_id || currentPreviewData.id,
-            imdb_id: currentPreviewData.imdb_id || "",
-            total_seasons: currentPreviewData.total_seasons || 1,
-            total_episodes: currentPreviewData.total_episodes || 0,
-            season_ep_counts: currentPreviewData.season_ep_counts || {},
-            episodes_watched: episodesList,
-            user_date: new Date().toISOString().split("T")[0]
-          };
-        }
-
-        const existingIdx = state.shows.findIndex(s => 
-          (s.uuid && s.uuid === savedShow.uuid) || 
-          (savedShow.tmdb_id && s.tmdb_id && String(s.tmdb_id) === String(savedShow.tmdb_id)) || 
-          (normalizeTitleForLibrary(s.title) === normalizeTitleForLibrary(savedShow.title))
-        );
-
-        if (existingIdx !== -1) {
-          state.shows[existingIdx] = { ...state.shows[existingIdx], ...savedShow };
-          showToastNotification(`Zaktualizowano "${savedShow.title}" w bibliotece! ✨`);
-        } else {
-          state.shows.unshift(savedShow);
-          showToastNotification(`Zapisano "${savedShow.title}" w bibliotece! 📺`);
-        }
-
-        if (state.mode === "shows") renderShows();
-        updateStats();
-        saveLocalDatabase();
-        if (window.updateAiCardBadges) {
-          window.updateAiCardBadges(savedShow.title, savedShow.tmdb_id, savedShow.status, savedShow, "series");
-        }
-        if (sheetAdd) sheetAdd.classList.remove("active");
+        if (searchError) searchError.style.display = "flex";
       }
-    });
-  }
+    } catch (err) {
+      console.error("Search preview process error:", err);
+    } finally {
+      if (btnSearchTrigger) {
+        btnSearchTrigger.innerHTML = origHtml;
+        btnSearchTrigger.disabled = false;
+      }
+    }
+  });
+}
 }
 
+function initConfirmAddForm() {
+  // Krok potwierdzenia: status, gwiazdki ocen i zapis do biblioteki (film/serial).
+const sheetAdd = document.getElementById("m3-sheet-add");
+// Status buttons (Watched vs Watchlist)
+const btnStatusWatched = document.getElementById("m3-status-btn-watched");
+const btnStatusWatchlist = document.getElementById("m3-status-btn-watchlist");
+if (btnStatusWatched) btnStatusWatched.addEventListener("click", () => setConfirmedStatus("watched"));
+if (btnStatusWatchlist) btnStatusWatchlist.addEventListener("click", () => setConfirmedStatus("watchlist"));
+
+// Interactive stars
+const starElements = document.querySelectorAll(".m3-interactive-star");
+const starBar = document.getElementById("m3-add-star-bar");
+const ratingClearBtn = document.getElementById("m3-add-rating-clear");
+
+starElements.forEach(star => {
+  star.addEventListener("click", () => {
+    const val = parseInt(star.getAttribute("data-val"));
+    setAddRating(val === currentAddRating ? null : val);
+  });
+
+  star.addEventListener("mouseenter", () => {
+    const hoverVal = parseInt(star.getAttribute("data-val"));
+    starElements.forEach(s => {
+      const sVal = parseInt(s.getAttribute("data-val"));
+      if (sVal <= hoverVal) {
+        s.style.color = "var(--md-sys-color-primary)";
+        s.style.fontVariationSettings = "'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24";
+        s.style.transform = "scale(1.15)";
+      } else {
+        s.style.color = "var(--md-sys-color-outline-variant)";
+        s.style.fontVariationSettings = "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24";
+        s.style.transform = "scale(1.0)";
+      }
+    });
+    const labelEl = document.getElementById("m3-add-rating-label");
+    if (labelEl) labelEl.innerText = ratingLabels[hoverVal];
+  });
+});
+
+if (starBar) {
+  starBar.addEventListener("mouseleave", () => {
+    setAddRating(currentAddRating);
+  });
+}
+
+if (ratingClearBtn) {
+  ratingClearBtn.addEventListener("click", () => setAddRating(null));
+}
+
+// Confirm Add Form Handler
+const confirmForm = document.getElementById("m3-confirm-add-form");
+if (confirmForm) {
+  confirmForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!currentPreviewData) return;
+
+    const status = document.getElementById("m3-confirm-status").value;
+    const ratingVal = document.getElementById("m3-confirm-rating").value;
+    const rating = (status === "watchlist") ? null : (ratingVal ? parseInt(ratingVal) : null);
+
+    if (confirmedType === "movie") {
+      const payload = {
+        title: currentPreviewData.title,
+        poster_url: currentPreviewData.poster_url,
+        release_date: currentPreviewData.released || (currentPreviewData.year ? `${currentPreviewData.year.substring(0, 4)}-01-01` : null),
+        status: status,
+        rating: rating,
+        tmdb_id: currentPreviewData.tmdb_id || currentPreviewData.id,
+        is_favorite: false
+      };
+
+      let savedMovie = null;
+      try {
+        const res = await fetch("/api/movies/add", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          savedMovie = await res.json();
+        }
+      } catch (backendErr) {
+        console.warn("Backend add movie failed, using client storage:", backendErr);
+      }
+
+      // Client-side save for GitHub Pages & offline
+      if (!savedMovie) {
+        savedMovie = {
+          uuid: `movie_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+          title: currentPreviewData.title,
+          original_title: currentPreviewData.original_title || currentPreviewData.title,
+          year: currentPreviewData.year || "",
+          genre: currentPreviewData.genre || "",
+          director: currentPreviewData.director || "",
+          cast: currentPreviewData.cast || "",
+          plot: currentPreviewData.plot || "",
+          runtime: currentPreviewData.runtime || "",
+          poster_url: currentPreviewData.poster_url || "",
+          status: status,
+          rating: rating,
+          tmdb_id: currentPreviewData.tmdb_id || currentPreviewData.id,
+          imdb_id: currentPreviewData.imdb_id || "",
+          is_favorite: false,
+          user_date: new Date().toISOString().split("T")[0]
+        };
+      }
+
+      const existingIdx = state.movies.findIndex(m => 
+        (m.uuid && m.uuid === savedMovie.uuid) || 
+        (savedMovie.tmdb_id && m.tmdb_id && String(m.tmdb_id) === String(savedMovie.tmdb_id)) || 
+        (normalizeTitleForLibrary(m.title) === normalizeTitleForLibrary(savedMovie.title))
+      );
+
+      if (existingIdx !== -1) {
+        state.movies[existingIdx] = { ...state.movies[existingIdx], ...savedMovie };
+        showToastNotification(`Zaktualizowano "${savedMovie.title}" w bibliotece! ✨`);
+      } else {
+        state.movies.unshift(savedMovie);
+        showToastNotification(`Zapisano "${savedMovie.title}" w bibliotece! 🎬`);
+      }
+
+      if (state.mode === "movies") renderMovies();
+      updateStats();
+      saveLocalDatabase();
+      if (window.updateAiCardBadges) {
+        window.updateAiCardBadges(savedMovie.title, savedMovie.tmdb_id, savedMovie.status, savedMovie, "movie");
+      }
+      if (sheetAdd) sheetAdd.classList.remove("active");
+    } else {
+      const episodesList = (status === "watchlist") ? [] : Array.from(preAddWatchedSet).map(key => {
+        const [s, ep] = key.split("_");
+        return { season: parseInt(s), episode: parseInt(ep) };
+      });
+
+      const payload = {
+        title: currentPreviewData.title,
+        poster_url: currentPreviewData.poster_url,
+        status: status,
+        rating: rating,
+        tmdb_id: currentPreviewData.tmdb_id || currentPreviewData.id,
+        episodes_watched: episodesList
+      };
+
+      let savedShow = null;
+      try {
+        const res = await fetch("/api/shows/add", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          savedShow = await res.json();
+        }
+      } catch (backendErr) {
+        console.warn("Backend add show failed, using client storage:", backendErr);
+      }
+
+      // Client-side save for GitHub Pages & offline
+      if (!savedShow) {
+        savedShow = {
+          uuid: `show_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+          title: currentPreviewData.title,
+          original_title: currentPreviewData.original_title || currentPreviewData.title,
+          year: currentPreviewData.year || "",
+          genre: currentPreviewData.genre || "",
+          plot: currentPreviewData.plot || "",
+          poster_url: currentPreviewData.poster_url || "",
+          status: status,
+          rating: rating,
+          tmdb_id: currentPreviewData.tmdb_id || currentPreviewData.id,
+          imdb_id: currentPreviewData.imdb_id || "",
+          total_seasons: currentPreviewData.total_seasons || 1,
+          total_episodes: currentPreviewData.total_episodes || 0,
+          season_ep_counts: currentPreviewData.season_ep_counts || {},
+          episodes_watched: episodesList,
+          user_date: new Date().toISOString().split("T")[0]
+        };
+      }
+
+      const existingIdx = state.shows.findIndex(s => 
+        (s.uuid && s.uuid === savedShow.uuid) || 
+        (savedShow.tmdb_id && s.tmdb_id && String(s.tmdb_id) === String(savedShow.tmdb_id)) || 
+        (normalizeTitleForLibrary(s.title) === normalizeTitleForLibrary(savedShow.title))
+      );
+
+      if (existingIdx !== -1) {
+        state.shows[existingIdx] = { ...state.shows[existingIdx], ...savedShow };
+        showToastNotification(`Zaktualizowano "${savedShow.title}" w bibliotece! ✨`);
+      } else {
+        state.shows.unshift(savedShow);
+        showToastNotification(`Zapisano "${savedShow.title}" w bibliotece! 📺`);
+      }
+
+      if (state.mode === "shows") renderShows();
+      updateStats();
+      saveLocalDatabase();
+      if (window.updateAiCardBadges) {
+        window.updateAiCardBadges(savedShow.title, savedShow.tmdb_id, savedShow.status, savedShow, "series");
+      }
+      if (sheetAdd) sheetAdd.classList.remove("active");
+    }
+  });
+}
+}
 window.setConfirmedType = setConfirmedType;
 window.setConfirmedStatus = setConfirmedStatus;
 window.setAddRating = setAddRating;
