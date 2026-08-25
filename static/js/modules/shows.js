@@ -172,145 +172,7 @@ export async function openEpisodeTracker(show) {
   const progressText = show.latest_progress ? `Postęp: ${show.latest_progress} (${show.watched_count || 0} odcinków)` : "Brak obejrzanych odcinków";
   document.getElementById("m3-ep-show-meta").innerText = progressText;
 
-  // Series Preview Card Elements (Poster, Plot, Metadata, Stars)
-  const detailImg = document.getElementById("m3-show-detail-img");
-  const detailMeta = document.getElementById("m3-show-detail-meta");
-  const detailPlot = document.getElementById("m3-show-detail-plot");
-  const detailStars = document.getElementById("m3-show-detail-stars");
-
-  if (detailImg) {
-    const posterBox = detailImg.parentElement;
-    if (posterBox) {
-      const oldFb = posterBox.querySelector(".m3-poster-fallback");
-      if (oldFb) oldFb.remove();
-    }
-    if (show.poster_url) {
-      detailImg.src = show.poster_url;
-      detailImg.style.display = "block";
-      detailImg.onerror = () => {
-        detailImg.style.display = "none";
-        if (posterBox && !posterBox.querySelector(".m3-poster-fallback")) {
-          const fb = document.createElement("div");
-          fb.className = "m3-poster-fallback";
-          fb.style.cssText = `width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: ${getGradientForTitle(show.title)}; color: #fff; font-weight: 700; font-size: 0.8rem; text-align: center; border-radius: 10px; padding: 6px;`;
-          fb.innerText = show.title;
-          posterBox.appendChild(fb);
-        }
-      };
-    } else {
-      detailImg.style.display = "none";
-      if (posterBox && !posterBox.querySelector(".m3-poster-fallback")) {
-        const fb = document.createElement("div");
-        fb.className = "m3-poster-fallback";
-        fb.style.cssText = `width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: ${getGradientForTitle(show.title)}; color: #fff; font-weight: 700; font-size: 0.8rem; text-align: center; border-radius: 10px; padding: 6px;`;
-        fb.innerText = show.title;
-        posterBox.appendChild(fb);
-      }
-    }
-  }
-
-  if (detailMeta) {
-    const y = show.release_date ? show.release_date.split("-")[0] : (show.release_year || "");
-    detailMeta.innerText = y ? `${y} • Serial` : "Serial telewizyjny";
-  }
-  if (detailPlot) {
-    detailPlot.innerText = show.plot || "Wczytywanie szczegółów serialu z TMDb...";
-  }
-
-  if (detailStars) {
-    let starsHtml = "";
-    for (let i = 1; i <= 5; i++) {
-      const active = (show.rating && i <= show.rating) ? "active" : "";
-      starsHtml += `<span class="material-symbols-rounded m3-star ${active}" data-val="${i}" style="cursor: pointer; font-size: 18px;">star</span>`;
-    }
-    detailStars.innerHTML = starsHtml;
-    detailStars.querySelectorAll(".m3-star").forEach(star => {
-      star.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        const val = parseInt(star.getAttribute("data-val"), 10);
-        const nextVal = show.rating === val ? null : val;
-        try {
-          const res = await fetch(`/api/shows/${show.uuid}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ rating: nextVal })
-          });
-          if (res.ok) {
-            show.rating = nextVal;
-            renderShows();
-            updateStats();
-            openEpisodeTracker(show);
-          }
-        } catch (err){}
-      });
-    });
-  }
-
-  const showBadgesRow = document.getElementById("m3-ep-show-badges-row");
-  if (showBadgesRow) {
-    showBadgesRow.innerHTML = "";
-    if (show.status === "watched") {
-      showBadgesRow.innerHTML += `<span class="m3-meta-badge" style="background: rgba(16, 185, 129, 0.18); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4);"><span class="material-symbols-rounded" style="font-size: 13px;">task_alt</span> Ukończony (${show.watched_count || 0} odc.)</span>`;
-    } else if (show.caught_up) {
-      showBadgesRow.innerHTML += `<span class="m3-meta-badge" style="background: rgba(56, 189, 248, 0.18); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4);"><span class="material-symbols-rounded" style="font-size: 13px;">schedule</span> Na bieżąco (${show.watched_count || 0} odc.)</span>`;
-    } else if (show.watched_count) {
-      showBadgesRow.innerHTML += `<span class="m3-meta-badge highlight"><span class="material-symbols-rounded" style="font-size: 13px;">play_circle</span> W trakcie (${show.watched_count} odc.)</span>`;
-    } else {
-      showBadgesRow.innerHTML += `<span class="m3-meta-badge"><span class="material-symbols-rounded" style="font-size: 13px;">bookmark</span> Do obejrzenia</span>`;
-    }
-
-    if (show.series_status === "Ended" || show.series_status === "Canceled") {
-      showBadgesRow.innerHTML += `<span class="m3-meta-badge" style="opacity: 0.85;"><span class="material-symbols-rounded" style="font-size: 12px;">flag</span> Zakończony serial</span>`;
-    } else if (show.in_production || show.series_status === "Returning Series") {
-      showBadgesRow.innerHTML += `<span class="m3-meta-badge" style="opacity: 0.85;"><span class="material-symbols-rounded" style="font-size: 12px;">autorenew</span> W produkcji</span>`;
-    }
-  }
-
-  const favShowBtn = document.getElementById("m3-btn-fav-show");
-  if (favShowBtn) {
-    const updateShowFavUI = () => {
-      const isFav = Boolean(show.is_favorite);
-      favShowBtn.className = `m3-card-fav-btn ${isFav ? 'is-fav active' : ''}`;
-      favShowBtn.innerHTML = `<span class="material-symbols-rounded" style="${isFav ? 'font-variation-settings: \'FILL\' 1; color: var(--md-sys-color-favorite);' : ''}">favorite</span>`;
-      favShowBtn.title = isFav ? "Usuń z ulubionych" : "Dodaj do ulubionych";
-    };
-    updateShowFavUI();
-    favShowBtn.onclick = () => {
-      toggleShowFavorite(show.uuid, Boolean(show.is_favorite));
-      show.is_favorite = !show.is_favorite;
-      updateShowFavUI();
-    };
-  }
-
-  const aiAssistantBtn = document.getElementById("m3-btn-ai-show-assistant");
-  if (aiAssistantBtn) {
-    aiAssistantBtn.onclick = () => {
-      openSeriesAiModal(show);
-    };
-  }
-
-  const rematchShowBtn = document.getElementById("m3-btn-rematch-show");
-  if (rematchShowBtn) {
-    rematchShowBtn.onclick = () => {
-      openShowRematchPicker(show);
-    };
-  }
-
-  const deleteShowBtn = document.getElementById("m3-btn-delete-show");
-  if (deleteShowBtn) {
-    deleteShowBtn.onclick = async () => {
-      const confirmed = await showM3ConfirmDialog({
-        title: "Usunąć serial z biblioteki?",
-        message: `Czy na pewno chcesz usunąć serial <b>"${show.title}"</b> wraz z całą historią i postępem oglądania?`,
-        confirmText: "Usuń serial",
-        cancelText: "Anuluj",
-        icon: "delete_forever",
-        isDestructive: true
-      });
-      if (!confirmed) return;
-      await deleteShow(show);
-    };
-  }
+  renderTrackerHeader(show);
 
   const vodLogosContainer = document.getElementById("m3-show-vod-logos");
   vodLogosContainer.innerHTML = `<span style="font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);">Szukam VOD...</span>`;
@@ -359,228 +221,389 @@ export async function openEpisodeTracker(show) {
   });
 
   try {
-    const localTmdbKey = localStorage.getItem("cinelog_tmdb_key") || "";
-    const localOmdbKey = localStorage.getItem("cinelog_omdb_key") || localStorage.getItem("cinelog_imdb_key") || "";
-    const tmdbKeyParam = localTmdbKey ? `&tmdb_key=${encodeURIComponent(localTmdbKey)}` : "";
-    const omdbKeyParam = localOmdbKey ? `&omdb_key=${encodeURIComponent(localOmdbKey)}` : "";
-    const showYear = show.release_year || (show.release_date ? show.release_date.split("-")[0] : "");
-    const tmdbParam = show.tmdb_id ? `&tmdb_id=${show.tmdb_id}` : "";
-    const yearParam = showYear ? `&year=${showYear}` : "";
-    const posterParam = show.poster_url ? `&poster_url=${encodeURIComponent(show.poster_url)}` : "";
-    const detailFetchUrl = `/api/search_detail?title=${encodeURIComponent(show.title)}&type=series&lang=${getUserLanguage()}${tmdbParam}${yearParam}${posterParam}${tmdbKeyParam}${omdbKeyParam}`;
-    const metaFetchUrl = `/api/shows/${show.uuid}/episodes_meta?lang=${getUserLanguage()}${tmdbParam}${tmdbKeyParam}`;
+    const detail = await fetchTrackerData(show);
+    renderSeasonTabs();
+    renderSeasonEpisodes(false);
+    applyShowDetailToTracker(show, detail);
+  } catch (e){}
+}
 
-    const [metaRes, detailRes] = await Promise.all([
-      fetch(metaFetchUrl).catch(() => ({ ok: false })),
-      fetch(detailFetchUrl).catch(() => ({ ok: false }))
-    ]);
+function renderTrackerHeader(show) {
+  // Nagłówek trackera: plakat, rok, opis, gwiazdki ocen, odznaki statusu, akcje (fav/AI/rematch/usuń).
+// Series Preview Card Elements (Poster, Plot, Metadata, Stars)
+const detailImg = document.getElementById("m3-show-detail-img");
+const detailMeta = document.getElementById("m3-show-detail-meta");
+const detailPlot = document.getElementById("m3-show-detail-plot");
+const detailStars = document.getElementById("m3-show-detail-stars");
 
-    if (metaRes && metaRes.ok) {
-      currentShowMeta = await metaRes.json();
+if (detailImg) {
+  const posterBox = detailImg.parentElement;
+  if (posterBox) {
+    const oldFb = posterBox.querySelector(".m3-poster-fallback");
+    if (oldFb) oldFb.remove();
+  }
+  if (show.poster_url) {
+    detailImg.src = show.poster_url;
+    detailImg.style.display = "block";
+    detailImg.onerror = () => {
+      detailImg.style.display = "none";
+      if (posterBox && !posterBox.querySelector(".m3-poster-fallback")) {
+        const fb = document.createElement("div");
+        fb.className = "m3-poster-fallback";
+        fb.style.cssText = `width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: ${getGradientForTitle(show.title)}; color: #fff; font-weight: 700; font-size: 0.8rem; text-align: center; border-radius: 10px; padding: 6px;`;
+        fb.innerText = show.title;
+        posterBox.appendChild(fb);
+      }
+    };
+  } else {
+    detailImg.style.display = "none";
+    if (posterBox && !posterBox.querySelector(".m3-poster-fallback")) {
+      const fb = document.createElement("div");
+      fb.className = "m3-poster-fallback";
+      fb.style.cssText = `width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: ${getGradientForTitle(show.title)}; color: #fff; font-weight: 700; font-size: 0.8rem; text-align: center; border-radius: 10px; padding: 6px;`;
+      fb.innerText = show.title;
+      posterBox.appendChild(fb);
     }
+  }
+}
 
-    let detail = null;
-    if (detailRes && detailRes.ok) {
-      detail = await detailRes.json();
-    }
+if (detailMeta) {
+  const y = show.release_date ? show.release_date.split("-")[0] : (show.release_year || "");
+  detailMeta.innerText = y ? `${y} • Serial` : "Serial telewizyjny";
+}
+if (detailPlot) {
+  detailPlot.innerText = show.plot || "Wczytywanie szczegółów serialu z TMDb...";
+}
 
-    // 1. Direct client-side TMDb TV Show lookup (GitHub Pages / offline mode)
-    if (!detail && localTmdbKey) {
+if (detailStars) {
+  let starsHtml = "";
+  for (let i = 1; i <= 5; i++) {
+    const active = (show.rating && i <= show.rating) ? "active" : "";
+    starsHtml += `<span class="material-symbols-rounded m3-star ${active}" data-val="${i}" style="cursor: pointer; font-size: 18px;">star</span>`;
+  }
+  detailStars.innerHTML = starsHtml;
+  detailStars.querySelectorAll(".m3-star").forEach(star => {
+    star.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const val = parseInt(star.getAttribute("data-val"), 10);
+      const nextVal = show.rating === val ? null : val;
       try {
-        let resolvedTmdbId = show.tmdb_id;
-
-        // Lookup by IMDb ID if available
-        if (!resolvedTmdbId && show.imdb_id) {
-          try {
-            const findRes = await fetch(`https://api.themoviedb.org/3/find/${encodeURIComponent(show.imdb_id)}?api_key=${encodeURIComponent(localTmdbKey)}&external_source=imdb_id&language=${getUserLanguage()}`);
-            if (findRes.ok) {
-              const findJson = await findRes.json();
-              if (findJson.tv_results && findJson.tv_results.length > 0) {
-                resolvedTmdbId = findJson.tv_results[0].id;
-                show.tmdb_id = resolvedTmdbId;
-              }
-            }
-          } catch(e) {}
+        const res = await fetch(`/api/shows/${show.uuid}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rating: nextVal })
+        });
+        if (res.ok) {
+          show.rating = nextVal;
+          renderShows();
+          updateStats();
+          openEpisodeTracker(show);
         }
+      } catch (err){}
+    });
+  });
+}
 
-        // Lookup by Title + Year
-        if (!resolvedTmdbId) {
-          const cleanTitle = (show.title || "").replace(/\s*\([^)]*\)/g, "").trim();
-          const queryParams = new URLSearchParams({
-            api_key: localTmdbKey,
-            query: cleanTitle,
-            language: getUserLanguage(),
-            include_adult: "false"
-          });
-          if (showYear) queryParams.set("first_air_date_year", showYear);
+const showBadgesRow = document.getElementById("m3-ep-show-badges-row");
+if (showBadgesRow) {
+  showBadgesRow.innerHTML = "";
+  if (show.status === "watched") {
+    showBadgesRow.innerHTML += `<span class="m3-meta-badge" style="background: rgba(16, 185, 129, 0.18); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4);"><span class="material-symbols-rounded" style="font-size: 13px;">task_alt</span> Ukończony (${show.watched_count || 0} odc.)</span>`;
+  } else if (show.caught_up) {
+    showBadgesRow.innerHTML += `<span class="m3-meta-badge" style="background: rgba(56, 189, 248, 0.18); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4);"><span class="material-symbols-rounded" style="font-size: 13px;">schedule</span> Na bieżąco (${show.watched_count || 0} odc.)</span>`;
+  } else if (show.watched_count) {
+    showBadgesRow.innerHTML += `<span class="m3-meta-badge highlight"><span class="material-symbols-rounded" style="font-size: 13px;">play_circle</span> W trakcie (${show.watched_count} odc.)</span>`;
+  } else {
+    showBadgesRow.innerHTML += `<span class="m3-meta-badge"><span class="material-symbols-rounded" style="font-size: 13px;">bookmark</span> Do obejrzenia</span>`;
+  }
 
-          const searchRes = await fetch(`https://api.themoviedb.org/3/search/tv?${queryParams.toString()}`);
-          if (searchRes.ok) {
-            const sData = await searchRes.json();
-            if (sData.results && sData.results.length > 0) {
-              resolvedTmdbId = sData.results[0].id;
+  if (show.series_status === "Ended" || show.series_status === "Canceled") {
+    showBadgesRow.innerHTML += `<span class="m3-meta-badge" style="opacity: 0.85;"><span class="material-symbols-rounded" style="font-size: 12px;">flag</span> Zakończony serial</span>`;
+  } else if (show.in_production || show.series_status === "Returning Series") {
+    showBadgesRow.innerHTML += `<span class="m3-meta-badge" style="opacity: 0.85;"><span class="material-symbols-rounded" style="font-size: 12px;">autorenew</span> W produkcji</span>`;
+  }
+}
+
+const favShowBtn = document.getElementById("m3-btn-fav-show");
+if (favShowBtn) {
+  const updateShowFavUI = () => {
+    const isFav = Boolean(show.is_favorite);
+    favShowBtn.className = `m3-card-fav-btn ${isFav ? 'is-fav active' : ''}`;
+    favShowBtn.innerHTML = `<span class="material-symbols-rounded" style="${isFav ? 'font-variation-settings: \'FILL\' 1; color: var(--md-sys-color-favorite);' : ''}">favorite</span>`;
+    favShowBtn.title = isFav ? "Usuń z ulubionych" : "Dodaj do ulubionych";
+  };
+  updateShowFavUI();
+  favShowBtn.onclick = () => {
+    toggleShowFavorite(show.uuid, Boolean(show.is_favorite));
+    show.is_favorite = !show.is_favorite;
+    updateShowFavUI();
+  };
+}
+
+const aiAssistantBtn = document.getElementById("m3-btn-ai-show-assistant");
+if (aiAssistantBtn) {
+  aiAssistantBtn.onclick = () => {
+    openSeriesAiModal(show);
+  };
+}
+
+const rematchShowBtn = document.getElementById("m3-btn-rematch-show");
+if (rematchShowBtn) {
+  rematchShowBtn.onclick = () => {
+    openShowRematchPicker(show);
+  };
+}
+
+const deleteShowBtn = document.getElementById("m3-btn-delete-show");
+if (deleteShowBtn) {
+  deleteShowBtn.onclick = async () => {
+    const confirmed = await showM3ConfirmDialog({
+      title: "Usunąć serial z biblioteki?",
+      message: `Czy na pewno chcesz usunąć serial <b>"${show.title}"</b> wraz z całą historią i postępem oglądania?`,
+      confirmText: "Usuń serial",
+      cancelText: "Anuluj",
+      icon: "delete_forever",
+      isDestructive: true
+    });
+    if (!confirmed) return;
+    await deleteShow(show);
+  };
+}
+}
+
+async function fetchTrackerData(show) {
+  // Dane trackera online: backend (/episodes_meta + /search_detail) -> fallbacki klienta TMDb/OMDb.
+  // Ustawia modułowe currentShowMeta i dogrzewa metadane bieżącego sezonu.
+  const localTmdbKey = localStorage.getItem("cinelog_tmdb_key") || "";
+  const localOmdbKey = localStorage.getItem("cinelog_omdb_key") || localStorage.getItem("cinelog_imdb_key") || "";
+  const tmdbKeyParam = localTmdbKey ? `&tmdb_key=${encodeURIComponent(localTmdbKey)}` : "";
+  const omdbKeyParam = localOmdbKey ? `&omdb_key=${encodeURIComponent(localOmdbKey)}` : "";
+  const showYear = show.release_year || (show.release_date ? show.release_date.split("-")[0] : "");
+  const tmdbParam = show.tmdb_id ? `&tmdb_id=${show.tmdb_id}` : "";
+  const yearParam = showYear ? `&year=${showYear}` : "";
+  const posterParam = show.poster_url ? `&poster_url=${encodeURIComponent(show.poster_url)}` : "";
+  const detailFetchUrl = `/api/search_detail?title=${encodeURIComponent(show.title)}&type=series&lang=${getUserLanguage()}${tmdbParam}${yearParam}${posterParam}${tmdbKeyParam}${omdbKeyParam}`;
+  const metaFetchUrl = `/api/shows/${show.uuid}/episodes_meta?lang=${getUserLanguage()}${tmdbParam}${tmdbKeyParam}`;
+
+  const [metaRes, detailRes] = await Promise.all([
+    fetch(metaFetchUrl).catch(() => ({ ok: false })),
+    fetch(detailFetchUrl).catch(() => ({ ok: false }))
+  ]);
+
+  if (metaRes && metaRes.ok) {
+    currentShowMeta = await metaRes.json();
+  }
+
+  let detail = null;
+  if (detailRes && detailRes.ok) {
+    detail = await detailRes.json();
+  }
+
+  // 1. Direct client-side TMDb TV Show lookup (GitHub Pages / offline mode)
+  if (!detail && localTmdbKey) {
+    try {
+      let resolvedTmdbId = show.tmdb_id;
+
+      // Lookup by IMDb ID if available
+      if (!resolvedTmdbId && show.imdb_id) {
+        try {
+          const findRes = await fetch(`https://api.themoviedb.org/3/find/${encodeURIComponent(show.imdb_id)}?api_key=${encodeURIComponent(localTmdbKey)}&external_source=imdb_id&language=${getUserLanguage()}`);
+          if (findRes.ok) {
+            const findJson = await findRes.json();
+            if (findJson.tv_results && findJson.tv_results.length > 0) {
+              resolvedTmdbId = findJson.tv_results[0].id;
               show.tmdb_id = resolvedTmdbId;
             }
           }
-        }
+        } catch(e) {}
+      }
 
-        if (resolvedTmdbId) {
-          const tmdbRes = await fetch(`https://api.themoviedb.org/3/tv/${resolvedTmdbId}?api_key=${encodeURIComponent(localTmdbKey)}&language=${getUserLanguage()}&append_to_response=credits`);
-          if (tmdbRes.ok) {
-            const tData = await tmdbRes.json();
-            let plot = tData.overview || "";
-            if (!plot) {
-              try {
-                const tmdbResEn = await fetch(`https://api.themoviedb.org/3/tv/${resolvedTmdbId}?api_key=${encodeURIComponent(localTmdbKey)}&language=en-US`);
-                if (tmdbResEn.ok) {
-                  const tDataEn = await tmdbResEn.json();
-                  plot = tDataEn.overview || "";
-                }
-              } catch(e) {}
-            }
-
-            detail = {
-              title: tData.name || show.title,
-              plot: plot || show.plot || "",
-              genre: (tData.genres || []).map(g => g.name).join(", "),
-              year: (tData.first_air_date || show.release_year || "").substring(0, 4),
-              total_seasons: tData.number_of_seasons || (tData.seasons ? tData.seasons.filter(s => s.season_number > 0).length : 1),
-              total_episodes: tData.number_of_episodes || 0,
-              status: tData.status,
-              vote_average: tData.vote_average,
-              poster_url: tData.poster_path ? `https://image.tmdb.org/t/p/w500${tData.poster_path}` : null,
-              cast: (tData.credits && tData.credits.cast) ? tData.credits.cast.slice(0, 10).map(c => ({
-                id: c.id,
-                name: c.name,
-                character: c.character,
-                profile_url: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null
-              })) : [],
-              directors: (tData.created_by || []).map(c => ({
-                id: c.id,
-                name: c.name,
-                job: "Twórca serialu",
-                profile_url: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null
-              }))
-            };
-
-            if (detail.directors.length === 0 && tData.credits && tData.credits.crew) {
-              detail.directors = tData.credits.crew.filter(c => c.job === "Director" || c.department === "Directing").slice(0, 3).map(c => ({
-                id: c.id,
-                name: c.name,
-                job: "Reżyser",
-                profile_url: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null
-              }));
-            }
-          }
-        }
-      } catch (e) {}
-    }
-
-    // 2. Direct client OMDb fallback
-    if ((!detail || !detail.plot) && localOmdbKey) {
-      try {
+      // Lookup by Title + Year
+      if (!resolvedTmdbId) {
         const cleanTitle = (show.title || "").replace(/\s*\([^)]*\)/g, "").trim();
-        const omdbParam = show.imdb_id ? `i=${encodeURIComponent(show.imdb_id)}` : `t=${encodeURIComponent(cleanTitle)}${showYear ? `&y=${showYear}` : ''}&type=series`;
-        const omdbRes = await fetch(`https://www.omdbapi.com/?apikey=${encodeURIComponent(localOmdbKey)}&${omdbParam}&plot=full`);
-        if (omdbRes.ok) {
-          const omdbData = await omdbRes.json();
-          if (omdbData.Response === "True") {
-            if (!detail) detail = {};
-            if (!detail.plot && omdbData.Plot && omdbData.Plot !== "N/A") detail.plot = omdbData.Plot;
-            if (!detail.genre && omdbData.Genre && omdbData.Genre !== "N/A") detail.genre = omdbData.Genre;
-            if (!detail.year && omdbData.Year && omdbData.Year !== "N/A") detail.year = omdbData.Year;
-            if (!detail.vote_average && omdbData.imdbRating && omdbData.imdbRating !== "N/A") {
-              detail.vote_average = parseFloat(omdbData.imdbRating);
-            }
-            if (omdbData.totalSeasons && omdbData.totalSeasons !== "N/A") {
-              detail.total_seasons = parseInt(omdbData.totalSeasons, 10);
-            }
-            if (!detail.cast || detail.cast.length === 0) {
-              if (omdbData.Actors && omdbData.Actors !== "N/A") {
-                detail.cast = omdbData.Actors.split(",").map(a => ({ name: a.trim(), character: "Aktor", profile_url: null }));
+        const queryParams = new URLSearchParams({
+          api_key: localTmdbKey,
+          query: cleanTitle,
+          language: getUserLanguage(),
+          include_adult: "false"
+        });
+        if (showYear) queryParams.set("first_air_date_year", showYear);
+
+        const searchRes = await fetch(`https://api.themoviedb.org/3/search/tv?${queryParams.toString()}`);
+        if (searchRes.ok) {
+          const sData = await searchRes.json();
+          if (sData.results && sData.results.length > 0) {
+            resolvedTmdbId = sData.results[0].id;
+            show.tmdb_id = resolvedTmdbId;
+          }
+        }
+      }
+
+      if (resolvedTmdbId) {
+        const tmdbRes = await fetch(`https://api.themoviedb.org/3/tv/${resolvedTmdbId}?api_key=${encodeURIComponent(localTmdbKey)}&language=${getUserLanguage()}&append_to_response=credits`);
+        if (tmdbRes.ok) {
+          const tData = await tmdbRes.json();
+          let plot = tData.overview || "";
+          if (!plot) {
+            try {
+              const tmdbResEn = await fetch(`https://api.themoviedb.org/3/tv/${resolvedTmdbId}?api_key=${encodeURIComponent(localTmdbKey)}&language=en-US`);
+              if (tmdbResEn.ok) {
+                const tDataEn = await tmdbResEn.json();
+                plot = tDataEn.overview || "";
               }
+            } catch(e) {}
+          }
+
+          detail = {
+            title: tData.name || show.title,
+            plot: plot || show.plot || "",
+            genre: (tData.genres || []).map(g => g.name).join(", "),
+            year: (tData.first_air_date || show.release_year || "").substring(0, 4),
+            total_seasons: tData.number_of_seasons || (tData.seasons ? tData.seasons.filter(s => s.season_number > 0).length : 1),
+            total_episodes: tData.number_of_episodes || 0,
+            status: tData.status,
+            vote_average: tData.vote_average,
+            poster_url: tData.poster_path ? `https://image.tmdb.org/t/p/w500${tData.poster_path}` : null,
+            cast: (tData.credits && tData.credits.cast) ? tData.credits.cast.slice(0, 10).map(c => ({
+              id: c.id,
+              name: c.name,
+              character: c.character,
+              profile_url: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null
+            })) : [],
+            directors: (tData.created_by || []).map(c => ({
+              id: c.id,
+              name: c.name,
+              job: "Twórca serialu",
+              profile_url: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null
+            }))
+          };
+
+          if (detail.directors.length === 0 && tData.credits && tData.credits.crew) {
+            detail.directors = tData.credits.crew.filter(c => c.job === "Director" || c.department === "Directing").slice(0, 3).map(c => ({
+              id: c.id,
+              name: c.name,
+              job: "Reżyser",
+              profile_url: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null
+            }));
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 2. Direct client OMDb fallback
+  if ((!detail || !detail.plot) && localOmdbKey) {
+    try {
+      const cleanTitle = (show.title || "").replace(/\s*\([^)]*\)/g, "").trim();
+      const omdbParam = show.imdb_id ? `i=${encodeURIComponent(show.imdb_id)}` : `t=${encodeURIComponent(cleanTitle)}${showYear ? `&y=${showYear}` : ''}&type=series`;
+      const omdbRes = await fetch(`https://www.omdbapi.com/?apikey=${encodeURIComponent(localOmdbKey)}&${omdbParam}&plot=full`);
+      if (omdbRes.ok) {
+        const omdbData = await omdbRes.json();
+        if (omdbData.Response === "True") {
+          if (!detail) detail = {};
+          if (!detail.plot && omdbData.Plot && omdbData.Plot !== "N/A") detail.plot = omdbData.Plot;
+          if (!detail.genre && omdbData.Genre && omdbData.Genre !== "N/A") detail.genre = omdbData.Genre;
+          if (!detail.year && omdbData.Year && omdbData.Year !== "N/A") detail.year = omdbData.Year;
+          if (!detail.vote_average && omdbData.imdbRating && omdbData.imdbRating !== "N/A") {
+            detail.vote_average = parseFloat(omdbData.imdbRating);
+          }
+          if (omdbData.totalSeasons && omdbData.totalSeasons !== "N/A") {
+            detail.total_seasons = parseInt(omdbData.totalSeasons, 10);
+          }
+          if (!detail.cast || detail.cast.length === 0) {
+            if (omdbData.Actors && omdbData.Actors !== "N/A") {
+              detail.cast = omdbData.Actors.split(",").map(a => ({ name: a.trim(), character: "Aktor", profile_url: null }));
             }
-            if (!detail.directors || detail.directors.length === 0) {
-              if (omdbData.Director && omdbData.Director !== "N/A") {
-                detail.directors = omdbData.Director.split(",").map(d => ({ name: d.trim(), job: "Reżyser", profile_url: null }));
-              }
+          }
+          if (!detail.directors || detail.directors.length === 0) {
+            if (omdbData.Director && omdbData.Director !== "N/A") {
+              detail.directors = omdbData.Director.split(",").map(d => ({ name: d.trim(), job: "Reżyser", profile_url: null }));
             }
           }
         }
-      } catch (e) {}
-    }
-
-    // Direct client fallback for episode metadata if empty
-    if (Object.keys(currentShowMeta).length === 0 && localTmdbKey && show.tmdb_id) {
-      await ensureSeasonMeta(show.tmdb_id, selectedSeason);
-    }
-
-    renderSeasonTabs();
-    renderSeasonEpisodes(false);
-
-    if (detail) {
-      if (detail.poster_url && (!show.poster_url || show.poster_url.includes("amazon") || show.poster_url.includes("favicon"))) {
-        show.poster_url = detail.poster_url;
-        if (detailImg) {
-          detailImg.src = detail.poster_url;
-          detailImg.style.display = "block";
-        }
       }
-      if (detailMeta) {
-        detailMeta.innerText = `${detail.year || ''} • ${detail.genre || 'Serial telewizyjny'}`;
-      }
-      if (detailPlot) {
-        detailPlot.innerText = detail.plot || show.plot || "Brak opisu.";
-      }
+    } catch (e) {}
+  }
 
-      if (showBadgesRow) {
-        showBadgesRow.innerHTML = "";
-        if (show.status === "watched") {
-          showBadgesRow.innerHTML += `<span class="m3-meta-badge" style="background: rgba(16, 185, 129, 0.18); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); font-weight: 700;"><span class="material-symbols-rounded" style="font-size: 13px;">task_alt</span> Ukończony</span>`;
-        } else if (show.caught_up) {
-          showBadgesRow.innerHTML += `<span class="m3-meta-badge" style="background: rgba(56, 189, 248, 0.18); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); font-weight: 700;"><span class="material-symbols-rounded" style="font-size: 13px;">schedule</span> Na bieżąco</span>`;
-        }
+  // Direct client fallback for episode metadata if empty
+  if (Object.keys(currentShowMeta).length === 0 && localTmdbKey && show.tmdb_id) {
+    await ensureSeasonMeta(show.tmdb_id, selectedSeason);
+  }
 
-        if (detail.year) {
-          showBadgesRow.innerHTML += `<span class="m3-meta-badge"><span class="material-symbols-rounded" style="font-size: 13px;">calendar_today</span> ${detail.year}</span>`;
-        }
-        if (detail.total_seasons) {
-          const sCount = detail.total_seasons;
-          const sWord = sCount === 1 ? 'Sezon' : (sCount < 5 ? 'Sezony' : 'Sezonów');
-          showBadgesRow.innerHTML += `<span class="m3-meta-badge"><span class="material-symbols-rounded" style="font-size: 13px;">video_library</span> ${sCount} ${sWord}</span>`;
-        }
-        if (detail.vote_average && detail.vote_average > 0) {
-          showBadgesRow.innerHTML += `<span class="m3-meta-badge tmdb-score"><span class="material-symbols-rounded" style="font-size: 13px;">star</span> ${detail.vote_average.toFixed(1)}</span>`;
-        }
-        if (detail.genre) {
-          const firstGenre = detail.genre.split(",")[0].trim();
-          showBadgesRow.innerHTML += `<span class="m3-meta-badge highlight">${firstGenre}</span>`;
-        }
-        if (show.watched_count) {
-          showBadgesRow.innerHTML += `<span class="m3-meta-badge"><span class="material-symbols-rounded" style="font-size: 13px;">check_circle</span> ${show.watched_count} odc.</span>`;
-        }
-        if (detail.status === "Ended" || detail.status === "Canceled" || show.series_status === "Ended") {
-          showBadgesRow.innerHTML += `<span class="m3-meta-badge" style="opacity: 0.85;"><span class="material-symbols-rounded" style="font-size: 12px;">flag</span> Zakończony</span>`;
-        } else if (detail.status === "Returning Series" || show.in_production) {
-          showBadgesRow.innerHTML += `<span class="m3-meta-badge" style="opacity: 0.85;"><span class="material-symbols-rounded" style="font-size: 12px;">autorenew</span> W produkcji</span>`;
-        }
-      }
+  renderSeasonTabs();
+  renderSeasonEpisodes(false);
 
-      const showCastSec = document.getElementById("m3-show-cast-section");
-      if (showCastSec) {
-        if (detail.cast && detail.cast.length > 0) {
-          renderCastRail("m3-show-cast-rail", detail.cast, detail.directors);
-          showCastSec.style.display = "block";
-        } else {
-          showCastSec.style.display = "none";
-        }
-      }
-    } else {
-      if (detailPlot) {
-        detailPlot.innerText = show.plot || "Brak opisu.";
+  return detail;
+}
+
+function applyShowDetailToTracker(show, detail) {
+  // Aplikuje rozwiązane szczegóły do arkusza trackera (plakat/opis/rok, odznaki TMDb, obsada).
+const detailImg = document.getElementById("m3-show-detail-img");
+const detailMeta = document.getElementById("m3-show-detail-meta");
+const detailPlot = document.getElementById("m3-show-detail-plot");
+const showBadgesRow = document.getElementById("m3-ep-show-badges-row");
+  if (detail) {
+    if (detail.poster_url && (!show.poster_url || show.poster_url.includes("amazon") || show.poster_url.includes("favicon"))) {
+      show.poster_url = detail.poster_url;
+      if (detailImg) {
+        detailImg.src = detail.poster_url;
+        detailImg.style.display = "block";
       }
     }
-  } catch (e){}
+    if (detailMeta) {
+      detailMeta.innerText = `${detail.year || ''} • ${detail.genre || 'Serial telewizyjny'}`;
+    }
+    if (detailPlot) {
+      detailPlot.innerText = detail.plot || show.plot || "Brak opisu.";
+    }
+
+    if (showBadgesRow) {
+      showBadgesRow.innerHTML = "";
+      if (show.status === "watched") {
+        showBadgesRow.innerHTML += `<span class="m3-meta-badge" style="background: rgba(16, 185, 129, 0.18); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); font-weight: 700;"><span class="material-symbols-rounded" style="font-size: 13px;">task_alt</span> Ukończony</span>`;
+      } else if (show.caught_up) {
+        showBadgesRow.innerHTML += `<span class="m3-meta-badge" style="background: rgba(56, 189, 248, 0.18); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); font-weight: 700;"><span class="material-symbols-rounded" style="font-size: 13px;">schedule</span> Na bieżąco</span>`;
+      }
+
+      if (detail.year) {
+        showBadgesRow.innerHTML += `<span class="m3-meta-badge"><span class="material-symbols-rounded" style="font-size: 13px;">calendar_today</span> ${detail.year}</span>`;
+      }
+      if (detail.total_seasons) {
+        const sCount = detail.total_seasons;
+        const sWord = sCount === 1 ? 'Sezon' : (sCount < 5 ? 'Sezony' : 'Sezonów');
+        showBadgesRow.innerHTML += `<span class="m3-meta-badge"><span class="material-symbols-rounded" style="font-size: 13px;">video_library</span> ${sCount} ${sWord}</span>`;
+      }
+      if (detail.vote_average && detail.vote_average > 0) {
+        showBadgesRow.innerHTML += `<span class="m3-meta-badge tmdb-score"><span class="material-symbols-rounded" style="font-size: 13px;">star</span> ${detail.vote_average.toFixed(1)}</span>`;
+      }
+      if (detail.genre) {
+        const firstGenre = detail.genre.split(",")[0].trim();
+        showBadgesRow.innerHTML += `<span class="m3-meta-badge highlight">${firstGenre}</span>`;
+      }
+      if (show.watched_count) {
+        showBadgesRow.innerHTML += `<span class="m3-meta-badge"><span class="material-symbols-rounded" style="font-size: 13px;">check_circle</span> ${show.watched_count} odc.</span>`;
+      }
+      if (detail.status === "Ended" || detail.status === "Canceled" || show.series_status === "Ended") {
+        showBadgesRow.innerHTML += `<span class="m3-meta-badge" style="opacity: 0.85;"><span class="material-symbols-rounded" style="font-size: 12px;">flag</span> Zakończony</span>`;
+      } else if (detail.status === "Returning Series" || show.in_production) {
+        showBadgesRow.innerHTML += `<span class="m3-meta-badge" style="opacity: 0.85;"><span class="material-symbols-rounded" style="font-size: 12px;">autorenew</span> W produkcji</span>`;
+      }
+    }
+
+    const showCastSec = document.getElementById("m3-show-cast-section");
+    if (showCastSec) {
+      if (detail.cast && detail.cast.length > 0) {
+        renderCastRail("m3-show-cast-rail", detail.cast, detail.directors);
+        showCastSec.style.display = "block";
+      } else {
+        showCastSec.style.display = "none";
+      }
+    }
+  } else {
+    if (detailPlot) {
+      detailPlot.innerText = show.plot || "Brak opisu.";
+    }
+  }
 }
 
 async function ensureSeasonMeta(tmdbId, seasonNum) {
