@@ -4,6 +4,8 @@ Centralizuje budowanie zapytań, timeouty i formatowanie wyników,
 które wcześniej były zdublowane w kilku endpointach.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import urllib.parse
@@ -17,7 +19,7 @@ TMDB_IMG_BACKDROP = "https://image.tmdb.org/t/p/w780"
 DEFAULT_TIMEOUT = 5
 
 
-def tmdb_get(path, params, api_key, timeout=DEFAULT_TIMEOUT):
+def tmdb_get(path: str, params: dict | None, api_key: str, timeout: int = DEFAULT_TIMEOUT) -> dict | None:
     """GET na TMDb. `params` to dict (bez api_key). Zwraca dict lub None przy błędzie."""
     query = dict(params or {})
     query["api_key"] = api_key
@@ -31,7 +33,7 @@ def tmdb_get(path, params, api_key, timeout=DEFAULT_TIMEOUT):
         return None
 
 
-def format_tmdb_summary(item, media_type):
+def format_tmdb_summary(item: dict, media_type: str) -> dict:
     """Ujednolicony kształt wyniku TMDb (film/serial) dla frontendu."""
     t = item.get("title") or item.get("name") or "Nieznany tytuł"
     p_path = item.get("poster_path")

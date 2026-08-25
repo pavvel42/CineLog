@@ -4,6 +4,8 @@ Stan cache trzymany w pamięci procesu + persystencja w pliku JSON.
 Ścieżka pliku przekazywana jawnie (umożliwia testy na izolowanych danych).
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -18,10 +20,10 @@ log = logging.getLogger("cinelog")
 CACHE_TTL_DAYS = 7
 _GOOGLE_PLAY_LOGO = "https://image.tmdb.org/t/p/original/8z7rC8uIDaTM91X0ZfkRf04ydj2.jpg"
 
-_cache_state = {"data": None}
+_cache_state: dict = {"data": None}
 
 
-def _empty_result(region):
+def _empty_result(region: str) -> dict:
     now = datetime.now()
     return {
         "found": False,
@@ -36,7 +38,7 @@ def _empty_result(region):
     }
 
 
-def load_vod_cache(filepath):
+def load_vod_cache(filepath: str) -> dict:
     if _cache_state["data"] is not None:
         return _cache_state["data"]
     data = {}
@@ -59,7 +61,7 @@ def load_vod_cache(filepath):
     return data
 
 
-def save_vod_cache(filepath, cache_data):
+def save_vod_cache(filepath: str, cache_data: dict) -> bool:
     _cache_state["data"] = cache_data
     try:
         os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
@@ -71,12 +73,13 @@ def save_vod_cache(filepath, cache_data):
         return False
 
 
-def reset_memory_cache():
+def reset_memory_cache() -> None:
     """Używane przez testy - wymusza ponowne wczytanie z pliku."""
     _cache_state["data"] = None
 
 
-def fetch_live_watch_providers(clean_title, media_type, region, tmdb_api_key, tmdb_id=None):
+def fetch_live_watch_providers(clean_title: str, media_type: str, region: str,
+                               tmdb_api_key: str, tmdb_id: int | None = None) -> dict:
     if not tmdb_api_key:
         return _empty_result(region)
 

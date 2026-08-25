@@ -4,6 +4,8 @@
 wieloczęściowych finałów i brakujących opisów). Czysta funkcja - bez Flask.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import re
@@ -15,7 +17,8 @@ from .tmdb_client import tmdb_get
 log = logging.getLogger("cinelog")
 
 
-def fetch_episodes_meta(clean_title, show_id, lang, tmdb_api_key):
+def fetch_episodes_meta(clean_title: str, show_id: int | str | None, lang: str,
+                        tmdb_api_key: str) -> dict:
     """Zwraca dict kluczowany 'sezon_odcinek' z nazwą, datą, czasem i opisem."""
     meta = {}
 
@@ -79,22 +82,22 @@ def fetch_episodes_meta(clean_title, show_id, lang, tmdb_api_key):
         with urllib.request.urlopen(req_tvm, timeout=4) as resp_tvm:
             data_tvm = json.loads(resp_tvm.read().decode("utf-8", errors="ignore"))
             eps_tvm = data_tvm.get("_embedded", {}).get("episodes", [])
-            for e in eps_tvm:
-                s_n = e.get("season")
-                e_n = e.get("number")
+            for ep_tvm in eps_tvm:
+                s_n = ep_tvm.get("season")
+                e_n = ep_tvm.get("number")
                 if s_n is None or e_n is None:
                     continue
                 key = f"{s_n}_{e_n}"
-                sum_txt = re.sub(r"<[^>]+>", "", e.get("summary") or "").strip()
-                img_url = e.get("image", {}).get("medium") if e.get("image") else None
+                sum_txt = re.sub(r"<[^>]+>", "", ep_tvm.get("summary") or "").strip()
+                img_url = ep_tvm.get("image", {}).get("medium") if ep_tvm.get("image") else None
 
                 if key not in meta:
                     meta[key] = {
                         "season": s_n,
                         "episode": e_n,
-                        "name": e.get("name") or f"Odcinek {e_n}",
-                        "airdate": e.get("airdate"),
-                        "runtime": e.get("runtime"),
+                        "name": ep_tvm.get("name") or f"Odcinek {e_n}",
+                        "airdate": ep_tvm.get("airdate"),
+                        "runtime": ep_tvm.get("runtime"),
                         "summary": sum_txt,
                         "image": img_url or (meta.get(f"{s_n}_{e_n-1}", {}).get("image")),
                     }

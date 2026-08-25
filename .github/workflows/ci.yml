@@ -25,6 +25,27 @@ jobs:
       - name: Run backend tests
         run: python -m pytest tests/ -q
 
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Type-check services (mypy)
+        run: python -m mypy services
+
+      - name: Lint (pyflakes)
+        run: python -m pyflakes services routes
+
   frontend-syntax:
     runs-on: ubuntu-latest
     steps:

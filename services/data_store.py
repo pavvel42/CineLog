@@ -4,6 +4,8 @@ Atomowy zapis JSON, globalna blokada read-modify-write oraz
 czyste funkcje pomocnicze (normalizacja tytułów, deduplikacja, walidacja).
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -22,7 +24,7 @@ log = logging.getLogger("cinelog")
 DATA_LOCK = threading.RLock()
 
 
-def load_json(filepath):
+def load_json(filepath: str) -> list:
     if not os.path.exists(filepath):
         return []
     try:
@@ -33,7 +35,7 @@ def load_json(filepath):
         return []
 
 
-def save_json(filepath, data):
+def save_json(filepath: str, data: object) -> bool:
     try:
         os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
         # Atomic write: dump to a temp file, then atomically replace the target
@@ -52,7 +54,7 @@ def save_json(filepath, data):
         return False
 
 
-def normalize_title(t):
+def normalize_title(t: object) -> str:
     if not t:
         return ""
     t = re.sub(r"\s*\(\d{4}\)", "", str(t))
@@ -60,23 +62,23 @@ def normalize_title(t):
     return " ".join(t.lower().split())
 
 
-def safe_int(value, default=0):
+def safe_int(value: object, default: int = 0) -> int:
     try:
-        return int(value)
+        return int(value)  # type: ignore[call-overload]
     except (TypeError, ValueError):
         return default
 
 
-def is_safe_media_url(value):
+def is_safe_media_url(value: object) -> bool:
     """Accept only http(s) poster/image URLs to avoid injecting javascript: data: etc."""
     if not isinstance(value, str) or not value.strip():
         return False
     return value.strip().lower().startswith(("http://", "https://"))
 
 
-def deduplicate_items(items):
-    seen = {}
-    result = []
+def deduplicate_items(items: list) -> list:
+    seen: dict[str, dict] = {}
+    result: list[dict] = []
     for item in items:
         norm = normalize_title(item.get("title", ""))
         if not norm:

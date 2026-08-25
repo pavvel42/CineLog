@@ -3,6 +3,8 @@
 Fallback chain: OMDb (exact -> search) -> iTunes Store.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -14,7 +16,7 @@ from datetime import datetime
 log = logging.getLogger("cinelog")
 
 
-def _omdb_exact(clean_title, media_type, api_key):
+def _omdb_exact(clean_title: str, media_type: str, api_key: str) -> dict | None:
     url = f"https://www.omdbapi.com/?apikey={api_key}&t={urllib.parse.quote(clean_title)}"
     if media_type == "series":
         url += "&type=series"
@@ -26,7 +28,7 @@ def _omdb_exact(clean_title, media_type, api_key):
         return None
 
 
-def _omdb_search_first(clean_title, media_type, api_key):
+def _omdb_search_first(clean_title: str, media_type: str, api_key: str) -> dict | None:
     url = f"https://www.omdbapi.com/?apikey={api_key}&s={urllib.parse.quote(clean_title)}"
     if media_type == "series":
         url += "&type=series"
@@ -40,7 +42,7 @@ def _omdb_search_first(clean_title, media_type, api_key):
         return None
 
 
-def _itunes_lookup(clean_title, media_type):
+def _itunes_lookup(clean_title: str, media_type: str) -> dict | None:
     itunes_media = "tvShow" if media_type == "series" else "movie"
     for country in ("US", "PL", "GB"):
         url = (
@@ -59,7 +61,7 @@ def _itunes_lookup(clean_title, media_type):
     return None
 
 
-def fetch_online_metadata(title, media_type="movie", omdb_key=None):
+def fetch_online_metadata(title: str, media_type: str = "movie", omdb_key: str | None = None) -> tuple[str | None, str | None]:
     """Zwraca (poster_url, release_date) dla tytułu; elementy mogą być None."""
     poster_url = None
     release_date = None
