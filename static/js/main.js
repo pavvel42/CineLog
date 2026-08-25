@@ -236,6 +236,42 @@ window.updateStats = updateStats;
 window.openImporterModal = openImporterModal;
 window.updateDriveModalUI = updateDriveModalUI;
 
+// --- Accessibility: bottom sheets (Escape to close + focus management) ---
+function initSheetAccessibility() {
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const openSheets = Array.from(document.querySelectorAll(".m3-bottom-sheet.active"));
+    if (!openSheets.length) return;
+    // Close only the top-most sheet (highest z-index wins)
+    const top = openSheets.sort((a, b) =>
+      (parseInt(b.style.zIndex, 10) || 200) - (parseInt(a.style.zIndex, 10) || 200)
+    )[0];
+    top.classList.remove("active");
+  });
+
+  if (!("MutationObserver" in window)) return;
+
+  let lastFocused = null;
+  const focusablesSel = "button:not([disabled]), [href], input:not([type='hidden']), select, textarea, [tabindex]:not([tabindex='-1'])";
+  const observer = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      const el = m.target;
+      if (!(el instanceof HTMLElement)) continue;
+      if (el.classList.contains("active")) {
+        lastFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        const target = el.querySelector(focusablesSel);
+        if (target) setTimeout(() => target.focus({ preventScroll: true }), 120);
+      } else if (lastFocused && lastFocused.isConnected && el.contains(document.activeElement)) {
+        lastFocused.focus({ preventScroll: true });
+        lastFocused = null;
+      }
+    }
+  });
+  document.querySelectorAll(".m3-bottom-sheet").forEach(sheet => {
+    observer.observe(sheet, { attributes: true, attributeFilter: ["class"] });
+  });
+}
+
 // Setup DOM Events
 function initApp() {
   try {
@@ -434,6 +470,9 @@ function initApp() {
     if (btnRecheckEnv) {
       btnRecheckEnv.addEventListener("click", () => detectBackendEnvironment(true));
     }
+
+    // Accessibility: Escape closes sheets, focus moves in/out
+    initSheetAccessibility();
   } catch (err) {
     console.error("Error setting up core DOM events:", err);
   }

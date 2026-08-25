@@ -95,6 +95,8 @@ export function showToastNotification(message, type = "success") {
     toast = document.createElement("div");
     toast.id = "m3-toast-notification";
     toast.className = "m3-toast-notification";
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
     document.body.appendChild(toast);
   }
 
