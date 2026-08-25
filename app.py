@@ -21,6 +21,7 @@ from services.data_store import (
     deduplicate_items,
 )
 from services.tmdb_client import format_tmdb_summary
+from services.metadata import fetch_online_metadata
 
 logging.basicConfig(
     level=logging.INFO,
@@ -82,79 +83,6 @@ def load_shows():
 def save_shows(shows_list):
     return save_json(SHOWS_FILE, shows_list)
 
-def fetch_online_metadata(title, media_type="movie", omdb_key=None):
-    poster_url = None
-    release_date = None
-    clean_title = re.sub(r"\s*\([^)]*\)", "", title).strip()
-    effective_omdb_key = omdb_key or os.environ.get("OMDB_API_KEY", "").strip() or os.environ.get("IMDB_API_KEY", "").strip()
-
-    if effective_omdb_key:
-        # 1. Try exact OMDb query
-        url_omdb = f"https://www.omdbapi.com/?apikey={effective_omdb_key}&t={urllib.parse.quote(clean_title)}"
-        if media_type == "series":
-            url_omdb += "&type=series"
-        try:
-            req = urllib.request.Request(url_omdb, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=4) as resp:
-                data = json.loads(resp.read().decode("utf-8", errors="ignore"))
-                p = data.get("Poster")
-                if p and p != "N/A":
-                    poster_url = p
-                released = data.get("Released")
-                year = data.get("Year")
-                if released and released != "N/A":
-                    try:
-                        dt = datetime.strptime(released, "%d %b %Y")
-                        release_date = dt.strftime("%Y-%m-%d")
-                    except Exception:
-                        pass
-                if not release_date and year and year[:4].isdigit():
-                    release_date = f"{year[:4]}-01-01"
-        except Exception:
-            pass
-
-        # 2. Try OMDb search query (Fuzzy Search Fallback)
-        if not poster_url:
-            url_omdb_search = f"https://www.omdbapi.com/?apikey={effective_omdb_key}&s={urllib.parse.quote(clean_title)}"
-            if media_type == "series":
-                url_omdb_search += "&type=series"
-            try:
-                req = urllib.request.Request(url_omdb_search, headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(req, timeout=4) as resp:
-                    data = json.loads(resp.read().decode("utf-8", errors="ignore"))
-                    search_results = data.get("Search", [])
-                    if search_results:
-                        first = search_results[0]
-                        p = first.get("Poster")
-                        if p and p != "N/A":
-                            poster_url = p
-                        if not release_date and first.get("Year") and first.get("Year")[:4].isdigit():
-                            release_date = f"{first['Year'][:4]}-01-01"
-            except Exception:
-                pass
-
-    # 3. Try iTunes API if poster missing
-    if not poster_url:
-        countries = ["US", "PL", "GB"]
-        itunes_media = "tvShow" if media_type == "series" else "movie"
-        for c in countries:
-            url_it = f"https://itunes.apple.com/search?term={urllib.parse.quote(clean_title)}&country={c}&media={itunes_media}&limit=3"
-            try:
-                req_it = urllib.request.Request(url_it, headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(req_it, timeout=3) as resp:
-                    data = json.loads(resp.read().decode("utf-8", errors="ignore"))
-                    results = data.get("results", [])
-                    if results:
-                        art = results[0].get("artworkUrl100")
-                        if art:
-                            poster_url = art.replace("100x100bb.jpg", "600x600bb.jpg")
-                        if not release_date and results[0].get("releaseDate"):
-                            release_date = results[0]["releaseDate"][:10]
-                        break
-            except Exception:
-                pass
-
-    return poster_url, release_date
 
 @app.route("/")
 @app.route("/m3")
@@ -1068,176 +996,23 @@ def delete_show(show_uuid):
         else:
             return jsonify({"error": "Failed to save database"}), 500
 
-# --- VOD WATCH PROVIDERS WITH 7-DAY TTL SMART CACHE ---
-from datetime import timedelta
-
 VOD_CACHE_FILE = os.path.join("export data", "vod_cache.json")
-VOD_CACHE_DATA = None
+
+# --- VOD WATCH PROVIDERS WITH 7-DAY TTL SMART CACHE ---
+from services.vod_providers import (
+    load_vod_cache as svc_load_vod_cache,
+    save_vod_cache as svc_save_vod_cache,
+    fetch_live_watch_providers as _svc_fetch_live_watch_providers,
+)
 
 def load_vod_cache():
-    global VOD_CACHE_DATA
-    if VOD_CACHE_DATA is not None:
-        return VOD_CACHE_DATA
-    if os.path.exists(VOD_CACHE_FILE):
-        try:
-            with open(VOD_CACHE_FILE, "r", encoding="utf-8") as f:
-                VOD_CACHE_DATA = json.load(f)
-                for key, val in VOD_CACHE_DATA.items():
-                    if isinstance(val, dict):
-                        for cat in ("flatrate", "rent", "buy", "free"):
-                            for p in val.get(cat) or []:
-                                if p.get("id") == 3 or p.get("name") in ("Google Play Movies", "Google Play"):
-                                    if not p.get("logo_url") or "/static/icons" in p.get("logo_url", ""):
-                                        p["logo_url"] = "https://image.tmdb.org/t/p/original/8z7rC8uIDaTM91X0ZfkRf04ydj2.jpg"
-                return VOD_CACHE_DATA
-        except Exception as e:
-            log.error("Error loading VOD cache: %s", e)
-    VOD_CACHE_DATA = {}
-    return VOD_CACHE_DATA
+    return svc_load_vod_cache(VOD_CACHE_FILE)
 
 def save_vod_cache(cache_data):
-    global VOD_CACHE_DATA
-    VOD_CACHE_DATA = cache_data
-    try:
-        os.makedirs(os.path.dirname(VOD_CACHE_FILE), exist_ok=True)
-        with open(VOD_CACHE_FILE, "w", encoding="utf-8") as f:
-            json.dump(cache_data, f, ensure_ascii=False, indent=2)
-        return True
-    except Exception as e:
-        log.error("Error saving VOD cache: %s", e)
-        return False
+    return svc_save_vod_cache(VOD_CACHE_FILE, cache_data)
 
 def fetch_live_watch_providers(clean_title, media_type, region, tmdb_id=None):
-    if not TMDB_API_KEY:
-        now = datetime.now()
-        return {
-            "found": False,
-            "region": region,
-            "flatrate": [],
-            "rent": [],
-            "buy": [],
-            "free": [],
-            "link": None,
-            "updated_at": now.strftime("%Y-%m-%d %H:%M:%S"),
-            "expires_at": (now + timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
-        }
-
-    # 1. Search TMDb if tmdb_id not directly provided
-    if not tmdb_id:
-        try:
-            for lang in [f"{region.lower()}-{region}", "pl-PL", "en-US"]:
-                url_search = f"https://api.themoviedb.org/3/search/{media_type}?api_key={TMDB_API_KEY}&query={urllib.parse.quote(clean_title)}&language={lang}"
-                req = urllib.request.Request(url_search, headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(req, timeout=4) as resp:
-                    sdata = json.loads(resp.read().decode("utf-8"))
-                    results = sdata.get("results", [])
-                    if results:
-                        # Rank by exact title/original_title match + popularity
-                        def score(r):
-                            t = (r.get("title") or r.get("name") or "").strip().lower()
-                            ot = (r.get("original_title") or r.get("original_name") or "").strip().lower()
-                            exact = 1 if (t == clean_title or ot == clean_title) else 0
-                            pop = float(r.get("popularity") or 0)
-                            return (exact * 1000) + pop
-                        best = max(results, key=score)
-                        tmdb_id = best.get("id")
-                        break
-        except Exception as e:
-            log.warning("Error searching TMDb for %s: %s", clean_title, e)
-
-    # Fallback to alternate media type if not found
-    if not tmdb_id:
-        alt_type = "tv" if media_type == "movie" else "movie"
-        try:
-            url_search = f"https://api.themoviedb.org/3/search/{alt_type}?api_key={TMDB_API_KEY}&query={urllib.parse.quote(clean_title)}&language=pl-PL"
-            req = urllib.request.Request(url_search, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=4) as resp:
-                sdata = json.loads(resp.read().decode("utf-8"))
-                results = sdata.get("results", [])
-                if results:
-                    best = max(results, key=lambda r: float(r.get("popularity") or 0))
-                    tmdb_id = best.get("id")
-                    media_type = alt_type
-        except Exception:
-            pass
-
-    if not tmdb_id:
-        now = datetime.now()
-        return {
-            "found": False,
-            "region": region,
-            "flatrate": [],
-            "rent": [],
-            "buy": [],
-            "free": [],
-            "link": None,
-            "updated_at": now.strftime("%Y-%m-%d %H:%M:%S"),
-            "expires_at": (now + timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
-        }
-
-    # 2. Fetch watch providers from TMDb + JustWatch
-    try:
-        url_providers = f"https://api.themoviedb.org/3/{media_type}/{tmdb_id}/watch/providers?api_key={TMDB_API_KEY}"
-        req = urllib.request.Request(url_providers, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=4) as resp:
-            pdata = json.loads(resp.read().decode("utf-8"))
-            all_regions = pdata.get("results", {})
-            reg_data = all_regions.get(region, {})
-
-            def format_providers(items, is_free=False):
-                formatted = []
-                for p in items or []:
-                    pname = p.get("provider_name", "")
-                    if pname == "TVP":
-                        pname = "TVP VOD"
-                    logo = p.get("logo_path")
-                    logo_url = f"https://image.tmdb.org/t/p/original{logo}" if logo else None
-                    if pname == "Google Play Movies":
-                        pname = "Google Play / YouTube Filmy"
-                    formatted.append({
-                        "id": p.get("provider_id"),
-                        "name": pname,
-                        "logo_url": logo_url,
-                        "is_free": is_free
-                    })
-                return formatted
-
-            now = datetime.now()
-            free_and_ads = (reg_data.get("free") or []) + (reg_data.get("ads") or [])
-            seen_ids = set()
-            unique_free = []
-            for item in free_and_ads:
-                pid = item.get("provider_id")
-                if pid not in seen_ids:
-                    seen_ids.add(pid)
-                    unique_free.append(item)
-
-            return {
-                "found": True,
-                "tmdb_id": tmdb_id,
-                "region": region,
-                "flatrate": format_providers(reg_data.get("flatrate")),
-                "rent": format_providers(reg_data.get("rent")),
-                "buy": format_providers(reg_data.get("buy")),
-                "free": format_providers(unique_free, is_free=True),
-                "link": reg_data.get("link"),
-                "updated_at": now.strftime("%Y-%m-%d %H:%M:%S"),
-                "expires_at": (now + timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
-            }
-    except Exception as e:
-        log.warning("Error fetching watch providers for TMDb %s: %s", tmdb_id, e)
-        now = datetime.now()
-        return {
-            "found": False,
-            "region": region,
-            "flatrate": [],
-            "rent": [],
-            "buy": [],
-            "free": [],
-            "link": None,
-            "updated_at": now.strftime("%Y-%m-%d %H:%M:%S"),
-            "expires_at": (now + timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
-        }
+    return _svc_fetch_live_watch_providers(clean_title, media_type, region, TMDB_API_KEY, tmdb_id=tmdb_id)
 
 @app.route("/api/watch_providers", methods=["GET"])
 def get_watch_providers():

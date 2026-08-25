@@ -10,6 +10,7 @@ import threading
 import pytest
 
 import app as app_module
+from services import vod_providers
 
 
 @pytest.fixture()
@@ -27,7 +28,7 @@ def client(tmp_path, monkeypatch):
         monkeypatch.setattr(app_module, attr, str(path))
     for attr in ("MOVIES_FILE", "SHOWS_FILE"):
         app_module.save_json(str(files[attr]), [])
-    app_module.VOD_CACHE_DATA = None
+    vod_providers.reset_memory_cache()
     app_module.EPISODES_CACHE.clear()
 
     app_module.app.config["TESTING"] = True
