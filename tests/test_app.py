@@ -1,7 +1,7 @@
 """Testy backendu CineLog (pytest + Flask test client).
 
 Testy działają na izolowanych plikach JSON w katalogu tymczasowym —
-nigdy nie dotykają prawdziwych danych demo w `export data/`.
+nigdy nie dotykają prawdziwych danych demo w `data/`.
 """
 
 import json

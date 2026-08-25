@@ -6,9 +6,9 @@ import os
 import uuid
 import re
 
-ZIP_PATH = os.path.join("export data", "gdpr-data.zip")
-OUTPUT_PATH = os.path.join("export data", "shows_parsed.json")
-BACKUP_PATH = os.path.join("export data", "shows_backup.json")
+ZIP_PATH = os.path.join("data", "gdpr-data.zip")
+OUTPUT_PATH = os.path.join("data", "shows_parsed.json")
+BACKUP_PATH = os.path.join("data", "shows_backup.json")
 
 # Preserve existing poster mappings if already fetched
 def load_existing_posters():

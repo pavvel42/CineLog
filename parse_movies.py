@@ -31,7 +31,7 @@ def get_rating_value(vote_key):
     return mapping.get(suffix, None)
 
 def main():
-    zip_path = "export data/gdpr-data.zip"
+    zip_path = "data/gdpr-data.zip"
     
     movies = {}
     favorite_uuids = set()
@@ -135,7 +135,7 @@ def main():
                 m["raw_rating_suffix"] = ratings_by_movie[title]["raw_suffix"]
                 
     # Save output
-    output_path = "export data/movies_parsed.json"
+    output_path = "data/movies_parsed.json"
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(list(movies.values()), f, ensure_ascii=False, indent=2)
         

@@ -4,8 +4,8 @@ import urllib.request
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-MOVIES_FILE = os.path.join("export data", "movies_parsed.json")
-BACKUP_FILE = os.path.join("export data", "movies_backup.json")
+MOVIES_FILE = os.path.join("data", "movies_parsed.json")
+BACKUP_FILE = os.path.join("data", "movies_backup.json")
 
 TITLE_ALIASES = {
     "Den Sidste Viking": "The Last Viking",

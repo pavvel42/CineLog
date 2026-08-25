@@ -4,8 +4,8 @@ import urllib.request
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-SHOWS_FILE = os.path.join("export data", "shows_parsed.json")
-BACKUP_FILE = os.path.join("export data", "shows_backup.json")
+SHOWS_FILE = os.path.join("data", "shows_parsed.json")
+BACKUP_FILE = os.path.join("data", "shows_backup.json")
 
 def verify_url_live(url):
     if not url or url == "N/A":

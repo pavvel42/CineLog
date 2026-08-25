@@ -146,7 +146,7 @@ CineLog oferuje dwa proste sposoby konfiguracji Google Drive:
 - **Bezpieczeństwo kluczy:** Wszelkie klucze API (AI, TMDb, OMDb, Google OAuth) należą wyłącznie do Ciebie i nie opuszczają Twojego urządzenia.
 
 > [!NOTE]
-> **Baza demo:** katalogi `export data/` oraz `static/data/` zawierają wyłącznie **przykładową bazę demonstracyjną** służącą do testów i prezentacji aplikacji (dane filmów, seriali, ocen). Nie są to dane zbierane od użytkowników — Twoja własna biblioteka tworzona w aplikacji pozostaje wyłącznie lokalnie na Twoim urządzeniu (lub w Twoim prywatnym Dysku Google) i nigdy nie jest nigdzie wysyłana.
+> **Baza demo:** katalogi `export data/` oraz `static/data/` zawierają wyłącznie **przykładową bazę demonstracyjną** służącą do testów i prezentacji aplikacji (dane filmów, seriali, ocen). Nie są to dane zbierane od użytkowników — Twoja własna biblioteka tworzona w aplikacji pozostaje wyłącznie lokalnie na Twoim urządzeniu (lub w Twoim prywatnym Dysku Google) i nigdy nie jest nigdzie wysyłana. Znaki czasu w bazie demo są **zanonimizowane** (przesunięte o stały offset) — nie odzwierciedlają rzeczywistej historii oglądania.
 
 ---
 

@@ -271,7 +271,7 @@ export function updateEnvStatusModalContent(isBackendAvailable) {
       list.innerHTML = `
         <li>✅ Wyszukiwanie online i automatyczne pobieranie metadanych (TMDb)</li>
         <li>✅ Rekomendacje "Odkrywaj" i "Trendy" na żywo z TMDb</li>
-        <li>✅ Lokalny magazyn JSON w katalogu <code>export data/</code></li>
+        <li>✅ Lokalny magazyn JSON w katalogu <code>data/</code></li>
         <li>✅ Przeglądanie biblioteki, statystyki, śledzenie odcinków</li>
         <li>✅ Asystent AI (BYOK) i Google Drive Sync</li>
       `;
@@ -283,7 +283,7 @@ export function updateEnvStatusModalContent(isBackendAvailable) {
       cardFlask.style.cursor = "default";
     }
     if (iconFlask) iconFlask.style.color = "var(--md-sys-color-primary)";
-    if (descFlask) descFlask.innerHTML = `Baza danych z plików na Twoim dysku (export data/)`;
+    if (descFlask) descFlask.innerHTML = `Baza danych z plików na Twoim dysku (data/)`;
     if (btnFlask) {
       btnFlask.disabled = false;
       btnFlask.style.cursor = "pointer";

@@ -50,11 +50,13 @@ if not TMDB_API_KEY:
 app = Flask(__name__)
 
 
-MOVIES_FILE = os.path.join("export data", "movies_parsed.json")
-MOVIES_BACKUP_FILE = os.path.join("export data", "movies_backup.json")
-SHOWS_FILE = os.path.join("export data", "shows_parsed.json")
-SHOWS_BACKUP_FILE = os.path.join("export data", "shows_backup.json")
-UPCOMING_CACHE_FILE = os.path.join("export data", "upcoming_cache.json")
+# Katalog danych: nowa nazwa "data"; starsze instalacje z "export data" nadal działają
+DATA_DIR = "data" if os.path.isdir("data") else "export data"
+MOVIES_FILE = os.path.join(DATA_DIR, "movies_parsed.json")
+MOVIES_BACKUP_FILE = os.path.join(DATA_DIR, "movies_backup.json")
+SHOWS_FILE = os.path.join(DATA_DIR, "shows_parsed.json")
+SHOWS_BACKUP_FILE = os.path.join(DATA_DIR, "shows_backup.json")
+UPCOMING_CACHE_FILE = os.path.join(DATA_DIR, "upcoming_cache.json")
 
 EPISODES_CACHE = {}
 
@@ -79,7 +81,7 @@ def save_shows(shows_list):
     return save_json(SHOWS_FILE, shows_list)
 
 
-VOD_CACHE_FILE = os.path.join("export data", "vod_cache.json")
+VOD_CACHE_FILE = os.path.join(DATA_DIR, "vod_cache.json")
 
 # --- VOD WATCH PROVIDERS WITH 7-DAY TTL SMART CACHE ---
 from services.vod_providers import (
