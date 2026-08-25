@@ -698,11 +698,10 @@ if (btnImportTrigger && fileInput) {
     fileInput.value = "";
   });
 }
-}
-}
 
 
 window.openCloudSyncModal = openCloudSyncModal;
 window.updateDriveModalUI = updateDriveModalUI;
 window.updateApiKeysUI = updateApiKeysUI;
 window.updateAiSettingsUI = updateAiSettingsUI;
+}
