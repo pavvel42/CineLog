@@ -3,8 +3,6 @@ import json
 import uuid
 import shutil
 import logging
-import tempfile
-import threading
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -12,6 +10,17 @@ import re
 from datetime import datetime, date
 from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, render_template, jsonify, request, Response
+
+from services.data_store import (
+    DATA_LOCK,
+    load_json,
+    save_json,
+    normalize_title,
+    safe_int as _safe_int,
+    is_safe_media_url as _is_safe_media_url,
+    deduplicate_items,
+)
+from services.tmdb_client import format_tmdb_summary
 
 logging.basicConfig(
     level=logging.INFO,
@@ -52,94 +61,6 @@ SHOWS_BACKUP_FILE = os.path.join("export data", "shows_backup.json")
 UPCOMING_CACHE_FILE = os.path.join("export data", "upcoming_cache.json")
 
 EPISODES_CACHE = {}
-
-# Single lock guarding read-modify-write sequences on the JSON data files
-# (prevents lost updates when two requests mutate the library concurrently).
-DATA_LOCK = threading.RLock()
-
-def load_json(filepath):
-    if not os.path.exists(filepath):
-        return []
-    try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        log.error("Error loading %s: %s", filepath, e)
-        return []
-
-def save_json(filepath, data):
-    try:
-        os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
-        # Atomic write: dump to a temp file, then atomically replace the target
-        fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(filepath) or ".", suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            os.replace(tmp_path, filepath)
-        except Exception:
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
-            raise
-        return True
-    except Exception as e:
-        log.error("Error saving %s: %s", filepath, e)
-        return False
-def normalize_title(t):
-    if not t:
-        return ""
-    t = re.sub(r"\s*\(\d{4}\)", "", str(t))
-    t = re.sub(r"[^\w\s]", "", t, flags=re.UNICODE)
-    return " ".join(t.lower().split())
-
-def _safe_int(value, default=0):
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
-
-def _is_safe_media_url(value):
-    """Accept only http(s) poster/image URLs to avoid injecting javascript: data: etc."""
-    if not isinstance(value, str) or not value.strip():
-        return False
-    return value.strip().lower().startswith(("http://", "https://"))
-
-def deduplicate_items(items):
-    seen = {}
-    result = []
-    for item in items:
-        norm = normalize_title(item.get("title", ""))
-        if not norm:
-            result.append(item)
-            continue
-        if norm in seen:
-            prev = seen[norm]
-            if item.get("status") == "watched" and prev.get("status") != "watched":
-                prev["status"] = "watched"
-            if item.get("rating") is not None and prev.get("rating") is None:
-                prev["rating"] = item.get("rating")
-            if item.get("poster_url") and not prev.get("poster_url"):
-                prev["poster_url"] = item.get("poster_url")
-            if item.get("watch_date") and not prev.get("watch_date"):
-                prev["watch_date"] = item.get("watch_date")
-            if item.get("release_date") and not prev.get("release_date"):
-                prev["release_date"] = item.get("release_date")
-            if item.get("is_favorite"):
-                prev["is_favorite"] = True
-            if "episodes_watched" in item:
-                prev_eps = prev.get("episodes_watched") or []
-                prev_keys = {f"{e.get('season')}_{e.get('episode')}" for e in prev_eps}
-                for ep in item.get("episodes_watched") or []:
-                    k = f"{ep.get('season')}_{ep.get('episode')}"
-                    if k not in prev_keys:
-                        prev_eps.append(ep)
-                        prev_keys.add(k)
-                prev_eps.sort(key=lambda x: (x.get("season", 0), x.get("episode", 0)))
-                prev["episodes_watched"] = prev_eps
-                prev["watched_count"] = len(prev_eps)
-        else:
-            seen[norm] = item
-            result.append(item)
-    return result
 
 def load_movies():
     movies = load_json(MOVIES_FILE)
@@ -1722,27 +1643,7 @@ def get_recommendations_for_item():
     except Exception as e:
         log.warning("Error fetching TMDb recommendations for %s %s: %s", tmdb_type, tmdb_id, e)
 
-    formatted = []
-    for it in results_list:
-        t = it.get("title") or it.get("name") or "Nieznany tytuł"
-        p_path = it.get("poster_path")
-        b_path = it.get("backdrop_path")
-        rel_date = it.get("release_date") or it.get("first_air_date") or ""
-        year = rel_date[:4] if len(rel_date) >= 4 else ""
-        formatted.append({
-            "tmdb_id": it.get("id"),
-            "title": t,
-            "original_title": it.get("original_title") or it.get("original_name") or t,
-            "poster_url": f"https://image.tmdb.org/t/p/w500{p_path}" if p_path else None,
-            "backdrop_url": f"https://image.tmdb.org/t/p/w780{b_path}" if b_path else None,
-            "release_date": rel_date,
-            "year": year,
-            "type": "series" if tmdb_type == "tv" else "movie",
-            "vote_average": round(float(it.get("vote_average", 0)), 1),
-            "vote_count": it.get("vote_count", 0),
-            "overview": it.get("overview") or "",
-            "genre_ids": it.get("genre_ids", [])
-        })
+    formatted = [format_tmdb_summary(it, tmdb_type) for it in results_list]
 
     response_data = {"status": "ok", "count": len(formatted), "results": formatted}
     RECOMMENDATIONS_CACHE[cache_key] = response_data
@@ -1806,26 +1707,7 @@ def discover_recommendations():
         req = urllib.request.Request(url_discover, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-            for it in data.get("results", []):
-                t = it.get("title") or it.get("name") or "Nieznany tytuł"
-                p_path = it.get("poster_path")
-                b_path = it.get("backdrop_path")
-                rel_date = it.get("release_date") or it.get("first_air_date") or ""
-                year = rel_date[:4] if len(rel_date) >= 4 else ""
-                formatted.append({
-                    "tmdb_id": it.get("id"),
-                    "title": t,
-                    "original_title": it.get("original_title") or it.get("original_name") or t,
-                    "poster_url": f"https://image.tmdb.org/t/p/w500{p_path}" if p_path else None,
-                    "backdrop_url": f"https://image.tmdb.org/t/p/w780{b_path}" if b_path else None,
-                    "release_date": rel_date,
-                    "year": year,
-                    "type": "series" if tmdb_type == "tv" else "movie",
-                    "vote_average": round(float(it.get("vote_average", 0)), 1),
-                    "vote_count": it.get("vote_count", 0),
-                    "overview": it.get("overview") or "",
-                    "genre_ids": it.get("genre_ids", [])
-                })
+            formatted = [format_tmdb_summary(it, tmdb_type) for it in data.get("results", [])]
     except Exception as e:
         log.warning("Error in discover recommendations: %s", e)
 
@@ -1855,28 +1737,10 @@ def get_trending_recommendations():
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             for it in data.get("results", []):
-                t = it.get("title") or it.get("name") or "Nieznany tytuł"
                 m_type = it.get("media_type") or ("tv" if "name" in it else "movie")
                 if m_type == "person":
                     continue
-                p_path = it.get("poster_path")
-                b_path = it.get("backdrop_path")
-                rel_date = it.get("release_date") or it.get("first_air_date") or ""
-                year = rel_date[:4] if len(rel_date) >= 4 else ""
-                formatted.append({
-                    "tmdb_id": it.get("id"),
-                    "title": t,
-                    "original_title": it.get("original_title") or it.get("original_name") or t,
-                    "poster_url": f"https://image.tmdb.org/t/p/w500{p_path}" if p_path else None,
-                    "backdrop_url": f"https://image.tmdb.org/t/p/w780{b_path}" if b_path else None,
-                    "release_date": rel_date,
-                    "year": year,
-                    "type": "series" if m_type in ["tv", "series"] else "movie",
-                    "vote_average": round(float(it.get("vote_average", 0)), 1),
-                    "vote_count": it.get("vote_count", 0),
-                    "overview": it.get("overview") or "",
-                    "genre_ids": it.get("genre_ids", [])
-                })
+                formatted.append(format_tmdb_summary(it, m_type))
     except Exception as e:
         log.warning("Error in trending recommendations: %s", e)
 
