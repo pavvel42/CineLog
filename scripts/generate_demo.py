@@ -200,6 +200,7 @@ def collect_titles_from_tmdb(api_key: str) -> tuple[list, list]:
                 "genres": ", ".join(str(g) for g in it.get("genre_names", []) or []),
                 "tmdb_id": it["id"],
                 "poster_path": it.get("poster_path") or "",
+                "overview": (it.get("overview") or "").strip(),
             })
     seen_ids.clear()
     for page in range(1, 9):
@@ -220,8 +221,57 @@ def collect_titles_from_tmdb(api_key: str) -> tuple[list, list]:
                 "genres": ", ".join(str(g) for g in it.get("genre_names", []) or []),
                 "tmdb_id": it["id"],
                 "poster_path": it.get("poster_path") or "",
+                "overview": (it.get("overview") or "").strip(),
+                "runtime": (it.get("episode_run_time") or [45])[0],
             })
     return movies, series
+
+
+def enrich_movie_credits(entry: dict, api_key: str) -> None:
+    """Dopełnia wpis filmu o reżysera i obsadę (z profilami) przez /movie/{id}."""
+    data = tmdb_get(f"/movie/{entry['tmdb_id']}", {
+        "append_to_response": "credits", "language": "pl-PL",
+    }, api_key)
+    if not data:
+        return
+    crew = (data.get("credits") or {}).get("crew") or []
+    entry["director"] = next((c.get("name", "") for c in crew if c.get("job") == "Director"), "")
+    entry["cast"] = [
+        {
+            "id": c.get("id"),
+            "name": c.get("name"),
+            "character": c.get("character"),
+            "profile_url": f"https://image.tmdb.org/t/p/w185{c['profile_path']}" if c.get("profile_path") else None,
+        }
+        for c in ((data.get("credits") or {}).get("cast") or [])[:10]
+    ]
+
+
+def tv_cast_character(c: dict) -> str | None:
+    if c.get("character"):
+        return c["character"]
+    roles = c.get("roles") or []
+    return roles[0].get("character") if roles else None
+
+
+def enrich_series_credits(entry: dict, api_key: str) -> None:
+    """Dopełnia wpis serialu o twórcę i obsadę przez /tv/{id}."""
+    data = tmdb_get(f"/tv/{entry['tmdb_id']}", {
+        "append_to_response": "credits", "language": "pl-PL",
+    }, api_key)
+    if not data:
+        return
+    created_by = (data.get("created_by") or [])
+    entry["director"] = ", ".join(c.get("name", "") for c in created_by[:2])
+    entry["cast"] = [
+        {
+            "id": c.get("id"),
+            "name": c.get("name"),
+            "character": tv_cast_character(c),
+            "profile_url": f"https://image.tmdb.org/t/p/w185{c['profile_path']}" if c.get("profile_path") else None,
+        }
+        for c in ((data.get("credits") or {}).get("cast") or [])[:10]
+    ]
 
 
 def offline_catalog() -> tuple[list, list]:
@@ -285,9 +335,9 @@ def make_movie(rng: random.Random, entry: dict) -> dict:
         "original_title": entry["title"],
         "year": str(year),
         "genre": entry["genres"],
-        "director": "",
-        "cast": [],
-        "plot": "",
+        "director": entry.get("director", ""),
+        "cast": entry.get("cast", []),
+        "plot": entry.get("overview", ""),
         "runtime": entry.get("runtime") or 105,
         "poster_url": poster_url(entry.get("poster_path", "")),
         "rating": rating,
@@ -350,9 +400,9 @@ def make_series(rng: random.Random, entry: dict) -> dict:
         "year": str(entry["year"]),
         "genre": entry["genres"],
         "poster_url": poster_url(entry.get("poster_path", "")),
-        "plot": "",
-        "cast": [],
-        "director": "",
+        "plot": entry.get("overview", ""),
+        "cast": entry.get("cast", []),
+        "director": entry.get("director", ""),
         "total_seasons": entry["seasons"],
         "season_ep_counts": season_ep_counts,
         "episodes_watched": episodes,
@@ -374,12 +424,28 @@ def main() -> None:
     rng = random.Random(args.seed)
 
     api_key = args.tmdb_key or load_tmdb_key_from_env()
+    movie_entries: list = []
+    series_entries: list = []
     if api_key:
         print("TMDb: pobieram popularne tytuły...")
         movie_entries, series_entries = collect_titles_from_tmdb(api_key)
     if not api_key or not movie_entries:
         print("TMDb niedostępny - używam wbudowanego katalogu offline.")
         movie_entries, series_entries = offline_catalog()
+    elif args.seed is not None:
+        # Enrichment: reżyser/twórca + obsada z profilami (1 żądanie na tytuł)
+        total = len(movie_entries) + len(series_entries)
+        done = 0
+        for e in movie_entries:
+            enrich_movie_credits(e, api_key)
+            done += 1
+            if done % 40 == 0:
+                print(f"  credits {done}/{total}")
+        for e in series_entries:
+            enrich_series_credits(e, api_key)
+            done += 1
+            if done % 40 == 0:
+                print(f"  credits {done}/{total}")
 
     rng.shuffle(movie_entries)
     rng.shuffle(series_entries)
