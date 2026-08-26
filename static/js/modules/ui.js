@@ -2,7 +2,7 @@
 // CineLog - UI, Theming, Navigation & Modals Module
 // ==========================================================================
 
-import { state, isUserDatabaseDemo, getActiveEnvMode } from './state.js';
+import { state, isUserDatabaseDemo, getActiveEnvMode, fetchWithTimeout } from './state.js';
 
 export function hexToHsl(hex) {
   if (!hex || typeof hex !== "string") hex = "#9333ea";
@@ -445,5 +445,71 @@ export function showM3ConfirmDialog({
 }
 
 window.showM3ConfirmDialog = showM3ConfirmDialog;
+
+const SEARCH_DIAG_ERROR_BUFFER = [];
+window.addEventListener("error", (e) => {
+  SEARCH_DIAG_ERROR_BUFFER.push(`window.error: ${e.message} @ ${(e.filename || "").split("/").pop()}:${e.lineno}`);
+  if (SEARCH_DIAG_ERROR_BUFFER.length > 10) SEARCH_DIAG_ERROR_BUFFER.shift();
+});
+window.addEventListener("unhandledrejection", (e) => {
+  const reason = e.reason && e.reason.message ? e.reason.message : String(e.reason);
+  SEARCH_DIAG_ERROR_BUFFER.push(`unhandledrejection: ${reason}`);
+  if (SEARCH_DIAG_ERROR_BUFFER.length > 10) SEARCH_DIAG_ERROR_BUFFER.shift();
+});
+
+function diagLine(outputEl, text) {
+  const line = document.createElement("div");
+  line.textContent = text;
+  outputEl.appendChild(line);
+  return line;
+}
+
+export async function runSearchDiagnostics() {
+  const output = document.getElementById("m3-diag-output");
+  if (!output) return;
+  output.innerHTML = "";
+  output.style.display = "block";
+
+  const appScript = document.querySelector('script[src*="app.min.js?v="]');
+  const bundleVersion = appScript ? ((appScript.src.match(/v=([\d.]+)/) || [])[1] || "?") : "?";
+  diagLine(output, `1. Wersja bundla: v${bundleVersion}`);
+  diagLine(output, `2. UA: ${navigator.userAgent.slice(0, 90)}`);
+
+  const swCtrl = navigator.serviceWorker ? navigator.serviceWorker.controller : null;
+  diagLine(output, `3. Service Worker: ${swCtrl ? "aktywny (" + swCtrl.scriptURL.split("/").pop() + ")" : "BRAK (strona nie jest kontrolowana)"}`);
+
+  const tmdbKey = localStorage.getItem("cinelog_tmdb_key") || "";
+  const omdbKey = localStorage.getItem("cinelog_omdb_key") || localStorage.getItem("cinelog_imdb_key") || "";
+  diagLine(output, `4. Klucz TMDb: ${tmdbKey ? "jest (" + tmdbKey.length + " znaków)" : "BRAK w localStorage"}`);
+  diagLine(output, `5. Klucz OMDb: ${omdbKey ? "jest" : "brak"}`);
+
+  try {
+    const r = await fetchWithTimeout(`https://api.themoviedb.org/3/authentication?api_key=${encodeURIComponent(tmdbKey)}`, {}, 6000);
+    diagLine(output, `6. TMDb authentication: HTTP ${r.status}${r.ok ? " (klucz OK)" : " (KLUCZ ODRZUCONY)"}`);
+  } catch (e) {
+    diagLine(output, `6. TMDb authentication: BŁĄD SIECI — ${e.name === "AbortError" ? "timeout 6s" : e.message}`);
+    return;
+  }
+
+  try {
+    const q = encodeURIComponent("Kiedy nikt nie patrzy");
+    const t0 = performance.now();
+    const r = await fetchWithTimeout(`https://api.themoviedb.org/3/search/movie?api_key=${encodeURIComponent(tmdbKey)}&query=${q}&language=pl-PL&include_adult=false`, {}, 8000);
+    const ms = Math.round(performance.now() - t0);
+    const data = await r.json();
+    const first = (data.results || [])[0];
+    diagLine(output, `7. TMDb search PL: HTTP ${r.status}, wyników: ${(data.results || []).length}, ${ms}ms${first ? `, pierwszy: "${first.title || first.name}"` : ""}`);
+  } catch (e) {
+    diagLine(output, `7. TMDb search PL: BŁĄD — ${e.name === "AbortError" ? "timeout 8s" : e.message}`);
+  }
+
+  if (SEARCH_DIAG_ERROR_BUFFER.length) {
+    diagLine(output, "8. Złapane błędy JS (ostatnie):");
+    SEARCH_DIAG_ERROR_BUFFER.slice(-4).forEach((msg) => diagLine(output, `   • ${msg.slice(0, 140)}`));
+  } else {
+    diagLine(output, "8. Złapane błędy JS: brak");
+  }
+}
+
 
 

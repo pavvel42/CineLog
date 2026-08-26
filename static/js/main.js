@@ -3,7 +3,7 @@
 // ==========================================================================
 
 import { state, saveLocalDatabase, syncWindowAliases, getGradientForTitle, resetToDemoDatabase, markUserDatabaseCustom, isUserDatabaseDemo, getActiveEnvMode, setActiveEnvMode } from './modules/state.js';
-import { applyMaterial3Theme, showToastNotification, initBackdropDismiss, initThemeControls, initDemoBannerHandlers, updateDemoBannerVisibility, updateEnvStatusModalContent, openEnvStatusModal, closeEnvStatusModal, showM3ConfirmDialog } from './modules/ui.js';
+import { applyMaterial3Theme, showToastNotification, initBackdropDismiss, initThemeControls, initDemoBannerHandlers, updateDemoBannerVisibility, updateEnvStatusModalContent, openEnvStatusModal, closeEnvStatusModal, showM3ConfirmDialog, runSearchDiagnostics } from './modules/ui.js';
 import { updateStats, initCharts, openAnalyticsModal, initAnalyticsEvents } from './modules/stats.js';
 import { hydrateVodCache, renderTopVodFilterBar, initVodSettingsHandlers } from './modules/vod.js';
 import { renderMovies, openMovieDetail } from './modules/movies.js';
@@ -497,6 +497,13 @@ function initEnvModalHandlers() {
   const btnRecheckEnv = document.getElementById("m3-btn-recheck-env");
   if (btnRecheckEnv) {
     btnRecheckEnv.addEventListener("click", () => detectBackendEnvironment(true));
+  }
+
+  const btnSearchDiag = document.getElementById("m3-btn-run-search-diag");
+  if (btnSearchDiag) {
+    btnSearchDiag.addEventListener("click", () => {
+      runSearchDiagnostics().catch((e) => console.error("Diagnostyka błąd:", e));
+    });
   }
 }
 
