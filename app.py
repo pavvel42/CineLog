@@ -64,8 +64,9 @@ if not TMDB_API_KEY:
 app = Flask(__name__)
 
 
-# Katalog danych: nowa nazwa "data"; starsze instalacje z "export data" nadal działają
-DATA_DIR = "data" if os.path.isdir("data") else "export data"
+# Katalog danych: nowa nazwa "data"; starsze instalacje z "export data" nadal działają.
+# DATA_DIR (env) pozwala wskazać katalog tymczasowy, np. dla izolowanych testów e2e.
+DATA_DIR = os.environ.get("DATA_DIR") or ("data" if os.path.isdir("data") else "export data")
 MOVIES_FILE = os.path.join(DATA_DIR, "movies_parsed.json")
 MOVIES_BACKUP_FILE = os.path.join(DATA_DIR, "movies_backup.json")
 SHOWS_FILE = os.path.join(DATA_DIR, "shows_parsed.json")
