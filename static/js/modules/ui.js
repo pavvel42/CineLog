@@ -238,6 +238,17 @@ export function updateEnvStatusModalContent(isBackendAvailable) {
   const toggleText = document.getElementById("m3-env-toggle-text");
   const guideBox = document.getElementById("m3-env-key-guide-box");
 
+  const versionEl = document.getElementById("m3-app-version");
+  if (versionEl) {
+    let version = "";
+    const appScript = document.querySelector('script[src*="app.min.js?v="]');
+    if (appScript) version = (appScript.src.match(/v=([\d.]+)/) || [])[1] || "";
+    if (!version && navigator.serviceWorker?.controller) {
+      version = new URL(navigator.serviceWorker.controller.scriptURL).searchParams.get("v") || "";
+    }
+    versionEl.textContent = version ? `v${version}` : "nieznana";
+  }
+
   const cardFlask = document.getElementById("m3-mode-card-flask");
   const btnFlask = document.getElementById("m3-btn-switch-flask");
   const iconFlask = document.getElementById("m3-flask-card-icon");
