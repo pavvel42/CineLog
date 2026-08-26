@@ -5,11 +5,15 @@ są odczytywane z modułu aplikacji przez późne wiązanie (_app.X w czasie ż�
 dzięki czemu testy mogą je podmieniać przez monkeypatch na module `app`.
 """
 
+from __future__ import annotations
+
 import uuid
 import logging
 from datetime import datetime
 
 from flask import Blueprint, jsonify, request
+
+from flask.typing import ResponseReturnValue
 
 import app as _app
 
@@ -18,12 +22,12 @@ log = logging.getLogger("cinelog")
 bp = Blueprint("movies", __name__)
 
 @bp.route("/api/movies", methods=["GET"])
-def get_movies():
+def get_movies() -> ResponseReturnValue:
     movies = _app.load_movies()
     return jsonify(movies)
 
 @bp.route("/api/movies/<movie_uuid>", methods=["PUT"])
-def update_movie(movie_uuid):
+def update_movie(movie_uuid: str) -> ResponseReturnValue:
     data = request.get_json() or {}
     with _app.DATA_LOCK:
         movies = _app.load_movies()
@@ -60,7 +64,7 @@ def update_movie(movie_uuid):
             return jsonify({"error": "Failed to save database"}), 500
 
 @bp.route("/api/movies/<movie_uuid>", methods=["DELETE"])
-def delete_movie(movie_uuid):
+def delete_movie(movie_uuid: str) -> ResponseReturnValue:
     with _app.DATA_LOCK:
         movies = _app.load_movies()
         found_idx = -1
@@ -80,7 +84,7 @@ def delete_movie(movie_uuid):
 
 @bp.route("/api/movies/add", methods=["POST"])
 @bp.route("/api/movies", methods=["POST"])
-def add_movie():
+def add_movie() -> ResponseReturnValue:
     data = request.get_json() or {}
     title = data.get("title", "").strip()
     

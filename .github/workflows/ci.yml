@@ -40,11 +40,11 @@ jobs:
         run: |
           pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: Type-check services (mypy)
-        run: python -m mypy services
+      - name: Type-check backend (mypy)
+        run: python -m mypy
 
       - name: Lint (pyflakes)
-        run: python -m pyflakes services routes
+        run: python -m pyflakes services routes scripts app.py run.py
 
   frontend-syntax:
     runs-on: ubuntu-latest

@@ -5,6 +5,8 @@ są odczytywane z modułu aplikacji przez późne wiązanie (_app.X w czasie ż�
 dzięki czemu testy mogą je podmieniać przez monkeypatch na module `app`.
 """
 
+from __future__ import annotations
+
 import json
 import re
 import logging
@@ -17,6 +19,8 @@ import os
 from flask import Blueprint, jsonify, request
 
 
+from flask.typing import ResponseReturnValue
+
 import app as _app
 
 from services import client_keys
@@ -26,7 +30,7 @@ log = logging.getLogger("cinelog")
 bp = Blueprint("upcoming", __name__)
 
 @bp.route("/api/upcoming", methods=["GET"])
-def get_upcoming_schedule():
+def get_upcoming_schedule() -> ResponseReturnValue:
     force_refresh = request.args.get("refresh") == "1"
     effective_tmdb_key = client_keys.tmdb_key() or _app.TMDB_API_KEY
     movies = _app.load_movies()

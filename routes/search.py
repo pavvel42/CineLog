@@ -5,6 +5,8 @@ są odczytywane z modułu aplikacji przez późne wiązanie (_app.X w czasie ż�
 dzięki czemu testy mogą je podmieniać przez monkeypatch na module `app`.
 """
 
+from __future__ import annotations
+
 import json
 import re
 import logging
@@ -15,6 +17,8 @@ import os
 from flask import Blueprint, jsonify, request
 
 
+from flask.typing import ResponseReturnValue
+
 import app as _app
 
 from services import client_keys
@@ -24,7 +28,7 @@ log = logging.getLogger("cinelog")
 bp = Blueprint("search", __name__)
 
 @bp.route("/api/search_preview", methods=["GET"])
-def search_preview():
+def search_preview() -> ResponseReturnValue:
     title = request.args.get("q", "").strip()
     media_type = request.args.get("type", "movie").strip()
     lang = request.args.get("lang", "pl-PL").strip()
@@ -132,7 +136,7 @@ def search_preview():
 
 # --- DETAILED LOOKUP FOR A SPECIFIC PRODUCTION WITH USER LANGUAGE ---
 @bp.route("/api/search_detail", methods=["GET"])
-def search_detail():
+def search_detail() -> ResponseReturnValue:
     tmdb_id = request.args.get("tmdb_id", "").strip()
     imdb_id = request.args.get("id", "").strip()
     title = request.args.get("title", "").strip()

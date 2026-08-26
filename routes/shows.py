@@ -5,12 +5,18 @@ są odczytywane z modułu aplikacji przez późne wiązanie (_app.X w czasie ż�
 dzięki czemu testy mogą je podmieniać przez monkeypatch na module `app`.
 """
 
+from __future__ import annotations
+
 import re
 import uuid
 import logging
 from datetime import datetime
 
 from flask import Blueprint, jsonify, request
+
+from typing import Any
+
+from flask.typing import ResponseReturnValue
 
 import app as _app
 
@@ -21,12 +27,12 @@ log = logging.getLogger("cinelog")
 bp = Blueprint("shows", __name__)
 
 @bp.route("/api/shows", methods=["GET"])
-def get_shows():
+def get_shows() -> ResponseReturnValue:
     shows = _app.load_shows()
     return jsonify(shows)
 
 @bp.route("/api/shows/<show_uuid>", methods=["GET"])
-def get_show_detail(show_uuid):
+def get_show_detail(show_uuid: str) -> ResponseReturnValue:
     shows = _app.load_shows()
     for s in shows:
         if s.get("uuid") == show_uuid:
@@ -34,7 +40,7 @@ def get_show_detail(show_uuid):
     return jsonify({"error": "Show not found"}), 404
 
 @bp.route("/api/shows/<show_uuid>/episodes_meta", methods=["GET"])
-def get_show_episodes_meta(show_uuid):
+def get_show_episodes_meta(show_uuid: str) -> ResponseReturnValue:
     lang = request.args.get("lang", "pl-PL").strip()
     req_tmdb_id = request.args.get("tmdb_id", "").strip()
     shows = _app.load_shows()
@@ -62,7 +68,7 @@ def get_show_episodes_meta(show_uuid):
     return jsonify({})
 
 @bp.route("/api/shows/<show_uuid>", methods=["PUT"])
-def update_show(show_uuid):
+def update_show(show_uuid: str) -> ResponseReturnValue:
     data = request.get_json() or {}
     with _app.DATA_LOCK:
         shows = _app.load_shows()
@@ -100,7 +106,7 @@ def update_show(show_uuid):
             return jsonify({"error": "Failed to save shows"}), 500
 
 @bp.route("/api/shows/<show_uuid>/episodes", methods=["POST"])
-def toggle_episode(show_uuid):
+def toggle_episode(show_uuid: str) -> ResponseReturnValue:
     data = request.get_json() or {}
     season = _app._safe_int(data.get("season", 1), 1)
     episode = _app._safe_int(data.get("episode", 1), 1)
@@ -156,7 +162,7 @@ def toggle_episode(show_uuid):
             return jsonify({"error": "Failed to save episode"}), 500
 
 @bp.route("/api/shows/<show_uuid>/batch_episodes", methods=["POST"])
-def batch_episodes(show_uuid):
+def batch_episodes(show_uuid: str) -> ResponseReturnValue:
     data = request.get_json() or {}
     items_to_add = data.get("episodes", [])
     if not isinstance(items_to_add, list):
@@ -205,7 +211,7 @@ def batch_episodes(show_uuid):
             return jsonify({"error": "Failed to save batch episodes"}), 500
 
 @bp.route("/api/shows/verify_completion", methods=["POST", "GET"])
-def verify_shows_completion():
+def verify_shows_completion() -> ResponseReturnValue:
     with _app.DATA_LOCK:
         shows = _app.load_shows()
         updated_count = 0
@@ -242,7 +248,7 @@ def verify_shows_completion():
 
 @bp.route("/api/shows/add", methods=["POST"])
 @bp.route("/api/shows", methods=["POST"])
-def add_show():
+def add_show() -> ResponseReturnValue:
     data = request.get_json() or {}
     title = data.get("title", "").strip()
     
@@ -255,7 +261,7 @@ def add_show():
         
     shows = _app.load_shows()
     
-    watched_episodes = []
+    watched_episodes: list[dict[str, Any]] = []
 
     # 1. Direct list of episodes passed from UI checkbox selector
     raw_watched_list = data.get("episodes_watched")
@@ -361,7 +367,7 @@ def add_show():
             return jsonify({"error": "Failed to save show"}), 500
 
 @bp.route("/api/shows/<show_uuid>", methods=["DELETE"])
-def delete_show(show_uuid):
+def delete_show(show_uuid: str) -> ResponseReturnValue:
     with _app.DATA_LOCK:
         shows = _app.load_shows()
         found_idx = -1

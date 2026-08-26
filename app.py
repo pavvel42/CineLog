@@ -6,10 +6,12 @@ późne wiązanie (`import app as _app`), dzięki czemu testy mogą je podmienia
 przez monkeypatch na module `app`. Uruchamianie serwera: python run.py
 """
 
+from __future__ import annotations
+
 import os
 import logging
 
-from flask import Flask, render_template
+from flask import Flask
 
 from services.data_store import (
     DATA_LOCK,
@@ -24,7 +26,19 @@ logging.basicConfig(
 )
 log = logging.getLogger("cinelog")
 
-def _load_env_file():
+__all__ = [
+    "app",
+    "TMDB_API_KEY",
+    "DATA_DIR", "MOVIES_FILE", "MOVIES_BACKUP_FILE",
+    "SHOWS_FILE", "SHOWS_BACKUP_FILE", "UPCOMING_CACHE_FILE", "VOD_CACHE_FILE",
+    "EPISODES_CACHE", "RECOMMENDATIONS_CACHE", "DATA_LOCK",
+    "load_movies", "save_movies", "load_shows", "save_shows",
+    "load_vod_cache", "save_vod_cache", "fetch_live_watch_providers",
+    "format_tmdb_summary", "fetch_online_metadata", "fetch_episodes_meta",
+    "normalize_title", "_safe_int", "_is_safe_media_url",
+]
+
+def _load_env_file() -> None:
     env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
     if os.path.exists(env_file):
         try:
@@ -58,26 +72,26 @@ SHOWS_FILE = os.path.join(DATA_DIR, "shows_parsed.json")
 SHOWS_BACKUP_FILE = os.path.join(DATA_DIR, "shows_backup.json")
 UPCOMING_CACHE_FILE = os.path.join(DATA_DIR, "upcoming_cache.json")
 
-EPISODES_CACHE = {}
+EPISODES_CACHE: dict[str, dict] = {}
 
-def load_movies():
+def load_movies() -> list:
     movies = load_json(MOVIES_FILE)
     deduped = deduplicate_items(movies)
     if len(deduped) != len(movies):
         save_json(MOVIES_FILE, deduped)
     return deduped
 
-def save_movies(movies_list):
+def save_movies(movies_list: object) -> bool:
     return save_json(MOVIES_FILE, movies_list)
 
-def load_shows():
+def load_shows() -> list:
     shows = load_json(SHOWS_FILE)
     deduped = deduplicate_items(shows)
     if len(deduped) != len(shows):
         save_json(SHOWS_FILE, deduped)
     return deduped
 
-def save_shows(shows_list):
+def save_shows(shows_list: object) -> bool:
     return save_json(SHOWS_FILE, shows_list)
 
 
@@ -98,16 +112,16 @@ from services.data_store import (
     is_safe_media_url as _is_safe_media_url,
 )
 
-def load_vod_cache():
+def load_vod_cache() -> dict:
     return svc_load_vod_cache(VOD_CACHE_FILE)
 
-def save_vod_cache(cache_data):
+def save_vod_cache(cache_data: dict) -> bool:
     return svc_save_vod_cache(VOD_CACHE_FILE, cache_data)
 
-def fetch_live_watch_providers(clean_title, media_type, region, tmdb_id=None):
+def fetch_live_watch_providers(clean_title: str, media_type: str, region: str, tmdb_id: str | None = None) -> dict:
     return _svc_fetch_live_watch_providers(clean_title, media_type, region, TMDB_API_KEY, tmdb_id=tmdb_id)
 
-RECOMMENDATIONS_CACHE = {}
+RECOMMENDATIONS_CACHE: dict[str, dict] = {}
 
 
 # --- Registracja blueprintów tras ---

@@ -5,12 +5,16 @@ są odczytywane z modułu aplikacji przez późne wiązanie (_app.X w czasie ż�
 dzięki czemu testy mogą je podmieniać przez monkeypatch na module `app`.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import urllib.request
 import urllib.parse
 
 from flask import Blueprint, jsonify, request
+
+from flask.typing import ResponseReturnValue
 
 import app as _app
 
@@ -21,7 +25,7 @@ log = logging.getLogger("cinelog")
 bp = Blueprint("recommendations", __name__)
 
 @bp.route("/api/recommendations/for_item", methods=["GET"])
-def get_recommendations_for_item():
+def get_recommendations_for_item() -> ResponseReturnValue:
     media_type = request.args.get("media_type", "movie").strip().lower()
     tmdb_type = "tv" if media_type in ["tv", "series", "shows"] else "movie"
     tmdb_id = request.args.get("tmdb_id", "").strip()
@@ -81,7 +85,7 @@ def get_recommendations_for_item():
 
 
 @bp.route("/api/recommendations/discover", methods=["GET"])
-def discover_recommendations():
+def discover_recommendations() -> ResponseReturnValue:
     media_type = request.args.get("media_type", "movie").strip().lower()
     tmdb_type = "tv" if media_type in ["tv", "series", "shows"] else "movie"
     genres = request.args.get("genres", "").strip()
@@ -147,7 +151,7 @@ def discover_recommendations():
 
 
 @bp.route("/api/recommendations/trending", methods=["GET"])
-def get_trending_recommendations():
+def get_trending_recommendations() -> ResponseReturnValue:
     media_type = request.args.get("media_type", "all").strip().lower()
     time_window = request.args.get("time_window", "week").strip().lower()
     lang = request.args.get("lang", "pl-PL").strip()
@@ -180,7 +184,7 @@ def get_trending_recommendations():
 
 
 @bp.route("/api/recommendations/person", methods=["GET"])
-def get_person_recommendations():
+def get_person_recommendations() -> ResponseReturnValue:
     name = request.args.get("name", "").strip()
     lang = request.args.get("lang", "pl-PL").strip()
     tmdb_key = client_keys.tmdb_key() or _app.TMDB_API_KEY
@@ -251,7 +255,7 @@ def get_person_recommendations():
     return jsonify(response_data)
 
 @bp.route("/api/actor/details", methods=["GET"])
-def get_actor_details():
+def get_actor_details() -> ResponseReturnValue:
     person_id = request.args.get("id", "").strip()
     name = request.args.get("name", "").strip()
     lang = request.args.get("lang", "pl-PL").strip()

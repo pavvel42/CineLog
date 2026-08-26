@@ -77,7 +77,7 @@ def reset_memory_cache() -> None:
 
 
 def fetch_live_watch_providers(clean_title: str, media_type: str, region: str,
-                               tmdb_api_key: str, tmdb_id: int | None = None) -> dict:
+                               tmdb_api_key: str, tmdb_id: str | None = None) -> dict:
     if not tmdb_api_key:
         return _empty_result(region)
 

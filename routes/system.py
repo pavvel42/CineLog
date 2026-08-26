@@ -5,6 +5,8 @@ są odczytywane z modułu aplikacji przez późne wiązanie (_app.X w czasie ż�
 dzięki czemu testy mogą je podmieniać przez monkeypatch na module `app`.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import shutil
@@ -18,6 +20,8 @@ from pathlib import Path
 from flask import Blueprint, jsonify, request, Response, send_file
 
 
+from flask.typing import ResponseReturnValue
+
 import app as _app
 
 log = logging.getLogger("cinelog")
@@ -28,12 +32,12 @@ INDEX_HTML = Path(__file__).resolve().parent.parent / "index.html"
 
 @bp.route("/")
 @bp.route("/m3")
-def index():
+def index() -> ResponseReturnValue:
     return send_file(INDEX_HTML)
 
 # --- MULTI-RESULT LIVE SEARCH API ---
 @bp.route("/api/data", methods=["GET"])
-def get_all_data():
+def get_all_data() -> ResponseReturnValue:
     return jsonify({
         "movies": _app.load_movies(),
         "shows": _app.load_shows()
@@ -41,7 +45,7 @@ def get_all_data():
 
 # --- MOVIES API ---
 @bp.route("/api/export", methods=["GET"])
-def export_data():
+def export_data() -> ResponseReturnValue:
     movies = _app.load_movies()
     shows = _app.load_shows()
     export_payload = {
@@ -60,7 +64,7 @@ def export_data():
 
 @bp.route("/api/movies/reset", methods=["POST"])
 @bp.route("/api/reset", methods=["POST"])
-def reset_all():
+def reset_all() -> ResponseReturnValue:
     if os.path.exists(_app.MOVIES_BACKUP_FILE):
         shutil.copy(_app.MOVIES_BACKUP_FILE, _app.MOVIES_FILE)
     if os.path.exists(_app.SHOWS_BACKUP_FILE):
@@ -69,7 +73,7 @@ def reset_all():
 
 # --- API KEYS VERIFICATION ---
 @bp.route("/api/keys/test", methods=["POST"])
-def test_api_keys():
+def test_api_keys() -> ResponseReturnValue:
     data = request.get_json(silent=True) or {}
     tmdb_key = data.get("tmdb_key", "").strip() or _app.TMDB_API_KEY
     omdb_key = data.get("omdb_key", "").strip() or os.environ.get("OMDB_API_KEY", "").strip()

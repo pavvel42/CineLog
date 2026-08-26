@@ -7,6 +7,8 @@ dosłowny "dziennik oglądania" (data+godzina co do sekundy). Daty publicznych
 faktów (premiery, emisje odcinków) pozostają nietknięte.
 """
 
+from __future__ import annotations
+
 import json
 import pathlib
 from datetime import datetime, timedelta
@@ -16,7 +18,7 @@ OFFSET = timedelta(days=173)
 SHIFT_KEYS = {"watch_date", "follow_date", "created_at", "updated_at", "expires_at"}
 FMT = "%Y-%m-%d %H:%M:%S"
 
-def shift(value):
+def shift(value: object) -> object:
     if not isinstance(value, str):
         return value
     try:
@@ -25,7 +27,7 @@ def shift(value):
         return value
     return (dt - OFFSET).strftime(FMT)
 
-def walk(node):
+def walk(node: object) -> object:
     if isinstance(node, dict):
         return {k: (shift(v) if k in SHIFT_KEYS else walk(v)) for k, v in node.items()}
     if isinstance(node, list):

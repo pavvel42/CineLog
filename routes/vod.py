@@ -5,11 +5,15 @@ są odczytywane z modułu aplikacji przez późne wiązanie (_app.X w czasie ż�
 dzięki czemu testy mogą je podmieniać przez monkeypatch na module `app`.
 """
 
+from __future__ import annotations
+
 import re
 import logging
 from datetime import datetime
 
 from flask import Blueprint, jsonify, request
+
+from flask.typing import ResponseReturnValue
 
 import app as _app
 
@@ -18,7 +22,7 @@ log = logging.getLogger("cinelog")
 bp = Blueprint("vod", __name__)
 
 @bp.route("/api/watch_providers", methods=["GET"])
-def get_watch_providers():
+def get_watch_providers() -> ResponseReturnValue:
     title = request.args.get("title", "").strip()
     media_type = request.args.get("type", "movie").strip().lower()
     region = request.args.get("region", "PL").strip().upper()
@@ -50,7 +54,7 @@ def get_watch_providers():
     return jsonify(fresh_data)
 
 @bp.route("/api/vod_cache_all", methods=["GET"])
-def get_all_vod_cache():
+def get_all_vod_cache() -> ResponseReturnValue:
     region = request.args.get("region", "PL").strip().upper()
     cache = _app.load_vod_cache()
 
@@ -63,7 +67,7 @@ def get_all_vod_cache():
     return jsonify(region_cache)
 
 @bp.route("/api/vod_precache", methods=["POST"])
-def precache_vod_batch():
+def precache_vod_batch() -> ResponseReturnValue:
     data = request.json or {}
     items = data.get("items", [])
     region = data.get("region", "PL").strip().upper()

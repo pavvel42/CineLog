@@ -7,6 +7,8 @@ Jedno źródło prawdy: plik VERSION (np. "10.25").
                                            i static/sw.js oraz wersjonowanych JS
 """
 
+from __future__ import annotations
+
 import pathlib
 import re
 import sys
