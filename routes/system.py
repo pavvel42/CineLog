@@ -13,7 +13,9 @@ import urllib.parse
 from datetime import datetime
 
 import os
-from flask import Blueprint, jsonify, request, Response, render_template
+from pathlib import Path
+
+from flask import Blueprint, jsonify, request, Response, send_file
 
 
 import app as _app
@@ -22,10 +24,12 @@ log = logging.getLogger("cinelog")
 
 bp = Blueprint("system", __name__)
 
+INDEX_HTML = Path(__file__).resolve().parent.parent / "index.html"
+
 @bp.route("/")
 @bp.route("/m3")
 def index():
-    return render_template("index.html")
+    return send_file(INDEX_HTML)
 
 # --- MULTI-RESULT LIVE SEARCH API ---
 @bp.route("/api/data", methods=["GET"])
