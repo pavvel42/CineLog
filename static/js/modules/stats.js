@@ -613,25 +613,15 @@ export function renderDirectorMasteryBadges() {
   });
 }
 
-export function openDirectorDetailModal(dir, activeTab = "watched") {
-  currentDirectorModal = dir;
-  currentDirectorTab = activeTab;
+function resolveDirectorBadge(pct) {
+  if (pct === 100) return { color: "#06b6d4", rank: "💎 Komplet Mistrza (100%)" };
+  if (pct >= 75) return { color: "#eab308", rank: "🥇 Złota Odznaka Reżyserska" };
+  if (pct >= 50) return { color: "#94a3b8", rank: "🥈 Srebrna Odznaka Reżyserska" };
+  if (pct >= 25) return { color: "#b45309", rank: "🥉 Brązowa Odznaka Reżyserska" };
+  return { color: "#71717a", rank: "🎬 Początkujący Kinoman" };
+}
 
-  const sheet = document.getElementById("m3-sheet-director-detail");
-  if (!sheet) return;
-
-  const avatarEl = document.getElementById("m3-director-modal-avatar");
-  const nameEl = document.getElementById("m3-director-modal-name");
-  const badgeEl = document.getElementById("m3-director-modal-badge");
-  const statsEl = document.getElementById("m3-director-modal-stats");
-
-  if (avatarEl) {
-    avatarEl.src = dir.avatar;
-    avatarEl.onerror = () => { avatarEl.src = "static/icons/favicon.png"; };
-  }
-  if (nameEl) nameEl.textContent = dir.name;
-
-  // Process director movies against state.movies
+function processDirectorFilmography(dir) {
   const totalTitles = dir.movies.length;
   const processedMovies = dir.movies.map(dm => {
     const matchedMovie = state.movies.find(m => isDirectorMovieMatch(dm, m));
@@ -650,43 +640,42 @@ export function openDirectorDetailModal(dir, activeTab = "watched") {
 
   const watchedList = processedMovies.filter(m => m.isWatched);
   const missingList = processedMovies.filter(m => !m.isWatched);
+  const pct = totalTitles > 0 ? Math.round((watchedList.length / totalTitles) * 100) : 0;
 
-  const watchedCount = watchedList.length;
-  const pct = totalTitles > 0 ? Math.round((watchedCount / totalTitles) * 100) : 0;
+  return { processedMovies, watchedList, missingList, totalTitles, pct };
+}
 
-  let badgeColor = "#71717a";
-  let badgeRank = "🎬 Początkujący Kinoman";
-  if (pct === 100) {
-    badgeColor = "#06b6d4";
-    badgeRank = "💎 Komplet Mistrza (100%)";
-  } else if (pct >= 75) {
-    badgeColor = "#eab308";
-    badgeRank = "🥇 Złota Odznaka Reżyserska";
-  } else if (pct >= 50) {
-    badgeColor = "#94a3b8";
-    badgeRank = "🥈 Srebrna Odznaka Reżyserska";
-  } else if (pct >= 25) {
-    badgeColor = "#b45309";
-    badgeRank = "🥉 Brązowa Odznaka Reżyserska";
+function renderDirectorModalHeader(dir, filmography) {
+  const avatarEl = document.getElementById("m3-director-modal-avatar");
+  const nameEl = document.getElementById("m3-director-modal-name");
+  const badgeEl = document.getElementById("m3-director-modal-badge");
+  const statsEl = document.getElementById("m3-director-modal-stats");
+
+  if (avatarEl) {
+    avatarEl.src = dir.avatar;
+    avatarEl.onerror = () => { avatarEl.src = "static/icons/favicon.png"; };
   }
+  if (nameEl) nameEl.textContent = dir.name;
 
+  const badge = resolveDirectorBadge(filmography.pct);
   if (badgeEl) {
-    badgeEl.textContent = badgeRank;
-    badgeEl.style.borderColor = badgeColor;
-    badgeEl.style.color = badgeColor;
+    badgeEl.textContent = badge.rank;
+    badgeEl.style.borderColor = badge.color;
+    badgeEl.style.color = badge.color;
   }
   if (statsEl) {
-    statsEl.textContent = `Obejrzano ${watchedCount} z ${totalTitles} filmów (${pct}%) • Reżyseria: ${dir.name}`;
+    statsEl.textContent = `Obejrzano ${filmography.watchedList.length} z ${filmography.totalTitles} filmów (${filmography.pct}%) • Reżyseria: ${dir.name}`;
   }
 
-  // Update tab counts
   const countWatchedEl = document.getElementById("m3-dir-count-watched");
   const countMissingEl = document.getElementById("m3-dir-count-missing");
   const countAllEl = document.getElementById("m3-dir-count-all");
-  if (countWatchedEl) countWatchedEl.textContent = watchedList.length;
-  if (countMissingEl) countMissingEl.textContent = missingList.length;
-  if (countAllEl) countAllEl.textContent = totalTitles;
+  if (countWatchedEl) countWatchedEl.textContent = filmography.watchedList.length;
+  if (countMissingEl) countMissingEl.textContent = filmography.missingList.length;
+  if (countAllEl) countAllEl.textContent = filmography.totalTitles;
+}
 
+function setDirectorModalTabs(activeTab) {
   const tabWatched = document.getElementById("m3-dir-tab-watched");
   const tabMissing = document.getElementById("m3-dir-tab-missing");
   const tabAll = document.getElementById("m3-dir-tab-all");
@@ -694,125 +683,146 @@ export function openDirectorDetailModal(dir, activeTab = "watched") {
   if (tabWatched) tabWatched.classList.toggle("active", activeTab === "watched");
   if (tabMissing) tabMissing.classList.toggle("active", activeTab === "missing");
   if (tabAll) tabAll.classList.toggle("active", activeTab === "all");
+}
 
-  // Render grid
-  const grid = document.getElementById("m3-director-movies-container");
-  if (grid) {
-    grid.innerHTML = "";
-
-    let listToRender = processedMovies;
-    if (activeTab === "watched") listToRender = watchedList;
-    else if (activeTab === "missing") listToRender = missingList;
-
-    if (listToRender.length === 0) {
-      grid.innerHTML = `
-        <div style="grid-column: 1/-1; text-align: center; padding: 40px 16px; color: var(--md-sys-color-on-surface-variant);">
-          <span class="material-symbols-rounded" style="font-size: 36px; margin-bottom: 8px;">check_circle</span>
-          <p style="margin: 0; font-size: 0.85rem; font-weight: 600;">
-            ${activeTab === "missing" ? "🎉 Gratulacje! Obejrzałeś wszystkie filmy z filmografii tego reżysera!" : "Brak pozycji w tej kategorii."}
-          </p>
-        </div>
-      `;
-    } else {
-      listToRender.forEach(item => {
-        const itemCard = document.createElement("div");
-        itemCard.style.cssText = "background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-corner-lg); overflow: hidden; display: flex; flex-direction: column; transition: transform 0.2s ease;";
-
-        let posterHtml = "";
-        if (item.poster_url) {
-          posterHtml = `
-            <div style="position: relative; width: 100%; aspect-ratio: 2/3; background: var(--md-sys-color-surface-container-highest);">
-              <img src="${item.poster_url}" alt="${item.title}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover;" data-fallback-display="flex">
-              <div class="m3-card-cover-fallback" style="background: ${getGradientForTitle(item.title)}; display: none; width: 100%; height: 100%; align-items: center; justify-content: center; text-align: center; font-size: 0.75rem; font-weight: 700; padding: 6px;">${item.title}</div>
-            </div>
-          `;
-        } else {
-          posterHtml = `
-            <div style="width: 100%; aspect-ratio: 2/3; background: ${getGradientForTitle(item.title)}; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 0.75rem; font-weight: 700; padding: 6px;">${item.title}</div>
-          `;
-        }
-
-        let footerHtml = "";
-        if (item.isWatched) {
-          const stars = item.userRating ? `★ ${item.userRating}/5` : "✓ Obejrzano";
-          footerHtml = `
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding: 6px 8px 8px 8px;">
-              <span style="font-size: 0.72rem; font-weight: 700; color: #10b981; display: flex; align-items: center; gap: 3px;">
-                <span class="material-symbols-rounded" style="font-size: 14px;">check_circle</span> ${stars}
-              </span>
-              <button type="button" class="m3-chip" style="font-size: 0.65rem; padding: 2px 6px;">Szczegóły</button>
-            </div>
-          `;
-          itemCard.style.cursor = "pointer";
-          itemCard.addEventListener("click", () => {
-            if (item.matchedMovie) {
-              openMovieDetail(item.matchedMovie);
-            }
-          });
-        } else if (item.isWatchlist) {
-          footerHtml = `
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding: 6px 8px 8px 8px;">
-              <span style="font-size: 0.7rem; font-weight: 700; color: var(--md-sys-color-primary); display: flex; align-items: center; gap: 3px;">
-                <span class="material-symbols-rounded" style="font-size: 14px;">bookmark</span> Na liście
-              </span>
-              <button type="button" class="m3-chip" style="font-size: 0.65rem; padding: 2px 6px;">Szczegóły</button>
-            </div>
-          `;
-          itemCard.style.cursor = "pointer";
-          itemCard.addEventListener("click", () => {
-            if (item.matchedMovie) {
-              openMovieDetail(item.matchedMovie);
-            }
-          });
-        } else {
-          footerHtml = `
-            <div style="margin-top: auto; padding: 6px 8px 8px 8px;">
-              <button type="button" class="m3-btn-action-primary m3-btn-add-dir-movie" style="width: 100%; justify-content: center; font-size: 0.7rem; padding: 4px 6px; border-radius: var(--md-corner-full); font-weight: 700; background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary);">
-                <span class="material-symbols-rounded" style="font-size: 14px;">add</span> Do listy
-              </button>
-            </div>
-          `;
-        }
-
-        itemCard.innerHTML = `
-          ${posterHtml}
-          <div style="padding: 6px 8px 0 8px;">
-            <div style="font-weight: 700; font-size: 0.78rem; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;" title="${item.title}">${item.title}</div>
-            <div style="font-size: 0.68rem; color: var(--md-sys-color-on-surface-variant); margin-top: 2px;">${item.year || ''}</div>
-          </div>
-          ${footerHtml}
-        `;
-
-        const btnAdd = itemCard.querySelector(".m3-btn-add-dir-movie");
-        if (btnAdd) {
-          btnAdd.addEventListener("click", (e) => {
-            e.stopPropagation();
-            const newMovie = {
-              uuid: generateUUID(),
-              tmdb_id: item.tmdb_id,
-              title: item.title,
-              original_title: item.original_title,
-              release_date: item.year ? `${item.year}-01-01` : "",
-              poster_url: item.poster_url,
-              director: dir.name,
-              status: "watchlist",
-              rating: null,
-              created_at: new Date().toISOString()
-            };
-            state.movies.unshift(newMovie);
-            saveLocalDatabase();
-            updateStats();
-            if (state.mode === "movies") renderMovies();
-            showToastNotification(`Dodano „${item.title}” do listy Do obejrzenia!`, "success");
-            openDirectorDetailModal(dir, activeTab);
-            renderDirectorMasteryBadges();
-          });
-        }
-
-        grid.appendChild(itemCard);
-      });
-    }
+function buildDirectorPosterHtml(item) {
+  if (!item.poster_url) {
+    return `
+      <div style="width: 100%; aspect-ratio: 2/3; background: ${getGradientForTitle(item.title)}; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 0.75rem; font-weight: 700; padding: 6px;">${item.title}</div>
+    `;
   }
+  return `
+    <div style="position: relative; width: 100%; aspect-ratio: 2/3; background: var(--md-sys-color-surface-container-highest);">
+      <img src="${item.poster_url}" alt="${item.title}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover;" data-fallback-display="flex">
+      <div class="m3-card-cover-fallback" style="background: ${getGradientForTitle(item.title)}; display: none; width: 100%; height: 100%; align-items: center; justify-content: center; text-align: center; font-size: 0.75rem; font-weight: 700; padding: 6px;">${item.title}</div>
+    </div>
+  `;
+}
+
+function buildDirectorFooterHtml(item) {
+  if (item.isWatched) {
+    const stars = item.userRating ? `★ ${item.userRating}/5` : "✓ Obejrzano";
+    return `
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding: 6px 8px 8px 8px;">
+        <span style="font-size: 0.72rem; font-weight: 700; color: #10b981; display: flex; align-items: center; gap: 3px;">
+          <span class="material-symbols-rounded" style="font-size: 14px;">check_circle</span> ${stars}
+        </span>
+        <button type="button" class="m3-chip" style="font-size: 0.65rem; padding: 2px 6px;">Szczegóły</button>
+      </div>
+    `;
+  }
+  if (item.isWatchlist) {
+    return `
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding: 6px 8px 8px 8px;">
+        <span style="font-size: 0.7rem; font-weight: 700; color: var(--md-sys-color-primary); display: flex; align-items: center; gap: 3px;">
+          <span class="material-symbols-rounded" style="font-size: 14px;">bookmark</span> Na liście
+        </span>
+        <button type="button" class="m3-chip" style="font-size: 0.65rem; padding: 2px 6px;">Szczegóły</button>
+      </div>
+    `;
+  }
+  return `
+    <div style="margin-top: auto; padding: 6px 8px 8px 8px;">
+      <button type="button" class="m3-btn-action-primary m3-btn-add-dir-movie" style="width: 100%; justify-content: center; font-size: 0.7rem; padding: 4px 6px; border-radius: var(--md-corner-full); font-weight: 700; background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary);">
+        <span class="material-symbols-rounded" style="font-size: 14px;">add</span> Do listy
+      </button>
+    </div>
+  `;
+}
+
+function bindDirectorCardActions(itemCard, item, dir, activeTab) {
+  itemCard.style.cursor = "pointer";
+  itemCard.addEventListener("click", () => {
+    if (item.matchedMovie) {
+      openMovieDetail(item.matchedMovie);
+    }
+  });
+}
+
+function buildDirectorMovieCard(item, dir, activeTab) {
+  const itemCard = document.createElement("div");
+  itemCard.style.cssText = "background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-corner-lg); overflow: hidden; display: flex; flex-direction: column; transition: transform 0.2s ease;";
+
+  if (item.isWatched || item.isWatchlist) {
+    bindDirectorCardActions(itemCard, item, dir, activeTab);
+  }
+
+  itemCard.innerHTML = `
+    ${buildDirectorPosterHtml(item)}
+    <div style="padding: 6px 8px 0 8px;">
+      <div style="font-weight: 700; font-size: 0.78rem; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;" title="${item.title}">${item.title}</div>
+      <div style="font-size: 0.68rem; color: var(--md-sys-color-on-surface-variant); margin-top: 2px;">${item.year || ''}</div>
+    </div>
+    ${buildDirectorFooterHtml(item)}
+  `;
+
+  const btnAdd = itemCard.querySelector(".m3-btn-add-dir-movie");
+  if (btnAdd) {
+    btnAdd.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const newMovie = {
+        uuid: generateUUID(),
+        tmdb_id: item.tmdb_id,
+        title: item.title,
+        original_title: item.original_title,
+        release_date: item.year ? `${item.year}-01-01` : "",
+        poster_url: item.poster_url,
+        director: dir.name,
+        status: "watchlist",
+        rating: null,
+        created_at: new Date().toISOString()
+      };
+      state.movies.unshift(newMovie);
+      saveLocalDatabase();
+      updateStats();
+      if (state.mode === "movies") renderMovies();
+      showToastNotification(`Dodano „${item.title}” do listy Do obejrzenia!`, "success");
+      openDirectorDetailModal(dir, activeTab);
+      renderDirectorMasteryBadges();
+    });
+  }
+
+  return itemCard;
+}
+
+function renderDirectorMoviesGrid(listToRender, dir, activeTab) {
+  const grid = document.getElementById("m3-director-movies-container");
+  if (!grid) return;
+
+  grid.innerHTML = "";
+
+  if (listToRender.length === 0) {
+    grid.innerHTML = `
+      <div style="grid-column: 1/-1; text-align: center; padding: 40px 16px; color: var(--md-sys-color-on-surface-variant);">
+        <span class="material-symbols-rounded" style="font-size: 36px; margin-bottom: 8px;">check_circle</span>
+        <p style="margin: 0; font-size: 0.85rem; font-weight: 600;">
+          ${activeTab === "missing" ? "🎉 Gratulacje! Obejrzałeś wszystkie filmy z filmografii tego reżysera!" : "Brak pozycji w tej kategorii."}
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  listToRender.forEach(item => {
+    grid.appendChild(buildDirectorMovieCard(item, dir, activeTab));
+  });
+}
+
+export function openDirectorDetailModal(dir, activeTab = "watched") {
+  currentDirectorModal = dir;
+  currentDirectorTab = activeTab;
+
+  const sheet = document.getElementById("m3-sheet-director-detail");
+  if (!sheet) return;
+
+  const filmography = processDirectorFilmography(dir);
+  renderDirectorModalHeader(dir, filmography);
+  setDirectorModalTabs(activeTab);
+
+  let listToRender = filmography.processedMovies;
+  if (activeTab === "watched") listToRender = filmography.watchedList;
+  else if (activeTab === "missing") listToRender = filmography.missingList;
+  renderDirectorMoviesGrid(listToRender, dir, activeTab);
 
   sheet.classList.add("active");
 }

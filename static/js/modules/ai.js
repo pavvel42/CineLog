@@ -338,28 +338,22 @@ export function cleanTitleCandidate(str) {
 // --------------------------------------------------------------------------
 // Resolve Mentioned Media Items with Auto TMDb Enrichment (Full Cards)
 // --------------------------------------------------------------------------
-export async function resolveMentionedMediaItems(text) {
-  if (!text) return [];
+const MENTION_FORBIDDEN_WORDS = [
+  "analyze", "brainstorm", "request", "profile", "constraints", "idea", "selection",
+  "archetyp", "kluczowe", "wzorce", "rekomendacja", "rekomendacje", "propozycje", "gustu", "kinomana", "fascynacj",
+  "zasady", "platforma", "vod", "netflix", "hbo", "prime", "disney", "canal+", "film", "serial", "filmy", "seriale",
+  "odpowiedź", "asystent", "użytkownik", "status", "ocena", "opinia", "masz na liście", "do obejrzenia", "watchlist",
+  "obejrzane", "planowane", "biblioteka", "kontekst", "tytuł", "tytuły", "ulubione", "dla ciebie", "polska",
+  "tok myślenia", "złota rekomendacja", "wybór", "minut", "godzin"
+];
 
-  const cleanText = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-  const lines = cleanText.split('\n');
+function isForbiddenTitleCandidate(str) {
+  const l = str.toLowerCase().trim();
+  return MENTION_FORBIDDEN_WORDS.some(fw => l === fw || l.includes(fw)) || /^\d+[\.\)]/.test(str);
+}
 
+function extractPrimaryMentionCandidates(lines) {
   const primaryCandidates = [];
-  const secondaryCandidates = [];
-
-  const forbiddenWords = [
-    "analyze", "brainstorm", "request", "profile", "constraints", "idea", "selection",
-    "archetyp", "kluczowe", "wzorce", "rekomendacja", "rekomendacje", "propozycje", "gustu", "kinomana", "fascynacj",
-    "zasady", "platforma", "vod", "netflix", "hbo", "prime", "disney", "canal+", "film", "serial", "filmy", "seriale",
-    "odpowiedź", "asystent", "użytkownik", "status", "ocena", "opinia", "masz na liście", "do obejrzenia", "watchlist",
-    "obejrzane", "planowane", "biblioteka", "kontekst", "tytuł", "tytuły", "ulubione", "dla ciebie", "polska",
-    "tok myślenia", "złota rekomendacja", "wybór", "minut", "godzin"
-  ];
-
-  const isForbidden = (str) => {
-    const l = str.toLowerCase().trim();
-    return forbiddenWords.some(fw => l === fw || l.includes(fw)) || /^\d+[\.\)]/.test(str);
-  };
 
   // 1. First pass: Check each line for Primary Recommendation at the start (e.g. 1. "Coherence" (2013))
   for (const line of lines) {
@@ -367,41 +361,162 @@ export async function resolveMentionedMediaItems(text) {
     if (!trimmed) continue;
 
     const isNumberedOrBullet = /^(?:\d+[\.\)]|[-*•])\s+/.test(trimmed);
-    if (isNumberedOrBullet) {
-      // Find the first quoted or bold title in this line
-      const firstQuoteMatch = trimmed.match(/^[^"„”«»]*["„”«»]([^"„”«»\n\r]{2,50})["„”«»]/);
-      const firstBoldMatch = trimmed.match(/^[^**]*\*\*([^*:\n\r]{2,50})\*\*/);
+    if (!isNumberedOrBullet) continue;
 
-      let lineTitle = "";
-      if (firstQuoteMatch) {
-        lineTitle = cleanTitleCandidate(firstQuoteMatch[1]);
-      } else if (firstBoldMatch) {
-        lineTitle = cleanTitleCandidate(firstBoldMatch[1]);
-      }
+    // Find the first quoted or bold title in this line
+    const firstQuoteMatch = trimmed.match(/^[^"„”«»]*["„”«»]([^"„”«»\n\r]{2,50})["„”«»]/);
+    const firstBoldMatch = trimmed.match(/^[^**]*\*\*([^*:\n\r]{2,50})\*\*/);
 
-      const yearMatch = trimmed.match(/\b(19\d\d|20\d\d)\b/);
-      const year = yearMatch ? yearMatch[1] : "";
+    let lineTitle = "";
+    if (firstQuoteMatch) {
+      lineTitle = cleanTitleCandidate(firstQuoteMatch[1]);
+    } else if (firstBoldMatch) {
+      lineTitle = cleanTitleCandidate(firstBoldMatch[1]);
+    }
 
-      if (lineTitle && lineTitle.length >= 2 && !isForbidden(lineTitle)) {
-        if (!primaryCandidates.some(c => c.name.toLowerCase() === lineTitle.toLowerCase())) {
-          primaryCandidates.push({ name: lineTitle, year: year });
-        }
+    const yearMatch = trimmed.match(/\b(19\d\d|20\d\d)\b/);
+    const year = yearMatch ? yearMatch[1] : "";
+
+    if (lineTitle && lineTitle.length >= 2 && !isForbiddenTitleCandidate(lineTitle)) {
+      if (!primaryCandidates.some(c => c.name.toLowerCase() === lineTitle.toLowerCase())) {
+        primaryCandidates.push({ name: lineTitle, year: year });
       }
     }
   }
+
+  return primaryCandidates;
+}
+
+function extractSecondaryMentionCandidates(cleanText, primaryCandidates) {
+  const secondaryCandidates = [];
 
   // 2. Second pass: Collect all other quoted titles
   const quotedRegex = /["„”«»]([^"„”«»\n\r]{2,50})["„”«»]/g;
   let match;
   while ((match = quotedRegex.exec(cleanText)) !== null) {
     const cleaned = cleanTitleCandidate(match[1]);
-    if (cleaned.length >= 2 && cleaned.length <= 45 && !isForbidden(cleaned)) {
-      if (!primaryCandidates.some(c => c.name.toLowerCase() === cleaned.toLowerCase()) && 
+    if (cleaned.length >= 2 && cleaned.length <= 45 && !isForbiddenTitleCandidate(cleaned)) {
+      if (!primaryCandidates.some(c => c.name.toLowerCase() === cleaned.toLowerCase()) &&
           !secondaryCandidates.some(c => c.name.toLowerCase() === cleaned.toLowerCase())) {
         secondaryCandidates.push({ name: cleaned, year: "" });
       }
     }
   }
+
+  return secondaryCandidates;
+}
+
+function findLibraryItemByName(lower) {
+  // 1. Check in user's movies
+  const m = (state.movies || []).find(it => {
+    const t = (it.title || "").toLowerCase();
+    const orig = (it.original_title || "").toLowerCase();
+    return t === lower || orig === lower || t.startsWith(lower) || lower.startsWith(t);
+  });
+  if (m) return { item: m, type: "movie" };
+
+  // 2. Check in user's shows
+  const s = (state.shows || []).find(it => {
+    const t = (it.title || "").toLowerCase();
+    const orig = (it.original_title || "").toLowerCase();
+    return t === lower || orig === lower || t.startsWith(lower) || lower.startsWith(t);
+  });
+  if (s) return { item: s, type: "series" };
+
+  return null;
+}
+
+function pickBestSearchMatch(rawList, targetYear) {
+  if (rawList.length === 0) return null;
+
+  if (targetYear) {
+    const exact = rawList.find(it => it.year === targetYear || (it.release_date && it.release_date.startsWith(targetYear)));
+    if (exact) return exact;
+    const withinOne = rawList.find(it => it.year && Math.abs(parseInt(it.year) - parseInt(targetYear)) <= 1);
+    if (withinOne) return withinOne;
+  }
+
+  const sorted = [...rawList].sort((a, b) => (b.vote_count || 0) - (a.vote_count || 0));
+  return sorted[0];
+}
+
+function crossReferenceLibraryMatch(bestMatch, isTv) {
+  const tmdbId = bestMatch.tmdb_id || bestMatch.id;
+  const bestTitleLower = (bestMatch.title || "").toLowerCase();
+  const bestOrigLower = (bestMatch.original_title || "").toLowerCase();
+
+  const library = isTv ? (state.shows || []) : (state.movies || []);
+  return library.find(it => {
+    const itTitle = (it.title || "").toLowerCase();
+    const itOrig = (it.original_title || "").toLowerCase();
+    const itTmdb = it.tmdb_id || it.id;
+    return (tmdbId && itTmdb && String(itTmdb) === String(tmdbId)) ||
+           (itTitle && (itTitle === bestTitleLower || itTitle === bestOrigLower)) ||
+           (itOrig && (itOrig === bestOrigLower || itOrig === bestTitleLower));
+  });
+}
+
+function buildTmdbMentionItem(bestMatch, name, targetYear, isTv, tmdbId) {
+  return {
+    id: tmdbId,
+    tmdb_id: tmdbId,
+    title: bestMatch.title || bestMatch.original_title || name,
+    original_title: bestMatch.original_title || "",
+    poster_url: bestMatch.poster_url || "",
+    release_date: bestMatch.release_date || "",
+    year: bestMatch.year || (bestMatch.release_date ? bestMatch.release_date.substring(0, 4) : targetYear),
+    vote_average: bestMatch.vote_average ? Math.round(bestMatch.vote_average * 10) / 10 : null,
+    overview: bestMatch.overview || "",
+    media_type: isTv ? "tv" : "movie",
+    type: isTv ? "series" : "movie"
+  };
+}
+
+async function resolveTmdbMentionCandidate(name, targetYear, results, seenKeys) {
+  // 3. Not in library by exact string: Fetch TMDb metadata dynamically via /api/search_preview!
+  let searchRes = await fetch(`/api/search_preview?q=${encodeURIComponent(name)}&type=movie`);
+  let searchData = searchRes.ok ? await searchRes.json() : null;
+  let rawList = (searchData && searchData.results) || [];
+  let bestMatch = pickBestSearchMatch(rawList, targetYear);
+
+  // If no movie found or matched, try series
+  if (!bestMatch) {
+    searchRes = await fetch(`/api/search_preview?q=${encodeURIComponent(name)}&type=series`);
+    searchData = searchRes.ok ? await searchRes.json() : null;
+    rawList = (searchData && searchData.results) || [];
+    bestMatch = pickBestSearchMatch(rawList, targetYear);
+  }
+
+  if (!bestMatch) return;
+
+  const isTv = bestMatch.type === "series" || bestMatch.media_type === "tv";
+  const existingInLibrary = crossReferenceLibraryMatch(bestMatch, isTv);
+
+  if (existingInLibrary) {
+    const key = `${isTv ? 's' : 'm'}-${existingInLibrary.uuid || existingInLibrary.id || existingInLibrary.title}`;
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      results.push({ item: existingInLibrary, type: isTv ? "series" : "movie", inLibrary: true });
+    }
+    return;
+  }
+
+  const itemObj = buildTmdbMentionItem(bestMatch, name, targetYear, isTv, bestMatch.tmdb_id || bestMatch.id);
+  const key = `tmdb-${itemObj.id || itemObj.title}`;
+  if (!seenKeys.has(key)) {
+    seenKeys.add(key);
+    results.push({ item: itemObj, type: isTv ? "series" : "movie", inLibrary: false });
+  }
+}
+
+export async function resolveMentionedMediaItems(text) {
+  if (!text) return [];
+
+  const cleanText = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  const lines = cleanText.split('\n');
+
+  const primaryCandidates = extractPrimaryMentionCandidates(lines);
+  const secondaryCandidates = extractSecondaryMentionCandidates(cleanText, primaryCandidates);
 
   // If we found primary recommendations, prioritize them!
   const orderedCandidates = primaryCandidates.length > 0 ? primaryCandidates : secondaryCandidates;
@@ -410,132 +525,19 @@ export async function resolveMentionedMediaItems(text) {
   const seenKeys = new Set();
 
   for (const { name, year: targetYear } of orderedCandidates) {
-    const lower = name.toLowerCase();
+    const libraryHit = findLibraryItemByName(name.toLowerCase());
 
-    // 1. Check in user's movies
-    const m = (state.movies || []).find(it => {
-      const t = (it.title || "").toLowerCase();
-      const orig = (it.original_title || "").toLowerCase();
-      return t === lower || orig === lower || t.startsWith(lower) || lower.startsWith(t);
-    });
-
-    if (m) {
-      const key = `m-${m.uuid || m.id || m.title}`;
+    if (libraryHit) {
+      const key = `${libraryHit.type === "movie" ? 'm' : 's'}-${libraryHit.item.uuid || libraryHit.item.id || libraryHit.item.title}`;
       if (!seenKeys.has(key)) {
         seenKeys.add(key);
-        results.push({ item: m, type: "movie", inLibrary: true });
+        results.push({ item: libraryHit.item, type: libraryHit.type, inLibrary: true });
       }
       continue;
     }
 
-    // 2. Check in user's shows
-    const s = (state.shows || []).find(it => {
-      const t = (it.title || "").toLowerCase();
-      const orig = (it.original_title || "").toLowerCase();
-      return t === lower || orig === lower || t.startsWith(lower) || lower.startsWith(t);
-    });
-
-    if (s) {
-      const key = `s-${s.uuid || s.id || s.title}`;
-      if (!seenKeys.has(key)) {
-        seenKeys.add(key);
-        results.push({ item: s, type: "series", inLibrary: true });
-      }
-      continue;
-    }
-
-    // 3. Not in library by exact string: Fetch TMDb metadata dynamically via /api/search_preview!
     try {
-      let searchRes = await fetch(`/api/search_preview?q=${encodeURIComponent(name)}&type=movie`);
-      let searchData = searchRes.ok ? await searchRes.json() : null;
-      let rawList = (searchData && searchData.results) || [];
-
-      // Find best match in movie results considering targetYear and popularity
-      let bestMatch = null;
-      if (rawList.length > 0) {
-        if (targetYear) {
-          bestMatch = rawList.find(it => it.year === targetYear || (it.release_date && it.release_date.startsWith(targetYear)));
-          if (!bestMatch) {
-            bestMatch = rawList.find(it => it.year && Math.abs(parseInt(it.year) - parseInt(targetYear)) <= 1);
-          }
-        }
-        if (!bestMatch) {
-          const sorted = [...rawList].sort((a, b) => (b.vote_count || 0) - (a.vote_count || 0));
-          bestMatch = sorted[0];
-        }
-      }
-
-      // If no movie found or matched, try series
-      if (!bestMatch) {
-        searchRes = await fetch(`/api/search_preview?q=${encodeURIComponent(name)}&type=series`);
-        searchData = searchRes.ok ? await searchRes.json() : null;
-        rawList = (searchData && searchData.results) || [];
-        if (rawList.length > 0) {
-          if (targetYear) {
-            bestMatch = rawList.find(it => it.year === targetYear || (it.release_date && it.release_date.startsWith(targetYear)));
-          }
-          if (!bestMatch) {
-            const sorted = [...rawList].sort((a, b) => (b.vote_count || 0) - (a.vote_count || 0));
-            bestMatch = sorted[0];
-          }
-        }
-      }
-
-      if (bestMatch) {
-        const isTv = bestMatch.type === "series" || bestMatch.media_type === "tv";
-        const tmdbId = bestMatch.tmdb_id || bestMatch.id;
-        const bestTitleLower = (bestMatch.title || "").toLowerCase();
-        const bestOrigLower = (bestMatch.original_title || "").toLowerCase();
-
-        // Cross-reference with existing library by TMDb ID, Polish title or Original title!
-        let existingInLibrary = null;
-        if (!isTv) {
-          existingInLibrary = (state.movies || []).find(it => {
-            const itTitle = (it.title || "").toLowerCase();
-            const itOrig = (it.original_title || "").toLowerCase();
-            const itTmdb = it.tmdb_id || it.id;
-            return (tmdbId && itTmdb && String(itTmdb) === String(tmdbId)) ||
-                   (itTitle && (itTitle === bestTitleLower || itTitle === bestOrigLower)) ||
-                   (itOrig && (itOrig === bestOrigLower || itOrig === bestTitleLower));
-          });
-        } else {
-          existingInLibrary = (state.shows || []).find(it => {
-            const itTitle = (it.title || "").toLowerCase();
-            const itOrig = (it.original_title || "").toLowerCase();
-            const itTmdb = it.tmdb_id || it.id;
-            return (tmdbId && itTmdb && String(itTmdb) === String(tmdbId)) ||
-                   (itTitle && (itTitle === bestTitleLower || itTitle === bestOrigLower)) ||
-                   (itOrig && (itOrig === bestOrigLower || itOrig === bestTitleLower));
-          });
-        }
-
-        if (existingInLibrary) {
-          const key = `${isTv ? 's' : 'm'}-${existingInLibrary.uuid || existingInLibrary.id || existingInLibrary.title}`;
-          if (!seenKeys.has(key)) {
-            seenKeys.add(key);
-            results.push({ item: existingInLibrary, type: isTv ? "series" : "movie", inLibrary: true });
-          }
-        } else {
-          const itemObj = {
-            id: tmdbId,
-            tmdb_id: tmdbId,
-            title: bestMatch.title || bestMatch.original_title || name,
-            original_title: bestMatch.original_title || "",
-            poster_url: bestMatch.poster_url || "",
-            release_date: bestMatch.release_date || "",
-            year: bestMatch.year || (bestMatch.release_date ? bestMatch.release_date.substring(0, 4) : targetYear),
-            vote_average: bestMatch.vote_average ? Math.round(bestMatch.vote_average * 10) / 10 : null,
-            overview: bestMatch.overview || "",
-            media_type: isTv ? "tv" : "movie",
-            type: isTv ? "series" : "movie"
-          };
-          const key = `tmdb-${itemObj.id || itemObj.title}`;
-          if (!seenKeys.has(key)) {
-            seenKeys.add(key);
-            results.push({ item: itemObj, type: isTv ? "series" : "movie", inLibrary: false });
-          }
-        }
-      }
+      await resolveTmdbMentionCandidate(name, targetYear, results, seenKeys);
     } catch (err) {
       console.warn("Could not fetch TMDb item for", name, err);
     }

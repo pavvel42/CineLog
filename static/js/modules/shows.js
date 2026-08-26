@@ -1064,6 +1064,130 @@ export function openShowRematchPicker(show) {
 
 let seriesConversations = {};
 
+function appendSeriesUserBubble(outputEl, queryText) {
+  const userBubble = document.createElement("div");
+  userBubble.style.cssText = "align-self: flex-end; max-width: 85%; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); padding: 8px 12px; border-radius: 14px 14px 4px 14px; font-size: 0.82rem; font-weight: 500; margin-bottom: 8px; word-break: break-word;";
+  userBubble.innerText = queryText;
+  outputEl.appendChild(userBubble);
+}
+
+function buildSeriesAssistantBubble(outputEl) {
+  const msgId = "series-ai-msg-" + Date.now();
+  const assistantBubble = document.createElement("div");
+  assistantBubble.style.cssText = "align-self: flex-start; width: 100%; background: var(--md-sys-color-surface-container-high); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 14px 14px 14px 4px; padding: 12px; font-size: 0.82rem; line-height: 1.5; color: var(--md-sys-color-on-surface); margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px;";
+
+  assistantBubble.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 4px;">
+      <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #a855f7;">
+        <span class="material-symbols-rounded" style="font-size: 16px;">auto_awesome</span>
+        <span>Asystent Serialu</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <button type="button" class="m3-chip" id="collapse-${msgId}" style="font-size: 0.7rem; padding: 2px 6px; gap: 4px; display: inline-flex; align-items: center;" title="Rozwiń / Zwiń tekst">
+          <span class="material-symbols-rounded" id="collapse-icon-${msgId}" style="font-size: 13px;">unfold_more</span>
+          <span id="collapse-text-${msgId}">Rozwiń</span>
+        </button>
+        <button type="button" class="m3-chip" id="copy-${msgId}" style="font-size: 0.7rem; padding: 2px 6px; gap: 4px; display: inline-flex; align-items: center;" title="Kopiuj do schowka">
+          <span class="material-symbols-rounded" style="font-size: 13px;">content_copy</span>
+          <span>Kopiuj</span>
+        </button>
+      </div>
+    </div>
+    <details class="m3-ai-thought-accordion" id="thought-${msgId}" style="display: none; background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 6px; padding: 4px 8px; font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant);">
+      <summary style="cursor: pointer; font-weight: 700; color: #a855f7; display: flex; align-items: center; gap: 6px; user-select: none;">
+        <span class="material-symbols-rounded" style="font-size: 15px;">psychology</span>
+        <span>Tok myślenia (<span id="count-${msgId}">0 słów</span>)</span>
+      </summary>
+      <div id="text-${msgId}" style="margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(168, 85, 247, 0.15); line-height: 1.4; font-style: italic; white-space: pre-wrap; max-height: 100px; overflow-y: auto;"></div>
+    </details>
+    <div id="content-${msgId}" style="line-height: 1.55; max-height: 90px; overflow-y: auto; position: relative; mask-image: linear-gradient(to bottom, black 50%, transparent 100%); -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%); transition: max-height 0.25s ease;">
+      <div style="display: flex; align-items: center; gap: 6px; color: #a855f7;">
+        <span class="material-symbols-rounded" style="animation: spin 1s linear infinite; font-size: 16px;">auto_awesome</span>
+        <span style="font-weight: 600;">Asystent analizuje fabułę bez spoilerów...</span>
+      </div>
+    </div>
+  `;
+
+  outputEl.appendChild(assistantBubble);
+  outputEl.scrollTop = outputEl.scrollHeight;
+
+  return {
+    contentEl: document.getElementById(`content-${msgId}`),
+    thoughtBox: document.getElementById(`thought-${msgId}`),
+    thoughtTextEl: document.getElementById(`text-${msgId}`),
+    thoughtCountEl: document.getElementById(`count-${msgId}`),
+    copyBtn: document.getElementById(`copy-${msgId}`),
+    collapseBtn: document.getElementById(`collapse-${msgId}`),
+    collapseIcon: document.getElementById(`collapse-icon-${msgId}`),
+    collapseText: document.getElementById(`collapse-text-${msgId}`)
+  };
+}
+
+function setSeriesBubbleCollapsed(els, isCollapsed) {
+  const { contentEl, collapseIcon, collapseText } = els;
+  if (isCollapsed) {
+    contentEl.style.maxHeight = "90px";
+    contentEl.style.overflowY = "auto";
+    contentEl.style.position = "relative";
+    contentEl.style.maskImage = "linear-gradient(to bottom, black 50%, transparent 100%)";
+    contentEl.style.webkitMaskImage = "linear-gradient(to bottom, black 50%, transparent 100%)";
+    if (collapseIcon) collapseIcon.innerText = "unfold_more";
+    if (collapseText) collapseText.innerText = "Rozwiń";
+  } else {
+    contentEl.style.maxHeight = "none";
+    contentEl.style.overflowY = "visible";
+    contentEl.style.maskImage = "none";
+    contentEl.style.webkitMaskImage = "none";
+    if (collapseIcon) collapseIcon.innerText = "unfold_less";
+    if (collapseText) collapseText.innerText = "Zwiń";
+  }
+}
+
+function bindSeriesBubbleControls(els, bubbleState) {
+  if (els.collapseBtn && els.contentEl) {
+    els.collapseBtn.onclick = () => {
+      bubbleState.isCollapsed = !bubbleState.isCollapsed;
+      setSeriesBubbleCollapsed(els, bubbleState.isCollapsed);
+    };
+  }
+
+  if (els.copyBtn) {
+    els.copyBtn.onclick = () => {
+      if (!bubbleState.fullText) return;
+      navigator.clipboard.writeText(bubbleState.fullText).then(() => {
+        showToastNotification("Skopiowano odpowiedź do schowka!", "success");
+      }).catch(() => {
+        showToastNotification("Nie udało się skopiować do schowka.", "error");
+      });
+    };
+  }
+}
+
+function createSeriesStreamHandlers(els, outputEl, bubbleState) {
+  return {
+    onToken: (delta, fullText) => {
+      bubbleState.fullText = fullText;
+      if (els.contentEl) {
+        els.contentEl.innerHTML = formatAiMarkdown(fullText);
+        if (bubbleState.isCollapsed) {
+          els.contentEl.scrollTop = els.contentEl.scrollHeight;
+        }
+        outputEl.scrollTop = outputEl.scrollHeight;
+      }
+    },
+    onThought: (deltaThought, fullThoughtText) => {
+      if (els.thoughtBox && els.thoughtTextEl) {
+        els.thoughtBox.style.display = "block";
+        els.thoughtTextEl.innerText = fullThoughtText;
+        if (els.thoughtCountEl) {
+          const words = fullThoughtText.trim().split(/\s+/).length;
+          els.thoughtCountEl.innerText = `${words} słów`;
+        }
+      }
+    }
+  };
+}
+
 export function openSeriesAiModal(show) {
   if (!isAiConfigured()) {
     showToastNotification("Aby korzystać z Asystenta AI, najpierw skonfiguruj swój klucz API.", "info");
@@ -1114,157 +1238,39 @@ export function openSeriesAiModal(show) {
     }
 
     // 1. User Bubble
-    const userBubble = document.createElement("div");
-    userBubble.style.cssText = "align-self: flex-end; max-width: 85%; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); padding: 8px 12px; border-radius: 14px 14px 4px 14px; font-size: 0.82rem; font-weight: 500; margin-bottom: 8px; word-break: break-word;";
-    userBubble.innerText = queryText;
-    outputEl.appendChild(userBubble);
+    appendSeriesUserBubble(outputEl, queryText);
 
     // 2. Assistant Bubble
-    const msgId = "series-ai-msg-" + Date.now();
-    const assistantBubble = document.createElement("div");
-    assistantBubble.style.cssText = "align-self: flex-start; width: 100%; background: var(--md-sys-color-surface-container-high); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 14px 14px 14px 4px; padding: 12px; font-size: 0.82rem; line-height: 1.5; color: var(--md-sys-color-on-surface); margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px;";
-    
-    assistantBubble.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 4px;">
-        <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #a855f7;">
-          <span class="material-symbols-rounded" style="font-size: 16px;">auto_awesome</span>
-          <span>Asystent Serialu</span>
-        </div>
-        <div style="display: flex; align-items: center; gap: 6px;">
-          <button type="button" class="m3-chip" id="collapse-${msgId}" style="font-size: 0.7rem; padding: 2px 6px; gap: 4px; display: inline-flex; align-items: center;" title="Rozwiń / Zwiń tekst">
-            <span class="material-symbols-rounded" id="collapse-icon-${msgId}" style="font-size: 13px;">unfold_more</span>
-            <span id="collapse-text-${msgId}">Rozwiń</span>
-          </button>
-          <button type="button" class="m3-chip" id="copy-${msgId}" style="font-size: 0.7rem; padding: 2px 6px; gap: 4px; display: inline-flex; align-items: center;" title="Kopiuj do schowka">
-            <span class="material-symbols-rounded" style="font-size: 13px;">content_copy</span>
-            <span>Kopiuj</span>
-          </button>
-        </div>
-      </div>
-      <details class="m3-ai-thought-accordion" id="thought-${msgId}" style="display: none; background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 6px; padding: 4px 8px; font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant);">
-        <summary style="cursor: pointer; font-weight: 700; color: #a855f7; display: flex; align-items: center; gap: 6px; user-select: none;">
-          <span class="material-symbols-rounded" style="font-size: 15px;">psychology</span>
-          <span>Tok myślenia (<span id="count-${msgId}">0 słów</span>)</span>
-        </summary>
-        <div id="text-${msgId}" style="margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(168, 85, 247, 0.15); line-height: 1.4; font-style: italic; white-space: pre-wrap; max-height: 100px; overflow-y: auto;"></div>
-      </details>
-      <div id="content-${msgId}" style="line-height: 1.55; max-height: 90px; overflow-y: auto; position: relative; mask-image: linear-gradient(to bottom, black 50%, transparent 100%); -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%); transition: max-height 0.25s ease;">
-        <div style="display: flex; align-items: center; gap: 6px; color: #a855f7;">
-          <span class="material-symbols-rounded" style="animation: spin 1s linear infinite; font-size: 16px;">auto_awesome</span>
-          <span style="font-weight: 600;">Asystent analizuje fabułę bez spoilerów...</span>
-        </div>
-      </div>
-    `;
-
-    outputEl.appendChild(assistantBubble);
-    outputEl.scrollTop = outputEl.scrollHeight;
-
-    const contentEl = document.getElementById(`content-${msgId}`);
-    const thoughtBox = document.getElementById(`thought-${msgId}`);
-    const thoughtTextEl = document.getElementById(`text-${msgId}`);
-    const thoughtCountEl = document.getElementById(`count-${msgId}`);
-    const copyBtn = document.getElementById(`copy-${msgId}`);
-    const collapseBtn = document.getElementById(`collapse-${msgId}`);
-    const collapseIcon = document.getElementById(`collapse-icon-${msgId}`);
-    const collapseText = document.getElementById(`collapse-text-${msgId}`);
-
-    let latestFullText = "";
-    let isCollapsed = true;
-
-    if (collapseBtn && contentEl) {
-      collapseBtn.onclick = () => {
-        isCollapsed = !isCollapsed;
-        if (isCollapsed) {
-          contentEl.style.maxHeight = "90px";
-          contentEl.style.overflowY = "auto";
-          contentEl.style.position = "relative";
-          contentEl.style.maskImage = "linear-gradient(to bottom, black 50%, transparent 100%)";
-          contentEl.style.webkitMaskImage = "linear-gradient(to bottom, black 50%, transparent 100%)";
-          if (collapseIcon) collapseIcon.innerText = "unfold_more";
-          if (collapseText) collapseText.innerText = "Rozwiń";
-        } else {
-          contentEl.style.maxHeight = "none";
-          contentEl.style.overflowY = "visible";
-          contentEl.style.maskImage = "none";
-          contentEl.style.webkitMaskImage = "none";
-          if (collapseIcon) collapseIcon.innerText = "unfold_less";
-          if (collapseText) collapseText.innerText = "Zwiń";
-        }
-      };
-    }
-
-    if (copyBtn) {
-      copyBtn.onclick = () => {
-        if (latestFullText) {
-          navigator.clipboard.writeText(latestFullText).then(() => {
-            showToastNotification("Skopiowano odpowiedź do schowka!", "success");
-          }).catch(() => {
-            showToastNotification("Nie udało się skopiować do schowka.", "error");
-          });
-        }
-      };
-    }
-
-    const onToken = (delta, fullText) => {
-      latestFullText = fullText;
-      if (contentEl) {
-        contentEl.innerHTML = formatAiMarkdown(fullText);
-        if (isCollapsed) {
-          contentEl.scrollTop = contentEl.scrollHeight;
-        }
-        outputEl.scrollTop = outputEl.scrollHeight;
-      }
-    };
-
-    const onThought = (deltaThought, fullThoughtText) => {
-      if (thoughtBox && thoughtTextEl) {
-        thoughtBox.style.display = "block";
-        thoughtTextEl.innerText = fullThoughtText;
-        if (thoughtCountEl) {
-          const words = fullThoughtText.trim().split(/\s+/).length;
-          thoughtCountEl.innerText = `${words} słów`;
-        }
-      }
-    };
+    const els = buildSeriesAssistantBubble(outputEl);
+    const bubbleState = { fullText: "", isCollapsed: true };
+    bindSeriesBubbleControls(els, bubbleState);
+    const handlers = createSeriesStreamHandlers(els, outputEl, bubbleState);
 
     // Prepare multi-turn messages
     if (seriesConversations[show.uuid].length === 0) {
-      seriesConversations[show.uuid].push({ 
-        role: "system", 
-        content: buildSeriesSystemPrompt(show.title, show.latest_progress) 
+      seriesConversations[show.uuid].push({
+        role: "system",
+        content: buildSeriesSystemPrompt(show.title, show.latest_progress)
       });
     }
     seriesConversations[show.uuid].push({ role: "user", content: queryText });
 
     try {
-      const answer = await streamAiChat({ 
-        messages: seriesConversations[show.uuid], 
-        temperature: 0.5, 
-        max_tokens: 1600, 
-        onToken, 
-        onThought 
+      const answer = await streamAiChat({
+        messages: seriesConversations[show.uuid],
+        temperature: 0.5,
+        max_tokens: 1600,
+        ...handlers
       });
       seriesConversations[show.uuid].push({ role: "assistant", content: answer });
     } catch (err) {
-      if (contentEl) {
-        contentEl.innerHTML = `<span style="color: var(--md-sys-color-error); font-weight: 600;">🔴 Błąd: ${err.message}</span>`;
+      if (els.contentEl) {
+        els.contentEl.innerHTML = `<span style="color: var(--md-sys-color-error); font-weight: 600;">🔴 Błąd: ${err.message}</span>`;
       }
     }
   };
 
-  const btnRecap = document.getElementById("m3-ai-btn-recap-previous");
-  const btnWhoIsWho = document.getElementById("m3-ai-btn-who-is-who");
-  const btnLastEvents = document.getElementById("m3-ai-btn-last-events");
-
-  if (btnRecap) {
-    btnRecap.onclick = () => sendSeriesMessage(`Podsumuj najważniejsze wydarzenia z poprzednich sezonów, które doprowadziły do stanu na odcinku ${show.latest_progress || 'początek serialu'}, bez żadnych spoilerów do przodu.`);
-  }
-  if (btnWhoIsWho) {
-    btnWhoIsWho.onclick = () => sendSeriesMessage(`Kto jest kim w serialu na etapie odcinka ${show.latest_progress || 'początek serialu'}? Wyjaśnij krótko relacje głównych bohaterów.`);
-  }
-  if (btnLastEvents) {
-    btnLastEvents.onclick = () => sendSeriesMessage(`Co wydarzyło się w ostatnich odcinkach przed obecnym stanem (${show.latest_progress || 'początek serialu'})? Przypomnij kluczowe wątki.`);
-  }
+  bindSeriesQuickPrompts(show, sendSeriesMessage);
 
   if (sendBtn && inputEl) {
     sendBtn.onclick = () => {
@@ -1278,6 +1284,22 @@ export function openSeriesAiModal(show) {
   }
 
   if (sheet) sheet.classList.add("active");
+}
+
+function bindSeriesQuickPrompts(show, sendSeriesMessage) {
+  const btnRecap = document.getElementById("m3-ai-btn-recap-previous");
+  const btnWhoIsWho = document.getElementById("m3-ai-btn-who-is-who");
+  const btnLastEvents = document.getElementById("m3-ai-btn-last-events");
+
+  if (btnRecap) {
+    btnRecap.onclick = () => sendSeriesMessage(`Podsumuj najważniejsze wydarzenia z poprzednich sezonów, które doprowadziły do stanu na odcinku ${show.latest_progress || 'początek serialu'}, bez żadnych spoilerów do przodu.`);
+  }
+  if (btnWhoIsWho) {
+    btnWhoIsWho.onclick = () => sendSeriesMessage(`Kto jest kim w serialu na etapie odcinka ${show.latest_progress || 'początek serialu'}? Wyjaśnij krótko relacje głównych bohaterów.`);
+  }
+  if (btnLastEvents) {
+    btnLastEvents.onclick = () => sendSeriesMessage(`Co wydarzyło się w ostatnich odcinkach przed obecnym stanem (${show.latest_progress || 'początek serialu'})? Przypomnij kluczowe wątki.`);
+  }
 }
 
 window.openEpisodeTracker = openEpisodeTracker;

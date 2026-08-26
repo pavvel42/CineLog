@@ -158,246 +158,208 @@ if (tabKeys) tabKeys.addEventListener("click", () => switchTab("keys"));
 if (tabAi) tabAi.addEventListener("click", () => switchTab("ai"));
 }
 
-function initApiKeysSection() {
-  // Zakładka "Klucze API": widoczność pól, walidacja, zapis, czyszczenie, test.
-// API Keys Visibility Toggles
-const setupKeyVisToggle = (btnId, inputId) => {
+function setupKeyVisibilityToggle(btnId, inputId) {
   const btn = document.getElementById(btnId);
   const inp = document.getElementById(inputId);
-  if (btn && inp) {
-    btn.addEventListener("click", () => {
-      const isMasked = inp.style.webkitTextSecurity === "disc" || !inp.style.webkitTextSecurity;
-      if (isMasked) {
-        inp.style.webkitTextSecurity = "none";
-        btn.innerText = "visibility_off";
-      } else {
-        inp.style.webkitTextSecurity = "disc";
-        btn.innerText = "visibility";
-      }
-    });
-  }
-};
-setupKeyVisToggle("m3-key-tmdb-vis", "m3-key-tmdb-input");
-setupKeyVisToggle("m3-key-omdb-vis", "m3-key-omdb-input");
-
-// Helper for testing & validating API keys
-const validateApiKeys = async (tmdbVal, omdbVal) => {
-  let tmdbStatus = { ok: null, message: "" };
-  let omdbStatus = { ok: null, message: "" };
-
-  // Test TMDb
-  if (tmdbVal) {
-    try {
-      const res = await fetch(`https://api.themoviedb.org/3/authentication?api_key=${tmdbVal}`);
-      if (res.ok) {
-        tmdbStatus = { ok: true, message: "🟢 <strong>TMDb API:</strong> Klucz poprawny (Połączono)" };
-      } else {
-        tmdbStatus = { ok: false, message: `🔴 <strong>TMDb API:</strong> Błąd autoryzacji (${res.status})` };
-      }
-    } catch (e) {
-      tmdbStatus = { ok: false, message: `🟡 <strong>TMDb API:</strong> Błąd sieci: ${e.message}` };
+  if (!btn || !inp) return;
+  btn.addEventListener("click", () => {
+    const isMasked = inp.style.webkitTextSecurity === "disc" || !inp.style.webkitTextSecurity;
+    if (isMasked) {
+      inp.style.webkitTextSecurity = "none";
+      btn.innerText = "visibility_off";
+    } else {
+      inp.style.webkitTextSecurity = "disc";
+      btn.innerText = "visibility";
     }
-  }
+  });
+}
 
-  // Test OMDb
-  if (omdbVal) {
-    try {
-      const res = await fetch(`https://www.omdbapi.com/?apikey=${omdbVal}&s=Inception`);
-      const data = await res.json();
-      if (data.Response === "True") {
-        omdbStatus = { ok: true, message: "🟢 <strong>OMDb / IMDb API:</strong> Klucz poprawny (Połączono)" };
-      } else {
-        omdbStatus = { ok: false, message: `🔴 <strong>OMDb / IMDb API:</strong> ${data.Error || "Błąd klucza"}` };
-      }
-    } catch (e) {
-      omdbStatus = { ok: false, message: `🟡 <strong>OMDb / IMDb API:</strong> Błąd sieci: ${e.message}` };
-    }
-  }
+const KEYS_BOX_INFO = { background: "var(--md-sys-color-surface-container)", color: "var(--md-sys-color-on-surface)", border: "1px solid var(--md-sys-color-outline-variant)" };
+const KEYS_BOX_BUSY = { background: "var(--md-sys-color-surface-container-high)", color: "var(--md-sys-color-primary)", border: "1px solid var(--md-sys-color-outline-variant)" };
+const KEYS_BOX_ERROR = { background: "rgba(239, 68, 68, 0.12)", color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.35)" };
 
+function setKeysStatusBox(style, html) {
+  const box = document.getElementById("m3-keys-test-status");
+  if (!box) return;
+  box.style.display = "block";
+  box.style.background = style.background;
+  box.style.color = style.color;
+  box.style.border = style.border;
+  box.innerHTML = html;
+}
+
+async function testTmdbKey(tmdbVal) {
+  try {
+    const res = await fetch(`https://api.themoviedb.org/3/authentication?api_key=${tmdbVal}`);
+    return res.ok
+      ? { ok: true, message: "🟢 <strong>TMDb API:</strong> Klucz poprawny (Połączono)" }
+      : { ok: false, message: `🔴 <strong>TMDb API:</strong> Błąd autoryzacji (${res.status})` };
+  } catch (e) {
+    return { ok: false, message: `🟡 <strong>TMDb API:</strong> Błąd sieci: ${e.message}` };
+  }
+}
+
+async function testOmdbKey(omdbVal) {
+  try {
+    const res = await fetch(`https://www.omdbapi.com/?apikey=${omdbVal}&s=Inception`);
+    const data = await res.json();
+    return data.Response === "True"
+      ? { ok: true, message: "🟢 <strong>OMDb / IMDb API:</strong> Klucz poprawny (Połączono)" }
+      : { ok: false, message: `🔴 <strong>OMDb / IMDb API:</strong> ${data.Error || "Błąd klucza"}` };
+  } catch (e) {
+    return { ok: false, message: `🟡 <strong>OMDb / IMDb API:</strong> Błąd sieci: ${e.message}` };
+  }
+}
+
+async function validateApiKeys(tmdbVal, omdbVal) {
+  const noStatus = { ok: null, message: "" };
+  const [tmdbStatus, omdbStatus] = await Promise.all([
+    tmdbVal ? testTmdbKey(tmdbVal) : noStatus,
+    omdbVal ? testOmdbKey(omdbVal) : noStatus
+  ]);
   return { tmdbStatus, omdbStatus };
-};
-
-// Save API Keys with Live Validation & Auto-Refresh
-const btnSaveKeys = document.getElementById("m3-btn-save-api-keys");
-const keysStatusBox = document.getElementById("m3-keys-test-status");
-const tmdbInputEl = document.getElementById("m3-key-tmdb-input");
-const omdbInputEl = document.getElementById("m3-key-omdb-input");
-
-if (btnSaveKeys) {
-  btnSaveKeys.addEventListener("click", async () => {
-    const tmdbVal = tmdbInputEl?.value.trim() || "";
-    const omdbVal = omdbInputEl?.value.trim() || "";
-
-    if (!tmdbVal && !omdbVal) {
-      localStorage.removeItem("cinelog_tmdb_key");
-      localStorage.removeItem("cinelog_omdb_key");
-      localStorage.removeItem("cinelog_imdb_key");
-      if (keysStatusBox) {
-        keysStatusBox.style.display = "block";
-        keysStatusBox.style.background = "var(--md-sys-color-surface-container)";
-        keysStatusBox.style.color = "var(--md-sys-color-on-surface)";
-        keysStatusBox.style.border = "1px solid var(--md-sys-color-outline-variant)";
-        keysStatusBox.innerHTML = "Wyczyszczono wszystkie klucze API.";
-      }
-      showToastNotification("Wyczyszczono zapisane klucze API.", "info");
-      return;
-    }
-
-    const origBtnHtml = btnSaveKeys.innerHTML;
-    btnSaveKeys.disabled = true;
-    btnSaveKeys.innerHTML = `<span class="material-symbols-rounded" style="animation: spin 1s linear infinite; font-size: 18px; vertical-align: middle;">sync</span> Sprawdzam klucze...`;
-
-    if (keysStatusBox) {
-      keysStatusBox.style.display = "block";
-      keysStatusBox.style.background = "var(--md-sys-color-surface-container-high)";
-      keysStatusBox.style.color = "var(--md-sys-color-primary)";
-      keysStatusBox.style.border = "1px solid var(--md-sys-color-outline-variant)";
-      keysStatusBox.innerHTML = `<span class="material-symbols-rounded" style="animation: spin 1s linear infinite; vertical-align: middle; font-size: 16px;">sync</span> Weryfikuję poprawność wprowadzonych kluczy...`;
-    }
-
-    const { tmdbStatus, omdbStatus } = await validateApiKeys(tmdbVal, omdbVal);
-    const results = [];
-    let anyFailed = false;
-    let anySaved = false;
-
-    // Handle TMDb
-    if (tmdbVal) {
-      if (tmdbStatus.ok) {
-        localStorage.setItem("cinelog_tmdb_key", tmdbVal);
-        results.push(tmdbStatus.message);
-        anySaved = true;
-      } else {
-        localStorage.removeItem("cinelog_tmdb_key");
-        if (tmdbInputEl) tmdbInputEl.value = "";
-        results.push(tmdbStatus.message + " — <em>Klucz wyczyszczony (niepoprawny)</em>");
-        anyFailed = true;
-      }
-    } else {
-      localStorage.removeItem("cinelog_tmdb_key");
-    }
-
-    // Handle OMDb / IMDb
-    if (omdbVal) {
-      if (omdbStatus.ok) {
-        localStorage.setItem("cinelog_omdb_key", omdbVal);
-        localStorage.setItem("cinelog_imdb_key", omdbVal);
-        results.push(omdbStatus.message);
-        anySaved = true;
-      } else {
-        localStorage.removeItem("cinelog_omdb_key");
-        localStorage.removeItem("cinelog_imdb_key");
-        if (omdbInputEl) omdbInputEl.value = "";
-        results.push(omdbStatus.message + " — <em>Klucz wyczyszczony (niepoprawny)</em>");
-        anyFailed = true;
-      }
-    } else {
-      localStorage.removeItem("cinelog_omdb_key");
-      localStorage.removeItem("cinelog_imdb_key");
-    }
-
-    btnSaveKeys.disabled = false;
-    btnSaveKeys.innerHTML = origBtnHtml;
-
-    if (keysStatusBox) {
-      keysStatusBox.style.background = anyFailed && !anySaved 
-        ? "rgba(239, 68, 68, 0.12)" 
-        : "var(--md-sys-color-surface-container)";
-      keysStatusBox.style.color = anyFailed && !anySaved ? "#ef4444" : "var(--md-sys-color-on-surface)";
-      keysStatusBox.style.border = anyFailed && !anySaved 
-        ? "1px solid rgba(239, 68, 68, 0.35)" 
-        : "1px solid var(--md-sys-color-outline-variant)";
-      keysStatusBox.innerHTML = results.join("<br>");
-    }
-
-    if (anyFailed && !anySaved) {
-      showToastNotification("Wprowadzony klucz jest niepoprawny i został wyczyszczony.", "error");
-    } else if (anyFailed && anySaved) {
-      showToastNotification("Zapisano poprawny klucz. Niepoprawne klucze zostały wyczyszczone.", "warning");
-    } else {
-      showToastNotification("Klucze zweryfikowane pomyślnie! Odświeżono powiązane dane.", "success");
-    }
-
-    // Auto-refresh dependent views (Recommendations "Dla Ciebie", VOD bar, etc.)
-    if (anySaved) {
-      if (typeof window.loadRecommendationsHub === "function") {
-        window.loadRecommendationsHub(true);
-      }
-      if (typeof window.renderTopVodFilterBar === "function") {
-        window.renderTopVodFilterBar();
-      }
-    }
-  });
 }
 
-// Clear API Keys
-const btnClearKeys = document.getElementById("m3-btn-clear-api-keys");
-if (btnClearKeys) {
-  btnClearKeys.addEventListener("click", async () => {
-    const confirmed = await showM3ConfirmDialog({
-      title: "Wyczyścić klucze API?",
-      message: "Czy na pewno chcesz usunąć zapisane w przeglądarce klucze TMDb i OMDb/IMDb?",
-      confirmText: "Wyczyść klucze",
-      cancelText: "Anuluj",
-      icon: "vpn_key_off",
-      isDestructive: true
-    });
-    if (!confirmed) return;
-    localStorage.removeItem("cinelog_tmdb_key");
-    localStorage.removeItem("cinelog_omdb_key");
-    updateApiKeysUI();
-    if (keysStatusBox) {
-      keysStatusBox.style.display = "block";
-      keysStatusBox.style.background = "var(--md-sys-color-surface-container)";
-      keysStatusBox.style.color = "var(--md-sys-color-on-surface)";
-      keysStatusBox.style.border = "1px solid var(--md-sys-color-outline-variant)";
-      keysStatusBox.innerHTML = "Wyczyszczono zapisane klucze API.";
-    }
+function clearStoredApiKeys() {
+  ["cinelog_tmdb_key", "cinelog_omdb_key", "cinelog_imdb_key"].forEach(k => localStorage.removeItem(k));
+}
+
+function refreshKeyDependentViews() {
+  if (typeof window.loadRecommendationsHub === "function") {
+    window.loadRecommendationsHub(true);
+  }
+  if (typeof window.renderTopVodFilterBar === "function") {
+    window.renderTopVodFilterBar();
+  }
+}
+
+async function handleSaveApiKeysClick() {
+  const tmdbInputEl = document.getElementById("m3-key-tmdb-input");
+  const omdbInputEl = document.getElementById("m3-key-omdb-input");
+  const btnSaveKeys = document.getElementById("m3-btn-save-api-keys");
+  const tmdbVal = tmdbInputEl?.value.trim() || "";
+  const omdbVal = omdbInputEl?.value.trim() || "";
+
+  if (!tmdbVal && !omdbVal) {
+    clearStoredApiKeys();
+    setKeysStatusBox(KEYS_BOX_INFO, "Wyczyszczono wszystkie klucze API.");
     showToastNotification("Wyczyszczono zapisane klucze API.", "info");
-    if (typeof window.loadRecommendationsHub === "function") {
-      window.loadRecommendationsHub(true);
+    return;
+  }
+
+  const origBtnHtml = btnSaveKeys.innerHTML;
+  btnSaveKeys.disabled = true;
+  btnSaveKeys.innerHTML = `<span class="material-symbols-rounded" style="animation: spin 1s linear infinite; font-size: 18px; vertical-align: middle;">sync</span> Sprawdzam klucze...`;
+
+  setKeysStatusBox(KEYS_BOX_BUSY, `<span class="material-symbols-rounded" style="animation: spin 1s linear infinite; vertical-align: middle; font-size: 16px;">sync</span> Weryfikuję poprawność wprowadzonych kluczy...`);
+
+  const { tmdbStatus, omdbStatus } = await validateApiKeys(tmdbVal, omdbVal);
+  const results = [];
+  let anyFailed = false;
+  let anySaved = false;
+
+  // Handle TMDb
+  if (tmdbVal) {
+    if (tmdbStatus.ok) {
+      localStorage.setItem("cinelog_tmdb_key", tmdbVal);
+      results.push(tmdbStatus.message);
+      anySaved = true;
+    } else {
+      localStorage.removeItem("cinelog_tmdb_key");
+      if (tmdbInputEl) tmdbInputEl.value = "";
+      results.push(tmdbStatus.message + " — <em>Klucz wyczyszczony (niepoprawny)</em>");
+      anyFailed = true;
     }
-  });
+  } else {
+    localStorage.removeItem("cinelog_tmdb_key");
+  }
+
+  // Handle OMDb / IMDb
+  if (omdbVal) {
+    if (omdbStatus.ok) {
+      localStorage.setItem("cinelog_omdb_key", omdbVal);
+      localStorage.setItem("cinelog_imdb_key", omdbVal);
+      results.push(omdbStatus.message);
+      anySaved = true;
+    } else {
+      localStorage.removeItem("cinelog_omdb_key");
+      localStorage.removeItem("cinelog_imdb_key");
+      if (omdbInputEl) omdbInputEl.value = "";
+      results.push(omdbStatus.message + " — <em>Klucz wyczyszczony (niepoprawny)</em>");
+      anyFailed = true;
+    }
+  } else {
+    localStorage.removeItem("cinelog_omdb_key");
+    localStorage.removeItem("cinelog_imdb_key");
+  }
+
+  btnSaveKeys.disabled = false;
+  btnSaveKeys.innerHTML = origBtnHtml;
+
+  setKeysStatusBox(anyFailed && !anySaved ? KEYS_BOX_ERROR : KEYS_BOX_INFO, results.join("<br>"));
+
+  if (anyFailed && !anySaved) {
+    showToastNotification("Wprowadzony klucz jest niepoprawny i został wyczyszczony.", "error");
+  } else if (anyFailed && anySaved) {
+    showToastNotification("Zapisano poprawny klucz. Niepoprawne klucze zostały wyczyszczone.", "warning");
+  } else {
+    showToastNotification("Klucze zweryfikowane pomyślnie! Odświeżono powiązane dane.", "success");
+  }
+
+  // Auto-refresh dependent views (Recommendations "Dla Ciebie", VOD bar, etc.)
+  if (anySaved) refreshKeyDependentViews();
 }
 
-// Test API Keys (Standalone Test Button)
-const btnTestKeys = document.getElementById("m3-btn-test-api-keys");
-if (btnTestKeys) {
-  btnTestKeys.addEventListener("click", async () => {
-    const tmdbVal = tmdbInputEl?.value.trim() || "";
-    const omdbVal = omdbInputEl?.value.trim() || "";
-
-    if (!tmdbVal && !omdbVal) {
-      if (keysStatusBox) {
-        keysStatusBox.style.display = "block";
-        keysStatusBox.style.background = "rgba(239, 68, 68, 0.12)";
-        keysStatusBox.style.color = "#ef4444";
-        keysStatusBox.style.border = "1px solid rgba(239, 68, 68, 0.35)";
-        keysStatusBox.innerHTML = "Wprowadź co najmniej jeden klucz API, aby przeprowadzić test.";
-      }
-      return;
-    }
-
-    if (keysStatusBox) {
-      keysStatusBox.style.display = "block";
-      keysStatusBox.style.background = "var(--md-sys-color-surface-container-high)";
-      keysStatusBox.style.color = "var(--md-sys-color-primary)";
-      keysStatusBox.style.border = "1px solid var(--md-sys-color-outline-variant)";
-      keysStatusBox.innerHTML = `<span class="material-symbols-rounded" style="animation: spin 1s linear infinite; vertical-align: middle; font-size: 16px;">sync</span> Testuję połączenie z zewnętrznymi API...`;
-    }
-
-    const { tmdbStatus, omdbStatus } = await validateApiKeys(tmdbVal, omdbVal);
-    const results = [];
-    if (tmdbVal) results.push(tmdbStatus.message);
-    if (omdbVal) results.push(omdbStatus.message);
-
-    if (keysStatusBox) {
-      keysStatusBox.style.background = "var(--md-sys-color-surface-container)";
-      keysStatusBox.style.color = "var(--md-sys-color-on-surface)";
-      keysStatusBox.style.border = "1px solid var(--md-sys-color-outline-variant)";
-      keysStatusBox.innerHTML = results.join("<br>");
-    }
+async function handleClearApiKeysClick() {
+  const confirmed = await showM3ConfirmDialog({
+    title: "Wyczyścić klucze API?",
+    message: "Czy na pewno chcesz usunąć zapisane w przeglądarce klucze TMDb i OMDb/IMDb?",
+    confirmText: "Wyczyść klucze",
+    cancelText: "Anuluj",
+    icon: "vpn_key_off",
+    isDestructive: true
   });
+  if (!confirmed) return;
+  clearStoredApiKeys();
+  updateApiKeysUI();
+  setKeysStatusBox(KEYS_BOX_INFO, "Wyczyszczono zapisane klucze API.");
+  showToastNotification("Wyczyszczono zapisane klucze API.", "info");
+  refreshKeyDependentViews();
 }
+
+async function handleTestApiKeysClick() {
+  const tmdbInputEl = document.getElementById("m3-key-tmdb-input");
+  const omdbInputEl = document.getElementById("m3-key-omdb-input");
+  const tmdbVal = tmdbInputEl?.value.trim() || "";
+  const omdbVal = omdbInputEl?.value.trim() || "";
+
+  if (!tmdbVal && !omdbVal) {
+    setKeysStatusBox(KEYS_BOX_ERROR, "Wprowadź co najmniej jeden klucz API, aby przeprowadzić test.");
+    return;
+  }
+
+  setKeysStatusBox(KEYS_BOX_BUSY, `<span class="material-symbols-rounded" style="animation: spin 1s linear infinite; vertical-align: middle; font-size: 16px;">sync</span> Testuję połączenie z zewnętrznymi API...`);
+
+  const { tmdbStatus, omdbStatus } = await validateApiKeys(tmdbVal, omdbVal);
+  const results = [];
+  if (tmdbVal) results.push(tmdbStatus.message);
+  if (omdbVal) results.push(omdbStatus.message);
+
+  setKeysStatusBox(KEYS_BOX_INFO, results.join("<br>"));
+}
+
+function initApiKeysSection() {
+  setupKeyVisibilityToggle("m3-key-tmdb-vis", "m3-key-tmdb-input");
+  setupKeyVisibilityToggle("m3-key-omdb-vis", "m3-key-omdb-input");
+
+  const btnSaveKeys = document.getElementById("m3-btn-save-api-keys");
+  if (btnSaveKeys) btnSaveKeys.addEventListener("click", handleSaveApiKeysClick);
+
+  const btnClearKeys = document.getElementById("m3-btn-clear-api-keys");
+  if (btnClearKeys) btnClearKeys.addEventListener("click", handleClearApiKeysClick);
+
+  const btnTestKeys = document.getElementById("m3-btn-test-api-keys");
+  if (btnTestKeys) btnTestKeys.addEventListener("click", handleTestApiKeysClick);
 }
 
 function initAiSettingsSection() {

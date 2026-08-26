@@ -431,6 +431,196 @@ function renderImportPreview() {
 /**
  * Execute batch import with TMDb fetching
  */
+function buildImportDetailParams(item, userLang) {
+  const params = new URLSearchParams({
+    title: item.title,
+    year: item.year || "",
+    type: item.type === "series" ? "series" : "movie",
+    lang: userLang
+  });
+  if (item.imdb_id) params.append("id", item.imdb_id);
+  if (item.tmdb_id) params.append("tmdb_id", item.tmdb_id);
+  return params;
+}
+
+async function fetchImportDetailFromBackend(item, userLang) {
+  if (window.location.protocol === "file:" || window.location.hostname.includes("github.io")) return null;
+  try {
+    const res = await fetch(`/api/search_detail?${buildImportDetailParams(item, userLang).toString()}`, { headers: getKeyHeaders() });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn("Failed detail fetch for", item.title, e);
+  }
+  return null;
+}
+
+async function resolveImportTmdbId(item, isSeries, localTmdb, userLang) {
+  let resolvedTid = item.tmdb_id;
+
+  if (!resolvedTid && item.imdb_id) {
+    try {
+      const findRes = await fetch(`https://api.themoviedb.org/3/find/${encodeURIComponent(item.imdb_id)}?api_key=${encodeURIComponent(localTmdb)}&external_source=imdb_id&language=${userLang}`);
+      if (findRes.ok) {
+        const findJson = await findRes.json();
+        const resArr = isSeries ? findJson.tv_results : findJson.movie_results;
+        if (resArr && resArr.length > 0) resolvedTid = resArr[0].id;
+      }
+    } catch(e) {}
+  }
+
+  if (!resolvedTid) {
+    const cleanTitle = (item.title || "").replace(/\s*\([^)]*\)/g, "").trim();
+    const sUrl = `https://api.themoviedb.org/3/search/${isSeries ? 'tv' : 'movie'}?api_key=${encodeURIComponent(localTmdb)}&query=${encodeURIComponent(cleanTitle)}&language=${userLang}${item.year ? (isSeries ? `&first_air_date_year=${item.year}` : `&year=${item.year}`) : ''}`;
+    const sRes = await fetch(sUrl);
+    if (sRes.ok) {
+      const sData = await sRes.json();
+      if (sData.results && sData.results.length > 0) resolvedTid = sData.results[0].id;
+    }
+  }
+
+  return resolvedTid;
+}
+
+async function fetchImportPlotEn(resolvedTid, isSeries, localTmdb) {
+  try {
+    const dResEn = await fetch(`https://api.themoviedb.org/3/${isSeries ? 'tv' : 'movie'}/${resolvedTid}?api_key=${encodeURIComponent(localTmdb)}&language=en-US`);
+    if (dResEn.ok) {
+      const dDataEn = await dResEn.json();
+      return dDataEn.overview || "";
+    }
+  } catch(e) {}
+  return "";
+}
+
+function mapTmdbImportDetail(dData, item) {
+  return {
+    title: dData.title || dData.name || item.title,
+    original_title: dData.original_title || dData.original_name || item.title,
+    year: (dData.release_date || dData.first_air_date || item.year || "").substring(0, 4),
+    genre: (dData.genres || []).map(g => g.name).join(", "),
+    poster_url: dData.poster_path ? `https://image.tmdb.org/t/p/w500${dData.poster_path}` : "",
+    tmdb_id: dData.id,
+    imdb_id: (dData.imdb_id || (dData.external_ids && dData.external_ids.imdb_id)) || item.imdb_id || null,
+    plot: dData.overview || "",
+    runtime: dData.runtime || (dData.episode_run_time ? dData.episode_run_time[0] : 0),
+    vote_average: dData.vote_average || 0,
+    total_seasons: dData.number_of_seasons || (dData.seasons ? dData.seasons.filter(s => s.season_number > 0).length : 1),
+    cast: (dData.credits && dData.credits.cast) ? dData.credits.cast.slice(0, 10).map(c => ({
+      id: c.id,
+      name: c.name,
+      character: c.character,
+      profile_url: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null
+    })) : [],
+    director: (dData.credits && dData.credits.crew) ? (dData.credits.crew.find(c => c.job === "Director")?.name || "") : ""
+  };
+}
+
+async function fetchImportDetailFromTmdb(item, localTmdb, userLang) {
+  try {
+    const isSeries = item.type === "series";
+    const resolvedTid = await resolveImportTmdbId(item, isSeries, localTmdb, userLang);
+    if (!resolvedTid) return null;
+
+    const dUrl = `https://api.themoviedb.org/3/${isSeries ? 'tv' : 'movie'}/${resolvedTid}?api_key=${encodeURIComponent(localTmdb)}&language=${userLang}&append_to_response=credits`;
+    const dRes = await fetch(dUrl);
+    if (!dRes.ok) return null;
+
+    const dData = await dRes.json();
+    const detail = mapTmdbImportDetail(dData, item);
+    if (!detail.plot) {
+      detail.plot = await fetchImportPlotEn(resolvedTid, isSeries, localTmdb);
+    }
+    return detail;
+  } catch(e) {}
+  return null;
+}
+
+async function fetchImportDetail(item, userLang) {
+  let detail = await fetchImportDetailFromBackend(item, userLang);
+  // Direct client-side enrichment on GitHub Pages / offline
+  const localTmdb = localStorage.getItem("cinelog_tmdb_key");
+  if (!detail && localTmdb) {
+    detail = await fetchImportDetailFromTmdb(item, localTmdb, userLang);
+  }
+  return detail;
+}
+
+function addImportedItemToLibrary(detail, item) {
+  const finalTitle = (detail && detail.title) || item.title;
+  const finalYear = (detail && detail.year) || item.year || "";
+  const finalGenre = (detail && detail.genre) || (item.type === "series" ? "Serial" : "Film");
+  const finalPoster = (detail && detail.poster_url) || "";
+  const finalTmdbId = (detail && detail.tmdb_id) || item.tmdb_id || null;
+  const finalImdbId = (detail && detail.imdb_id) || item.imdb_id || null;
+  const finalOverview = (detail && detail.plot) || "";
+  const finalRuntime = (detail && detail.runtime) || 0;
+  const finalCast = (detail && detail.cast) || [];
+  const finalDirector = (detail && detail.director) || "";
+
+  if (item.type === "series") {
+    const newShow = {
+      uuid: generateUUID(),
+      title: finalTitle,
+      original_title: item.original_title || finalTitle,
+      year: finalYear,
+      genre: finalGenre,
+      poster_url: finalPoster,
+      rating: item.rating || null,
+      status: item.status || "watching",
+      created_at: item.watch_date || new Date().toISOString().split("T")[0],
+      updated_at: new Date().toISOString().split("T")[0],
+      tmdb_id: finalTmdbId,
+      imdb_id: finalImdbId,
+      plot: finalOverview,
+      cast: finalCast,
+      total_seasons: (detail && detail.total_seasons) || 1,
+      season_ep_counts: (detail && detail.season_ep_counts) || {},
+      episodes_watched: []
+    };
+    state.shows.unshift(newShow);
+    return;
+  }
+
+  const newMovie = {
+    uuid: generateUUID(),
+    title: finalTitle,
+    original_title: item.original_title || finalTitle,
+    year: finalYear,
+    genre: finalGenre,
+    poster_url: finalPoster,
+    rating: item.rating || null,
+    status: item.status || "watched",
+    watch_date: item.watch_date || (item.status === "watched" ? new Date().toISOString().split("T")[0] : ""),
+    created_at: item.watch_date || new Date().toISOString().split("T")[0],
+    tmdb_id: finalTmdbId,
+    imdb_id: finalImdbId,
+    plot: finalOverview,
+    runtime: finalRuntime,
+    cast: finalCast,
+    director: finalDirector
+  };
+  state.movies.unshift(newMovie);
+}
+
+function finalizeBatchImport(successCount) {
+  // Finalize
+  markUserDatabaseCustom();
+  const demoBanner = document.getElementById("m3-demo-notice-banner");
+  if (demoBanner) demoBanner.style.display = "none";
+
+  saveLocalDatabase();
+  updateStats();
+  if (state.mode === "movies") renderMovies();
+  else renderShows();
+
+  if (window.googleDriveSync && window.googleDriveSync.isAuthorized()) {
+    window.googleDriveSync.uploadToDrive(state.movies, state.shows);
+  }
+
+  showToastNotification(`🎉 Sukces! Pomyślnie zaimportowano ${successCount} pozycji do Twojej biblioteki.`, "success");
+  closeImporterModal();
+}
+
 export async function executeBatchImport() {
   if (isImporting || parsedImportCandidates.length === 0) return;
 
@@ -465,171 +655,16 @@ export async function executeBatchImport() {
 
     try {
       // 1. Fetch metadata from TMDb
-      const params = new URLSearchParams({
-        title: item.title,
-        year: item.year || "",
-        type: item.type === "series" ? "series" : "movie",
-        lang: userLang
-      });
-      if (item.imdb_id) params.append("id", item.imdb_id);
-      if (item.tmdb_id) params.append("tmdb_id", item.tmdb_id);
-      const localTmdb = localStorage.getItem("cinelog_tmdb_key");
-      const localOmdb = localStorage.getItem("cinelog_omdb_key") || localStorage.getItem("cinelog_imdb_key");
+      const detail = await fetchImportDetail(item, userLang);
 
-      let detail = null;
-      if (window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
-        try {
-          const res = await fetch(`/api/search_detail?${params.toString()}`, { headers: getKeyHeaders() });
-          if (res.ok) detail = await res.json();
-        } catch (e) {
-          console.warn("Failed detail fetch for", item.title, e);
-        }
-      }
-
-      // Direct client-side enrichment on GitHub Pages / offline
-      if (!detail && localTmdb) {
-        try {
-          const isSeries = item.type === "series";
-          let resolvedTid = item.tmdb_id;
-
-          if (!resolvedTid && item.imdb_id) {
-            try {
-              const findRes = await fetch(`https://api.themoviedb.org/3/find/${encodeURIComponent(item.imdb_id)}?api_key=${encodeURIComponent(localTmdb)}&external_source=imdb_id&language=${userLang}`);
-              if (findRes.ok) {
-                const findJson = await findRes.json();
-                const resArr = isSeries ? findJson.tv_results : findJson.movie_results;
-                if (resArr && resArr.length > 0) resolvedTid = resArr[0].id;
-              }
-            } catch(e) {}
-          }
-
-          if (!resolvedTid) {
-            const cleanTitle = (item.title || "").replace(/\s*\([^)]*\)/g, "").trim();
-            const sUrl = `https://api.themoviedb.org/3/search/${isSeries ? 'tv' : 'movie'}?api_key=${encodeURIComponent(localTmdb)}&query=${encodeURIComponent(cleanTitle)}&language=${userLang}${item.year ? (isSeries ? `&first_air_date_year=${item.year}` : `&year=${item.year}`) : ''}`;
-            const sRes = await fetch(sUrl);
-            if (sRes.ok) {
-              const sData = await sRes.json();
-              if (sData.results && sData.results.length > 0) resolvedTid = sData.results[0].id;
-            }
-          }
-
-          if (resolvedTid) {
-            const dUrl = `https://api.themoviedb.org/3/${isSeries ? 'tv' : 'movie'}/${resolvedTid}?api_key=${encodeURIComponent(localTmdb)}&language=${userLang}&append_to_response=credits`;
-            const dRes = await fetch(dUrl);
-            if (dRes.ok) {
-              const dData = await dRes.json();
-              let plot = dData.overview || "";
-              if (!plot) {
-                try {
-                  const dResEn = await fetch(`https://api.themoviedb.org/3/${isSeries ? 'tv' : 'movie'}/${resolvedTid}?api_key=${encodeURIComponent(localTmdb)}&language=en-US`);
-                  if (dResEn.ok) {
-                    const dDataEn = await dResEn.json();
-                    plot = dDataEn.overview || "";
-                  }
-                } catch(e) {}
-              }
-
-              detail = {
-                title: dData.title || dData.name || item.title,
-                original_title: dData.original_title || dData.original_name || item.title,
-                year: (dData.release_date || dData.first_air_date || item.year || "").substring(0, 4),
-                genre: (dData.genres || []).map(g => g.name).join(", "),
-                poster_url: dData.poster_path ? `https://image.tmdb.org/t/p/w500${dData.poster_path}` : "",
-                tmdb_id: dData.id,
-                imdb_id: (dData.imdb_id || (dData.external_ids && dData.external_ids.imdb_id)) || item.imdb_id || null,
-                plot: plot || "",
-                runtime: dData.runtime || (dData.episode_run_time ? dData.episode_run_time[0] : 0),
-                vote_average: dData.vote_average || 0,
-                total_seasons: dData.number_of_seasons || (dData.seasons ? dData.seasons.filter(s => s.season_number > 0).length : 1),
-                cast: (dData.credits && dData.credits.cast) ? dData.credits.cast.slice(0, 10).map(c => ({
-                  id: c.id,
-                  name: c.name,
-                  character: c.character,
-                  profile_url: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null
-                })) : [],
-                director: (dData.credits && dData.credits.crew) ? (dData.credits.crew.find(c => c.job === "Director")?.name || "") : ""
-              };
-            }
-          }
-        } catch(e) {}
-      }
-
-      const finalTitle = (detail && detail.title) || item.title;
-      const finalYear = (detail && detail.year) || item.year || "";
-      const finalGenre = (detail && detail.genre) || (item.type === "series" ? "Serial" : "Film");
-      const finalPoster = (detail && detail.poster_url) || "";
-      const finalTmdbId = (detail && detail.tmdb_id) || item.tmdb_id || null;
-      const finalImdbId = (detail && detail.imdb_id) || item.imdb_id || null;
-      const finalOverview = (detail && detail.plot) || "";
-      const finalRuntime = (detail && detail.runtime) || 0;
-      const finalCast = (detail && detail.cast) || [];
-      const finalDirector = (detail && detail.director) || "";
-
-      if (item.type === "series") {
-        const newShow = {
-          uuid: generateUUID(),
-          title: finalTitle,
-          original_title: item.original_title || finalTitle,
-          year: finalYear,
-          genre: finalGenre,
-          poster_url: finalPoster,
-          rating: item.rating || null,
-          status: item.status || "watching",
-          created_at: item.watch_date || new Date().toISOString().split("T")[0],
-          updated_at: new Date().toISOString().split("T")[0],
-          tmdb_id: finalTmdbId,
-          imdb_id: finalImdbId,
-          plot: finalOverview,
-          cast: finalCast,
-          total_seasons: (detail && detail.total_seasons) || 1,
-          season_ep_counts: (detail && detail.season_ep_counts) || {},
-          episodes_watched: []
-        };
-        state.shows.unshift(newShow);
-      } else {
-        const newMovie = {
-          uuid: generateUUID(),
-          title: finalTitle,
-          original_title: item.original_title || finalTitle,
-          year: finalYear,
-          genre: finalGenre,
-          poster_url: finalPoster,
-          rating: item.rating || null,
-          status: item.status || "watched",
-          watch_date: item.watch_date || (item.status === "watched" ? new Date().toISOString().split("T")[0] : ""),
-          created_at: item.watch_date || new Date().toISOString().split("T")[0],
-          tmdb_id: finalTmdbId,
-          imdb_id: finalImdbId,
-          plot: finalOverview,
-          runtime: finalRuntime,
-          cast: finalCast,
-          director: finalDirector
-        };
-        state.movies.unshift(newMovie);
-      }
-
+      addImportedItemToLibrary(detail, item);
       successCount++;
     } catch (err) {
       console.error("Error importing item:", item.title, err);
     }
   }
 
-  // Finalize
-  markUserDatabaseCustom();
-  const demoBanner = document.getElementById("m3-demo-notice-banner");
-  if (demoBanner) demoBanner.style.display = "none";
-  
-  saveLocalDatabase();
-  updateStats();
-  if (state.mode === "movies") renderMovies();
-  else renderShows();
-
-  if (window.googleDriveSync && window.googleDriveSync.isAuthorized()) {
-    window.googleDriveSync.uploadToDrive(state.movies, state.shows);
-  }
-
-  showToastNotification(`🎉 Sukces! Pomyślnie zaimportowano ${successCount} pozycji do Twojej biblioteki.`, "success");
-  closeImporterModal();
+  finalizeBatchImport(successCount);
 }
 
 /**

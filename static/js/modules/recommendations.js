@@ -539,70 +539,32 @@ export function initAiCuratorControls() {
   initMentionAutocomplete();
 }
 
-function initAiChatCore() {
-  // Wątek czatu AI: reset, wysyłanie promptów (szybkie chipy + własne), streaming odpowiedzi.
-const inputEl = document.getElementById("m3-rec-ai-input");
-const sendBtn = document.getElementById("m3-rec-ai-send-btn");
-const threadEl = document.getElementById("m3-rec-ai-chat-thread");
-const resetBtn = document.getElementById("m3-rec-btn-reset-ai");
-const chips = document.querySelectorAll("#m3-rec-ai-quick-chips [data-ai-prompt]");
-
-if (!inputEl || !sendBtn || !threadEl) return;
-
-const resetChat = () => {
-  curatorConversation = [];
-  threadEl.innerHTML = "";
-  threadEl.style.display = "none";
-  if (resetBtn) resetBtn.style.display = "none";
-  if (inputEl) inputEl.value = "";
-};
-
-if (resetBtn) {
-  resetBtn.onclick = resetChat;
+function resolveAiPromptText(promptType, customText = "") {
+  if (promptType === "dna") {
+    return { isSpecialDna: true, text: "Stwórz profil DNA mojego gustu filmowego na podstawie moich ocen." };
+  }
+  const PROMPTS = {
+    binge90: "Mam dokładnie 90 minut wolnego czasu. Poleć mi 2-3 zwięzłe, znakomite pozycje zoptymalizowane pod ten czas.",
+    gems: "Poleć mi 3 niedocenione perełki (Hidden Gems) z moich platform VOD, które idealnie pasują do mojego profilu ocen.",
+    dark: "Szukam czegoś gęstego, mrocznego, trzymającego w napięciu do ostatniej sekundy.",
+    binge_marathon: "Ułóż mi idealny plan maratonu filmowego na 4-6 godzin z moich platform VOD. Połącz powiązane ze sobą klimatycznie filmy w logicznej kolejności oglądania.",
+    vibe_search: "Szukam filmu o unikalnym klimacie: deszczowe miasto nocą, neony, melancholia, samotność i hipnotyzująca muzyka (styl Blade Runner, Drive, Lost in Translation)."
+  };
+  return { isSpecialDna: false, text: PROMPTS[promptType] || customText };
 }
 
-const sendUserMessage = async (promptType, customText = "") => {
-  if (!isAiConfigured()) {
-    showToastNotification("Aby korzystać z Filmowego Asystenta AI, najpierw skonfiguruj swój klucz API.", "info");
-    openCloudSyncModal("ai");
-    return;
-  }
-
-  let userPrompt = customText;
-  let isSpecialDna = false;
-
-  if (promptType === "dna") {
-    isSpecialDna = true;
-    userPrompt = "Stwórz profil DNA mojego gustu filmowego na podstawie moich ocen.";
-  } else if (promptType === "binge90") {
-    userPrompt = "Mam dokładnie 90 minut wolnego czasu. Poleć mi 2-3 zwięzłe, znakomite pozycje zoptymalizowane pod ten czas.";
-  } else if (promptType === "gems") {
-    userPrompt = "Poleć mi 3 niedocenione perełki (Hidden Gems) z moich platform VOD, które idealnie pasują do mojego profilu ocen.";
-  } else if (promptType === "dark") {
-    userPrompt = "Szukam czegoś gęstego, mrocznego, trzymającego w napięciu do ostatniej sekundy.";
-  } else if (promptType === "binge_marathon") {
-    userPrompt = "Ułóż mi idealny plan maratonu filmowego na 4-6 godzin z moich platform VOD. Połącz powiązane ze sobą klimatycznie filmy w logicznej kolejności oglądania.";
-  } else if (promptType === "vibe_search") {
-    userPrompt = "Szukam filmu o unikalnym klimacie: deszczowe miasto nocą, neony, melancholia, samotność i hipnotyzująca muzyka (styl Blade Runner, Drive, Lost in Translation).";
-  }
-
-  if (!userPrompt || !userPrompt.trim()) return;
-
-  inputEl.value = "";
-  threadEl.style.display = "flex";
-  if (resetBtn) resetBtn.style.display = "inline-flex";
-
-  // 1. User Message Bubble
+function appendUserBubble(threadEl, userPrompt) {
   const userBubble = document.createElement("div");
   userBubble.style.cssText = "align-self: flex-end; max-width: 85%; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); padding: 10px 14px; border-radius: 16px 16px 4px 16px; font-size: 0.84rem; font-weight: 500; word-break: break-word;";
   userBubble.innerText = userPrompt;
   threadEl.appendChild(userBubble);
+}
 
-  // 2. Assistant Message Bubble (starts collapsed by default for compact live streaming)
+function buildAssistantBubble(threadEl) {
   const msgId = "rec-ai-msg-" + Date.now();
   const assistantBubble = document.createElement("div");
   assistantBubble.style.cssText = "align-self: flex-start; width: 100%; background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 16px 16px 16px 4px; padding: 14px; font-size: 0.84rem; line-height: 1.55; color: var(--md-sys-color-on-surface); display: flex; flex-direction: column; gap: 8px;";
-  
+
   assistantBubble.innerHTML = `
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--md-sys-color-outline-variant); padding-bottom: 6px;">
       <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #a855f7;">
@@ -639,136 +601,186 @@ const sendUserMessage = async (promptType, customText = "") => {
   threadEl.appendChild(assistantBubble);
   threadEl.scrollTop = threadEl.scrollHeight;
 
-  const contentEl = document.getElementById(`content-${msgId}`);
-  const thoughtBox = document.getElementById(`thought-${msgId}`);
-  const thoughtTextEl = document.getElementById(`text-${msgId}`);
-  const thoughtCountEl = document.getElementById(`count-${msgId}`);
-  const cardsEl = document.getElementById(`cards-${msgId}`);
-  const copyBtn = document.getElementById(`copy-${msgId}`);
-  const collapseBtn = document.getElementById(`collapse-${msgId}`);
-  const collapseIcon = document.getElementById(`collapse-icon-${msgId}`);
-  const collapseText = document.getElementById(`collapse-text-${msgId}`);
+  return {
+    msgId,
+    contentEl: document.getElementById(`content-${msgId}`),
+    thoughtBox: document.getElementById(`thought-${msgId}`),
+    thoughtTextEl: document.getElementById(`text-${msgId}`),
+    thoughtCountEl: document.getElementById(`count-${msgId}`),
+    cardsEl: document.getElementById(`cards-${msgId}`),
+    copyBtn: document.getElementById(`copy-${msgId}`),
+    collapseBtn: document.getElementById(`collapse-${msgId}`),
+    collapseIcon: document.getElementById(`collapse-icon-${msgId}`),
+    collapseText: document.getElementById(`collapse-text-${msgId}`)
+  };
+}
 
-  let latestFullText = "";
-  let isCollapsed = true;
+function setAssistantBubbleCollapsed(contentEl, collapseIcon, collapseText, isCollapsed) {
+  if (isCollapsed) {
+    contentEl.style.maxHeight = "95px";
+    contentEl.style.overflowY = "auto";
+    contentEl.style.position = "relative";
+    contentEl.style.maskImage = "linear-gradient(to bottom, black 50%, transparent 100%)";
+    contentEl.style.webkitMaskImage = "linear-gradient(to bottom, black 50%, transparent 100%)";
+    if (collapseIcon) collapseIcon.innerText = "unfold_more";
+    if (collapseText) collapseText.innerText = "Rozwiń";
+  } else {
+    contentEl.style.maxHeight = "none";
+    contentEl.style.overflowY = "visible";
+    contentEl.style.maskImage = "none";
+    contentEl.style.webkitMaskImage = "none";
+    if (collapseIcon) collapseIcon.innerText = "unfold_less";
+    if (collapseText) collapseText.innerText = "Zwiń";
+  }
+}
 
-  if (collapseBtn && contentEl) {
-    collapseBtn.onclick = () => {
-      isCollapsed = !isCollapsed;
-      if (isCollapsed) {
-        contentEl.style.maxHeight = "95px";
-        contentEl.style.overflowY = "auto";
-        contentEl.style.position = "relative";
-        contentEl.style.maskImage = "linear-gradient(to bottom, black 50%, transparent 100%)";
-        contentEl.style.webkitMaskImage = "linear-gradient(to bottom, black 50%, transparent 100%)";
-        if (collapseIcon) collapseIcon.innerText = "unfold_more";
-        if (collapseText) collapseText.innerText = "Rozwiń";
-      } else {
-        contentEl.style.maxHeight = "none";
-        contentEl.style.overflowY = "visible";
-        contentEl.style.maskImage = "none";
-        contentEl.style.webkitMaskImage = "none";
-        if (collapseIcon) collapseIcon.innerText = "unfold_less";
-        if (collapseText) collapseText.innerText = "Zwiń";
-      }
+function bindAssistantBubbleControls(els, bubbleState) {
+  if (els.collapseBtn && els.contentEl) {
+    els.collapseBtn.onclick = () => {
+      bubbleState.isCollapsed = !bubbleState.isCollapsed;
+      setAssistantBubbleCollapsed(els.contentEl, els.collapseIcon, els.collapseText, bubbleState.isCollapsed);
     };
   }
 
-  if (copyBtn) {
-    copyBtn.onclick = () => {
-      if (latestFullText) {
-        navigator.clipboard.writeText(latestFullText).then(() => {
-          showToastNotification("Skopiowano odpowiedź do schowka!", "success");
-        }).catch(() => {
-          showToastNotification("Nie udało się skopiować do schowka.", "error");
-        });
-      }
+  if (els.copyBtn) {
+    els.copyBtn.onclick = () => {
+      if (!bubbleState.fullText) return;
+      navigator.clipboard.writeText(bubbleState.fullText).then(() => {
+        showToastNotification("Skopiowano odpowiedź do schowka!", "success");
+      }).catch(() => {
+        showToastNotification("Nie udało się skopiować do schowka.", "error");
+      });
     };
   }
+}
 
-  const onToken = (delta, fullText) => {
-    latestFullText = fullText;
-    if (contentEl) {
-      contentEl.innerHTML = formatAiMarkdown(fullText);
-      if (isCollapsed) {
-        contentEl.scrollTop = contentEl.scrollHeight;
-      }
-      threadEl.scrollTop = threadEl.scrollHeight;
-    }
-  };
-
-  const onThought = (deltaThought, fullThoughtText) => {
-    if (thoughtBox && thoughtTextEl) {
-      thoughtBox.style.display = "block";
-      thoughtTextEl.innerText = fullThoughtText;
-      if (thoughtCountEl) {
-        const words = fullThoughtText.trim().split(/\s+/).length;
-        thoughtCountEl.innerText = `${words} słów`;
-      }
-    }
-  };
-
-  // Prepare payload
-  let messages = [];
+function buildCuratorMessages(userPrompt, isSpecialDna) {
   if (isSpecialDna) {
     const dna = buildTasteDnaPrompt();
-    messages = [
+    return [
       { role: "system", content: dna.systemPrompt },
       { role: "user", content: dna.userMessage }
     ];
+  }
+
+  const { injectedContext } = resolveMentionTags(userPrompt);
+  const userPayloadContent = injectedContext
+    ? `${userPrompt}\n\nKontekst wskazany przez użytkownika:\n${injectedContext}`
+    : userPrompt;
+
+  const systemPromptText = buildCuratorSystemPrompt(userPrompt);
+  if (curatorConversation.length === 0) {
+    curatorConversation.push({ role: "system", content: systemPromptText });
   } else {
-    // 1. Resolve @ mentions and custom item context
-    const { injectedContext } = resolveMentionTags(userPrompt);
-    const userPayloadContent = injectedContext 
-      ? `${userPrompt}\n\nKontekst wskazany przez użytkownika:\n${injectedContext}` 
-      : userPrompt;
-
-    // 2. Build or refresh dynamic system prompt tailored to userPrompt
-    const systemPromptText = buildCuratorSystemPrompt(userPrompt);
-    if (curatorConversation.length === 0) {
-      curatorConversation.push({ role: "system", content: systemPromptText });
-    } else {
-      curatorConversation[0] = { role: "system", content: systemPromptText };
-    }
-
-    curatorConversation.push({ role: "user", content: userPayloadContent });
-    messages = curatorConversation;
+    curatorConversation[0] = { role: "system", content: systemPromptText };
   }
 
-  try {
-    const answer = await streamAiChat({ messages, temperature: 0.7, max_tokens: 1800, onToken, onThought });
-    if (!isSpecialDna) {
-      curatorConversation.push({ role: "assistant", content: answer });
+  curatorConversation.push({ role: "user", content: userPayloadContent });
+  return curatorConversation;
+}
+
+function createAiStreamHandlers(els, threadEl, bubbleState) {
+  return {
+    onToken: (delta, fullText) => {
+      bubbleState.fullText = fullText;
+      if (els.contentEl) {
+        els.contentEl.innerHTML = formatAiMarkdown(fullText);
+        if (bubbleState.isCollapsed) {
+          els.contentEl.scrollTop = els.contentEl.scrollHeight;
+        }
+        threadEl.scrollTop = threadEl.scrollHeight;
+      }
+    },
+    onThought: (deltaThought, fullThoughtText) => {
+      if (els.thoughtBox && els.thoughtTextEl) {
+        els.thoughtBox.style.display = "block";
+        els.thoughtTextEl.innerText = fullThoughtText;
+        if (els.thoughtCountEl) {
+          const words = fullThoughtText.trim().split(/\s+/).length;
+          els.thoughtCountEl.innerText = `${words} słów`;
+        }
+      }
     }
-    if (cardsEl && latestFullText) {
-      await renderAiMediaCards(cardsEl, latestFullText);
-      threadEl.scrollTop = threadEl.scrollHeight;
-    }
-  } catch (err) {
-    if (contentEl) {
-      contentEl.innerHTML = `<div style="color: var(--md-sys-color-error); font-weight: 600;">🔴 Błąd AI: ${escapeHtml(err.message)}</div>`;
-    }
+  };
+}
+
+function initAiChatCore() {
+  // Wątek czatu AI: reset, wysyłanie promptów (szybkie chipy + własne), streaming odpowiedzi.
+  const inputEl = document.getElementById("m3-rec-ai-input");
+  const sendBtn = document.getElementById("m3-rec-ai-send-btn");
+  const threadEl = document.getElementById("m3-rec-ai-chat-thread");
+  const resetBtn = document.getElementById("m3-rec-btn-reset-ai");
+  const chips = document.querySelectorAll("#m3-rec-ai-quick-chips [data-ai-prompt]");
+
+  if (!inputEl || !sendBtn || !threadEl) return;
+
+  const resetChat = () => {
+    curatorConversation = [];
+    threadEl.innerHTML = "";
+    threadEl.style.display = "none";
+    if (resetBtn) resetBtn.style.display = "none";
+    if (inputEl) inputEl.value = "";
+  };
+
+  if (resetBtn) {
+    resetBtn.onclick = resetChat;
   }
-};
 
-sendBtn.onclick = () => {
-  const val = inputEl.value.trim();
-  if (val) sendUserMessage("custom", val);
-};
+  const sendUserMessage = async (promptType, customText = "") => {
+    if (!isAiConfigured()) {
+      showToastNotification("Aby korzystać z Filmowego Asystenta AI, najpierw skonfiguruj swój klucz API.", "info");
+      openCloudSyncModal("ai");
+      return;
+    }
 
-inputEl.onkeydown = (e) => {
-  if (e.key === "Enter") {
+    const { isSpecialDna, text: userPrompt } = resolveAiPromptText(promptType, customText);
+    if (!userPrompt || !userPrompt.trim()) return;
+
+    inputEl.value = "";
+    threadEl.style.display = "flex";
+    if (resetBtn) resetBtn.style.display = "inline-flex";
+
+    appendUserBubble(threadEl, userPrompt);
+    const els = buildAssistantBubble(threadEl);
+    const bubbleState = { fullText: "", isCollapsed: true };
+    bindAssistantBubbleControls(els, bubbleState);
+    const handlers = createAiStreamHandlers(els, threadEl, bubbleState);
+
+    try {
+      const messages = buildCuratorMessages(userPrompt, isSpecialDna);
+      const answer = await streamAiChat({ messages, temperature: 0.7, max_tokens: 1800, ...handlers });
+      if (!isSpecialDna) {
+        curatorConversation.push({ role: "assistant", content: answer });
+      }
+      if (els.cardsEl && bubbleState.fullText) {
+        await renderAiMediaCards(els.cardsEl, bubbleState.fullText);
+        threadEl.scrollTop = threadEl.scrollHeight;
+      }
+    } catch (err) {
+      if (els.contentEl) {
+        els.contentEl.innerHTML = `<div style="color: var(--md-sys-color-error); font-weight: 600;">🔴 Błąd AI: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+  };
+
+  sendBtn.onclick = () => {
     const val = inputEl.value.trim();
     if (val) sendUserMessage("custom", val);
-  }
-};
-
-chips.forEach(chip => {
-  chip.onclick = () => {
-    const pType = chip.getAttribute("data-ai-prompt");
-    sendUserMessage(pType);
   };
-});
+
+  inputEl.onkeydown = (e) => {
+    if (e.key === "Enter") {
+      const val = inputEl.value.trim();
+      if (val) sendUserMessage("custom", val);
+    }
+  };
+
+  chips.forEach(chip => {
+    chip.onclick = () => {
+      const pType = chip.getAttribute("data-ai-prompt");
+      sendUserMessage(pType);
+    };
+  });
 }
 
 function initMentionChips() {
@@ -787,89 +799,54 @@ mentionChips.forEach(chip => {
 });
 }
 
-function initMentionAutocomplete() {
-  // Pływające autouzupełnianie @z pozycjami biblioteki; trwałe listenery tylko raz (guard).
-const inputEl = document.getElementById("m3-rec-ai-input");
-// 4. Floating Autocomplete on typing @ with Smart Dynamic Positioning
-const mentionDropdown = document.getElementById("m3-ai-mention-dropdown");
-let activeMentionIndex = -1;
+const MENTION_DEFAULT_TAGS = [
+  { tag: "@ulubione_filmy", displayTag: "@ulubione_filmy", desc: "Twoje najwyżej ocenione filmy", icon: "movie" },
+  { tag: "@planowane_filmy", displayTag: "@planowane_filmy", desc: "Twoja lista filmów do obejrzenia", icon: "bookmark" },
+  { tag: "@obejrzane_filmy", displayTag: "@obejrzane_filmy", desc: "Wszystkie Twoje obejrzane filmy", icon: "check_circle" },
+  { tag: "@ulubione_seriale", displayTag: "@ulubione_seriale", desc: "Twoje ulubione seriale", icon: "tv" },
+  { tag: "@planowane_seriale", displayTag: "@planowane_seriale", desc: "Twoja lista seriali do obejrzenia", icon: "bookmark" },
+  { tag: "@obejrzane_seriale", displayTag: "@obejrzane_seriale", desc: "Wszystkie Twoje obejrzane seriale", icon: "check_circle" },
+];
 
-const updateMentionDropdown = () => {
-  if (!mentionDropdown) return;
-  const val = inputEl.value;
-  const cursorPos = inputEl.selectionStart || val.length;
-  const textBeforeCursor = val.substring(0, cursorPos);
-  const atMatch = textBeforeCursor.match(/@([a-zA-Z0-9_\u00C0-\u017E\s]*)$/);
+function buildLibraryMentionSuggestion(item, noun, watchedLabel, icon) {
+  const hasSpecial = item.title.includes(" ") || item.title.includes(",") || item.title.includes(".") || item.title.includes("-");
+  const insertTag = hasSpecial ? `@\"${item.title}\"` : `@${item.title}`;
+  const yearStr = item.year ? ` (${item.year})` : "";
+  const statusStr = item.status === "watched" ? watchedLabel : "Planowany";
+  return {
+    tag: insertTag,
+    displayTag: `@${item.title}`,
+    desc: `${noun}${yearStr} • ${statusStr}`,
+    icon
+  };
+}
 
-  if (!atMatch) {
-    mentionDropdown.style.display = "none";
-    activeMentionIndex = -1;
-    return;
-  }
-
-  const query = atMatch[1].trim().toLowerCase();
+function collectMentionSuggestions(query) {
   const suggestions = [];
 
-  // Predefined tags
-  const defaultTags = [
-    { tag: "@ulubione_filmy", displayTag: "@ulubione_filmy", desc: "Twoje najwyżej ocenione filmy", icon: "movie" },
-    { tag: "@planowane_filmy", displayTag: "@planowane_filmy", desc: "Twoja lista filmów do obejrzenia", icon: "bookmark" },
-    { tag: "@obejrzane_filmy", displayTag: "@obejrzane_filmy", desc: "Wszystkie Twoje obejrzane filmy", icon: "check_circle" },
-    { tag: "@ulubione_seriale", displayTag: "@ulubione_seriale", desc: "Twoje ulubione seriale", icon: "tv" },
-    { tag: "@planowane_seriale", displayTag: "@planowane_seriale", desc: "Twoja lista seriali do obejrzenia", icon: "bookmark" },
-    { tag: "@obejrzane_seriale", displayTag: "@obejrzane_seriale", desc: "Wszystkie Twoje obejrzane seriale", icon: "check_circle" },
-  ];
-
-  defaultTags.forEach(t => {
+  MENTION_DEFAULT_TAGS.forEach(t => {
     if (!query || t.tag.toLowerCase().includes(query) || t.desc.toLowerCase().includes(query)) {
       suggestions.push(t);
     }
   });
 
-  // Matching titles from library
-  if (query) {
-    const matchingMovies = (state.movies || [])
-      .filter(m => (m.title || "").toLowerCase().includes(query))
-      .slice(0, 5)
-      .map(m => {
-        const hasSpecial = m.title.includes(" ") || m.title.includes(",") || m.title.includes(".") || m.title.includes("-");
-        const insertTag = hasSpecial ? `@\"${m.title}\"` : `@${m.title}`;
-        const yearStr = m.year ? ` (${m.year})` : "";
-        const statusStr = m.status === "watched" ? "Obejrzany" : "Planowany";
-        return {
-          tag: insertTag,
-          displayTag: `@${m.title}`,
-          desc: `Film${yearStr} • ${statusStr}`,
-          icon: "movie"
-        };
-      });
-    
-    const matchingShows = (state.shows || [])
-      .filter(s => (s.title || "").toLowerCase().includes(query))
-      .slice(0, 5)
-      .map(s => {
-        const hasSpecial = s.title.includes(" ") || s.title.includes(",") || s.title.includes(".") || s.title.includes("-");
-        const insertTag = hasSpecial ? `@\"${s.title}\"` : `@${s.title}`;
-        const yearStr = s.year ? ` (${s.year})` : "";
-        const statusStr = s.status === "watched" ? "Ukończony" : "Planowany";
-        return {
-          tag: insertTag,
-          displayTag: `@${s.title}`,
-          desc: `Serial${yearStr} • ${statusStr}`,
-          icon: "tv"
-        };
-      });
+  if (!query) return suggestions;
 
-    suggestions.push(...matchingMovies, ...matchingShows);
-  }
+  const matchingMovies = (state.movies || [])
+    .filter(m => (m.title || "").toLowerCase().includes(query))
+    .slice(0, 5)
+    .map(m => buildLibraryMentionSuggestion(m, "Film", "Obejrzany", "movie"));
 
-  if (suggestions.length === 0) {
-    mentionDropdown.style.display = "none";
-    activeMentionIndex = -1;
-    return;
-  }
+  const matchingShows = (state.shows || [])
+    .filter(s => (s.title || "").toLowerCase().includes(query))
+    .slice(0, 5)
+    .map(s => buildLibraryMentionSuggestion(s, "Serial", "Ukończony", "tv"));
 
-  // Dynamic Viewport-Aware Positioning (Top vs Bottom)
+  suggestions.push(...matchingMovies, ...matchingShows);
+  return suggestions;
+}
+
+function positionMentionDropdown(mentionDropdown, inputEl) {
   const inputRect = inputEl.getBoundingClientRect();
   const spaceAbove = inputRect.top;
   const spaceBelow = window.innerHeight - inputRect.bottom;
@@ -890,7 +867,9 @@ const updateMentionDropdown = () => {
     const maxH = Math.min(240, Math.max(120, spaceBelow - 20));
     mentionDropdown.style.maxHeight = `${maxH}px`;
   }
+}
 
+function renderMentionDropdownItems(mentionDropdown, suggestions, onPick) {
   mentionDropdown.innerHTML = suggestions.slice(0, 8).map((s, idx) => `
     <div class="m3-mention-item" data-mention-tag="${escapeHtml(s.tag)}" data-mention-idx="${idx}" style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; cursor: pointer; transition: background 0.15s ease; font-size: 0.8rem;">
       <span class="material-symbols-rounded" style="font-size: 16px; color: var(--md-sys-color-primary); flex-shrink: 0;">${escapeHtml(s.icon)}</span>
@@ -904,22 +883,11 @@ const updateMentionDropdown = () => {
   mentionDropdown.style.display = "flex";
   mentionDropdown.style.flexDirection = "column";
   mentionDropdown.style.gap = "2px";
-  activeMentionIndex = -1;
-
-  const selectItem = (chosenTag) => {
-    const beforeAt = textBeforeCursor.substring(0, atMatch.index);
-    const afterCursor = val.substring(cursorPos);
-    inputEl.value = `${beforeAt}${chosenTag} ${afterCursor}`;
-    mentionDropdown.style.display = "none";
-    activeMentionIndex = -1;
-    inputEl.focus();
-  };
 
   mentionDropdown.querySelectorAll(".m3-mention-item").forEach(item => {
     item.onclick = (e) => {
       e.preventDefault();
-      const chosenTag = item.getAttribute("data-mention-tag");
-      selectItem(chosenTag);
+      onPick(item.getAttribute("data-mention-tag"));
     };
     item.onmouseenter = () => {
       item.style.background = "var(--md-sys-color-surface-container-highest)";
@@ -928,16 +896,24 @@ const updateMentionDropdown = () => {
       item.style.background = "transparent";
     };
   });
-};
+}
 
-// Bind persistent listeners only once (guard against accumulation on repeated tab switches)
-if (!aiCuratorListenersBound) {
-  aiCuratorListenersBound = true;
-  inputEl.addEventListener("input", updateMentionDropdown);
-  inputEl.addEventListener("click", updateMentionDropdown);
+function highlightActiveMentionItem(items, index) {
+  items.forEach((it, i) => {
+    it.style.background = (i === index) ? "var(--md-sys-color-surface-container-highest)" : "transparent";
+  });
+  items[index]?.scrollIntoView({ block: "nearest" });
+}
 
+function hideMentionDropdown(mentionDropdown, mentionState) {
+  mentionDropdown.style.display = "none";
+  mentionState.index = -1;
+}
+
+function bindMentionKeyboardNav(inputEl, mentionState) {
   // Keyboard navigation inside dropdown (ArrowUp, ArrowDown, Enter, Escape)
   inputEl.addEventListener("keydown", (e) => {
+    const mentionDropdown = document.getElementById("m3-ai-mention-dropdown");
     if (!mentionDropdown || mentionDropdown.style.display === "none") return;
 
     const items = mentionDropdown.querySelectorAll(".m3-mention-item");
@@ -945,22 +921,16 @@ if (!aiCuratorListenersBound) {
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      activeMentionIndex = (activeMentionIndex + 1) % items.length;
-      items.forEach((it, i) => {
-        it.style.background = (i === activeMentionIndex) ? "var(--md-sys-color-surface-container-highest)" : "transparent";
-      });
-      items[activeMentionIndex]?.scrollIntoView({ block: "nearest" });
+      mentionState.index = (mentionState.index + 1) % items.length;
+      highlightActiveMentionItem(items, mentionState.index);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      activeMentionIndex = (activeMentionIndex - 1 + items.length) % items.length;
-      items.forEach((it, i) => {
-        it.style.background = (i === activeMentionIndex) ? "var(--md-sys-color-surface-container-highest)" : "transparent";
-      });
-      items[activeMentionIndex]?.scrollIntoView({ block: "nearest" });
-    } else if (e.key === "Enter" && activeMentionIndex >= 0) {
+      mentionState.index = (mentionState.index - 1 + items.length) % items.length;
+      highlightActiveMentionItem(items, mentionState.index);
+    } else if (e.key === "Enter" && mentionState.index >= 0) {
       e.preventDefault();
       e.stopImmediatePropagation();
-      const chosenTag = items[activeMentionIndex]?.getAttribute("data-mention-tag");
+      const chosenTag = items[mentionState.index]?.getAttribute("data-mention-tag");
       if (chosenTag) {
         const val = inputEl.value;
         const cursorPos = inputEl.selectionStart || val.length;
@@ -971,22 +941,207 @@ if (!aiCuratorListenersBound) {
           const afterCursor = val.substring(cursorPos);
           inputEl.value = `${beforeAt}${chosenTag} ${afterCursor}`;
         }
-        mentionDropdown.style.display = "none";
-        activeMentionIndex = -1;
+        hideMentionDropdown(mentionDropdown, mentionState);
       }
     } else if (e.key === "Escape") {
-      mentionDropdown.style.display = "none";
-      activeMentionIndex = -1;
+      hideMentionDropdown(mentionDropdown, mentionState);
     }
   });
 
   document.addEventListener("click", (e) => {
+    const mentionDropdown = document.getElementById("m3-ai-mention-dropdown");
     if (mentionDropdown && !mentionDropdown.contains(e.target) && e.target !== inputEl) {
-      mentionDropdown.style.display = "none";
-      activeMentionIndex = -1;
+      hideMentionDropdown(mentionDropdown, mentionState);
     }
   });
 }
+
+function initMentionAutocomplete() {
+  // Pływające autouzupełnianie @z pozycjami biblioteki; trwałe listenery tylko raz (guard).
+  const inputEl = document.getElementById("m3-rec-ai-input");
+  const mentionDropdown = document.getElementById("m3-ai-mention-dropdown");
+  const mentionState = { index: -1 };
+
+  if (!inputEl) return;
+
+  const updateMentionDropdown = () => {
+    if (!mentionDropdown) return;
+    const val = inputEl.value;
+    const cursorPos = inputEl.selectionStart || val.length;
+    const textBeforeCursor = val.substring(0, cursorPos);
+    const atMatch = textBeforeCursor.match(/@([a-zA-Z0-9_\u00C0-\u017E\s]*)$/);
+
+    if (!atMatch) {
+      hideMentionDropdown(mentionDropdown, mentionState);
+      return;
+    }
+
+    const query = atMatch[1].trim().toLowerCase();
+    const suggestions = collectMentionSuggestions(query);
+
+    if (suggestions.length === 0) {
+      hideMentionDropdown(mentionDropdown, mentionState);
+      return;
+    }
+
+    positionMentionDropdown(mentionDropdown, inputEl);
+    mentionState.index = -1;
+
+    const insertTag = (chosenTag) => {
+      const beforeAt = textBeforeCursor.substring(0, atMatch.index);
+      const afterCursor = val.substring(cursorPos);
+      inputEl.value = `${beforeAt}${chosenTag} ${afterCursor}`;
+      hideMentionDropdown(mentionDropdown, mentionState);
+      inputEl.focus();
+    };
+
+    renderMentionDropdownItems(mentionDropdown, suggestions, insertTag);
+  };
+
+  // Bind persistent listeners only once (guard against accumulation on repeated tab switches)
+  if (!aiCuratorListenersBound) {
+    aiCuratorListenersBound = true;
+    inputEl.addEventListener("input", updateMentionDropdown);
+    inputEl.addEventListener("click", updateMentionDropdown);
+    bindMentionKeyboardNav(inputEl, mentionState);
+  }
+}
+
+function mapTmdbFeedItem(it, tmdbPath) {
+  const isTv = tmdbPath.includes("tv") || it.media_type === "tv";
+  const title = it.title || it.name || "Nieznany tytuł";
+  const pPath = it.poster_path;
+  const bPath = it.backdrop_path;
+  const relDate = it.release_date || it.first_air_date || "";
+  return {
+    tmdb_id: it.id,
+    title: title,
+    original_title: it.original_title || it.original_name || title,
+    poster_url: pPath ? `https://image.tmdb.org/t/p/w500${pPath}` : null,
+    backdrop_url: bPath ? `https://image.tmdb.org/t/p/w780${bPath}` : null,
+    release_date: relDate,
+    year: relDate ? relDate.substring(0, 4) : "",
+    type: isTv ? "series" : "movie",
+    vote_average: Math.round((it.vote_average || 0) * 10) / 10,
+    vote_count: it.vote_count || 0,
+    overview: it.overview || "",
+    genre_ids: it.genre_ids || []
+  };
+}
+
+async function fetchRecSection(key, apiPath, tmdbPath, tmdbParams = {}) {
+  const localKey = localStorage.getItem("cinelog_tmdb_key");
+
+  // 1. Try Flask endpoint
+  try {
+    const res = await fetch(apiPath, { headers: getKeyHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.results && data.results.length > 0) {
+        return { key, ...data };
+      }
+    }
+  } catch (e) {}
+
+  // 2. Direct TMDb Client Fetch Fallback
+  if (localKey && tmdbPath) {
+    try {
+      const query = new URLSearchParams({
+        api_key: localKey,
+        language: "pl-PL",
+        ...tmdbParams
+      });
+      const res = await fetch(`https://api.themoviedb.org/3/${tmdbPath}?${query.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        return { key, results: (data.results || []).map(it => mapTmdbFeedItem(it, tmdbPath)) };
+      }
+    } catch (e) {
+      console.warn("Direct TMDb API fetch error:", e);
+    }
+  }
+
+  return { key, results: [] };
+}
+
+function fetchRecSectionForSeed(key, mediaType, tmdbPath, seed) {
+  return fetchRecSection(
+    key,
+    `/api/recommendations/for_item?media_type=${mediaType}&title=${encodeURIComponent(seed.title)}`,
+    tmdbPath,
+    { query: seed.title }
+  ).then(res => ({ ...res, title: seed.title }));
+}
+
+function collectRecSeedItems() {
+  const fiveStarMovies = state.movies.filter(m => m.rating === 5 || m.is_favorite);
+  const fiveStarShows = state.shows.filter(s => s.rating === 5 || s.is_favorite);
+  const activeShows = state.shows.filter(s => s.status === "watching" || (s.watched_count > 0 && s.status !== "watched"));
+
+  const shuffledFavMovies = [...fiveStarMovies].sort(() => 0.5 - Math.random());
+  return {
+    seedMovie1: shuffledFavMovies[0] || state.movies[0] || null,
+    seedMovie2: shuffledFavMovies[1] || (state.movies.length > 1 ? state.movies[1] : null),
+    seedShow1: activeShows[0] || fiveStarShows[0] || state.shows[0] || null,
+    seedShow2: activeShows.length > 1 ? activeShows[1] : (fiveStarShows.length > 1 ? fiveStarShows[1] : null)
+  };
+}
+
+const REC_SECTION_DEFS = [
+  { key: "popular_trending", api: "/api/recommendations/discover?media_type=movie&sort_by=popularity.desc&min_vote_avg=6.4&min_vote_count=200", path: "discover/movie", params: { sort_by: "popularity.desc", "vote_average.gte": "6.4", "vote_count.gte": "200" } },
+  { key: "trending_week", api: "/api/recommendations/trending?media_type=all&time_window=week", path: "trending/all/week", params: {} },
+  { key: "top_classics", api: "/api/recommendations/discover?media_type=movie&sort_by=vote_average.desc&min_vote_avg=8.3&min_vote_count=1200", path: "discover/movie", params: { sort_by: "vote_average.desc", "vote_average.gte": "8.3", "vote_count.gte": "1200" } },
+  { key: "hidden_gems", api: "/api/recommendations/discover?media_type=movie&sort_by=vote_average.desc&min_vote_avg=7.8&min_vote_count=100&max_vote_count=2500", path: "discover/movie", params: { sort_by: "vote_average.desc", "vote_average.gte": "7.8", "vote_count.gte": "100", "vote_count.lte": "2500" } },
+  { key: "mind_bending", api: "/api/recommendations/discover?media_type=movie&genres=9648,53&sort_by=vote_average.desc&min_vote_avg=7.4&min_vote_count=350", path: "discover/movie", params: { with_genres: "9648,53", sort_by: "vote_average.desc", "vote_average.gte": "7.4", "vote_count.gte": "350" } },
+  { key: "binge_miniseries", api: "/api/recommendations/discover?media_type=tv&sort_by=vote_average.desc&min_vote_avg=8.0&min_vote_count=120", path: "discover/tv", params: { sort_by: "vote_average.desc", "vote_average.gte": "8.0", "vote_count.gte": "120" } },
+  { key: "nostalgia_classics", api: "/api/recommendations/discover?media_type=movie&year_gte=1980&year_lte=1999&sort_by=vote_average.desc&min_vote_avg=7.8&min_vote_count=600", path: "discover/movie", params: { "primary_release_date.gte": "1980-01-01", "primary_release_date.lte": "1999-12-31", sort_by: "vote_average.desc", "vote_average.gte": "7.8", "vote_count.gte": "600" } },
+  { key: "vod_fresh", api: "/api/recommendations/discover?media_type=movie&sort_by=popularity.desc&min_vote_avg=6.4&min_vote_count=80", path: "discover/movie", params: { sort_by: "popularity.desc", "vote_average.gte": "6.4", "vote_count.gte": "80" } },
+  { key: "genre_romcom", api: "/api/recommendations/discover?media_type=movie&genres=35,10749&sort_by=vote_average.desc&min_vote_avg=6.8&min_vote_count=150", path: "discover/movie", params: { with_genres: "35,10749", sort_by: "vote_average.desc", "vote_average.gte": "6.8", "vote_count.gte": "150" } },
+  { key: "genre_comedy", api: "/api/recommendations/discover?media_type=movie&genres=35&sort_by=vote_average.desc&min_vote_avg=7.1&min_vote_count=250", path: "discover/movie", params: { with_genres: "35", sort_by: "vote_average.desc", "vote_average.gte": "7.1", "vote_count.gte": "250" } },
+  { key: "genre_crime", api: "/api/recommendations/discover?media_type=movie&genres=80,9648&sort_by=vote_average.desc&min_vote_avg=7.4&min_vote_count=300", path: "discover/movie", params: { with_genres: "80,9648", sort_by: "vote_average.desc", "vote_average.gte": "7.4", "vote_count.gte": "300" } },
+  { key: "genre_thriller", api: "/api/recommendations/discover?media_type=movie&genres=53,9648&sort_by=popularity.desc&min_vote_avg=7.2&min_vote_count=300", path: "discover/movie", params: { with_genres: "53,9648", sort_by: "popularity.desc", "vote_average.gte": "7.2", "vote_count.gte": "300" } },
+  { key: "genre_horror", api: "/api/recommendations/discover?media_type=movie&genres=27,53&sort_by=vote_average.desc&min_vote_avg=6.8&min_vote_count=200", path: "discover/movie", params: { with_genres: "27,53", sort_by: "vote_average.desc", "vote_average.gte": "6.8", "vote_count.gte": "200" } },
+  { key: "genre_scifi", api: "/api/recommendations/discover?media_type=movie&genres=878,14&sort_by=vote_average.desc&min_vote_avg=7.2&min_vote_count=350", path: "discover/movie", params: { with_genres: "878,14", sort_by: "vote_average.desc", "vote_average.gte": "7.2", "vote_count.gte": "350" } },
+  { key: "genre_action", api: "/api/recommendations/discover?media_type=movie&genres=28,12&sort_by=vote_average.desc&min_vote_avg=7.3&min_vote_count=400", path: "discover/movie", params: { with_genres: "28,12", sort_by: "vote_average.desc", "vote_average.gte": "7.3", "vote_count.gte": "400" } },
+  { key: "genre_animation", api: "/api/recommendations/discover?media_type=movie&genres=16&sort_by=vote_average.desc&min_vote_avg=7.6&min_vote_count=300", path: "discover/movie", params: { with_genres: "16", sort_by: "vote_average.desc", "vote_average.gte": "7.6", "vote_count.gte": "300" } },
+  { key: "genre_drama", api: "/api/recommendations/discover?media_type=movie&genres=18&sort_by=vote_average.desc&min_vote_avg=7.8&min_vote_count=350", path: "discover/movie", params: { with_genres: "18", sort_by: "vote_average.desc", "vote_average.gte": "7.8", "vote_count.gte": "350" } }
+];
+
+function buildRecSectionPromises() {
+  const promises = REC_SECTION_DEFS.map(def => fetchRecSection(def.key, def.api, def.path, def.params));
+
+  const { seedMovie1, seedMovie2, seedShow1, seedShow2 } = collectRecSeedItems();
+
+  if (seedMovie1) {
+    promises.push(fetchRecSectionForSeed("seed_movie_1", "movie", "search/movie", seedMovie1));
+  }
+  if (seedMovie2 && seedMovie2.title !== (seedMovie1 && seedMovie1.title)) {
+    promises.push(fetchRecSectionForSeed("seed_movie_2", "movie", "search/movie", seedMovie2));
+  }
+  if (seedShow1) {
+    promises.push(fetchRecSectionForSeed("seed_show_1", "tv", "search/tv", seedShow1));
+  }
+  if (seedShow2 && seedShow2.title !== (seedShow1 && seedShow1.title)) {
+    promises.push(fetchRecSectionForSeed("seed_show_2", "tv", "search/tv", seedShow2));
+  }
+
+  const activePids = (state.userVodSubscriptions || []).map(s => TMDB_GLOBAL_VOD_MAP[s]).filter(Boolean).join("|");
+  if (activePids) {
+    promises.push(fetchRecSection(
+      "myvod_hits",
+      `/api/recommendations/discover?media_type=movie&with_watch_providers=${encodeURIComponent(activePids)}&watch_region=${state.userVodCountry}&sort_by=popularity.desc&min_vote_avg=7.0&min_vote_count=150`,
+      "discover/movie",
+      { with_watch_providers: activePids, watch_region: state.userVodCountry, sort_by: "popularity.desc", "vote_average.gte": "7.0", "vote_count.gte": "150" }
+    ));
+    promises.push(fetchRecSection(
+      "myvod_shows",
+      `/api/recommendations/discover?media_type=tv&with_watch_providers=${encodeURIComponent(activePids)}&watch_region=${state.userVodCountry}&sort_by=popularity.desc&min_vote_avg=7.6&min_vote_count=150`,
+      "discover/tv",
+      { with_watch_providers: activePids, watch_region: state.userVodCountry, sort_by: "popularity.desc", "vote_average.gte": "7.6", "vote_count.gte": "150" }
+    ));
+  }
+
+  return promises;
 }
 
 export async function loadRecommendationsHub(forceRefresh = false) {
@@ -1027,182 +1182,7 @@ export async function loadRecommendationsHub(forceRefresh = false) {
   `;
 
   try {
-    const fiveStarMovies = state.movies.filter(m => m.rating === 5 || m.is_favorite);
-    const fiveStarShows = state.shows.filter(s => s.rating === 5 || s.is_favorite);
-    const activeShows = state.shows.filter(s => s.status === "watching" || (s.watched_count > 0 && s.status !== "watched"));
-
-    const shuffledFavMovies = [...fiveStarMovies].sort(() => 0.5 - Math.random());
-    const seedMovie1 = shuffledFavMovies[0] || state.movies[0] || null;
-    const seedMovie2 = shuffledFavMovies[1] || (state.movies.length > 1 ? state.movies[1] : null);
-
-    const seedShow1 = activeShows[0] || fiveStarShows[0] || state.shows[0] || null;
-    const seedShow2 = activeShows.length > 1 ? activeShows[1] : (fiveStarShows.length > 1 ? fiveStarShows[1] : null);
-
-    const promises = [];
-
-    // Helper for robust dual-mode fetching (Flask API -> Direct TMDb Client Fetch Fallback)
-    const fetchRecSection = async (key, apiPath, tmdbPath, tmdbParams = {}) => {
-      const localKey = localStorage.getItem("cinelog_tmdb_key");
-
-      // 1. Try Flask endpoint
-      try {
-        const res = await fetch(apiPath, { headers: getKeyHeaders() });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.results && data.results.length > 0) {
-            return { key, ...data };
-          }
-        }
-      } catch (e) {}
-
-      // 2. Direct TMDb Client Fetch Fallback
-      if (localKey && tmdbPath) {
-        try {
-          const query = new URLSearchParams({
-            api_key: localKey,
-            language: "pl-PL",
-            ...tmdbParams
-          });
-          const res = await fetch(`https://api.themoviedb.org/3/${tmdbPath}?${query.toString()}`);
-          if (res.ok) {
-            const data = await res.json();
-            const results = (data.results || []).map(it => {
-              const isTv = tmdbPath.includes("tv") || it.media_type === "tv";
-              const title = it.title || it.name || "Nieznany tytuł";
-              const pPath = it.poster_path;
-              const bPath = it.backdrop_path;
-              const relDate = it.release_date || it.first_air_date || "";
-              return {
-                tmdb_id: it.id,
-                title: title,
-                original_title: it.original_title || it.original_name || title,
-                poster_url: pPath ? `https://image.tmdb.org/t/p/w500${pPath}` : null,
-                backdrop_url: bPath ? `https://image.tmdb.org/t/p/w780${bPath}` : null,
-                release_date: relDate,
-                year: relDate ? relDate.substring(0, 4) : "",
-                type: isTv ? "series" : "movie",
-                vote_average: Math.round((it.vote_average || 0) * 10) / 10,
-                vote_count: it.vote_count || 0,
-                overview: it.overview || "",
-                genre_ids: it.genre_ids || []
-              };
-            });
-            return { key, results };
-          }
-        } catch (e) {
-          console.warn("Direct TMDb API fetch error:", e);
-        }
-      }
-
-      return { key, results: [] };
-    };
-
-    // Global Popularity & Trends
-    promises.push(fetchRecSection(
-      "popular_trending",
-      "/api/recommendations/discover?media_type=movie&sort_by=popularity.desc&min_vote_avg=6.4&min_vote_count=200",
-      "discover/movie",
-      { sort_by: "popularity.desc", "vote_average.gte": "6.4", "vote_count.gte": "200" }
-    ));
-
-    // Trending This Week
-    promises.push(fetchRecSection(
-      "trending_week",
-      "/api/recommendations/trending?media_type=all&time_window=week",
-      "trending/all/week",
-      {}
-    ));
-
-    // IMDb Top 250 / Timeless Masterpieces
-    promises.push(fetchRecSection(
-      "top_classics",
-      "/api/recommendations/discover?media_type=movie&sort_by=vote_average.desc&min_vote_avg=8.3&min_vote_count=1200",
-      "discover/movie",
-      { sort_by: "vote_average.desc", "vote_average.gte": "8.3", "vote_count.gte": "1200" }
-    ));
-
-    // Hidden Gems
-    promises.push(fetchRecSection(
-      "hidden_gems",
-      "/api/recommendations/discover?media_type=movie&sort_by=vote_average.desc&min_vote_avg=7.8&min_vote_count=100&max_vote_count=2500",
-      "discover/movie",
-      { sort_by: "vote_average.desc", "vote_average.gte": "7.8", "vote_count.gte": "100", "vote_count.lte": "2500" }
-    ));
-
-    // Mind-Bending & Plot Twists
-    promises.push(fetchRecSection(
-      "mind_bending",
-      "/api/recommendations/discover?media_type=movie&genres=9648,53&sort_by=vote_average.desc&min_vote_avg=7.4&min_vote_count=350",
-      "discover/movie",
-      { with_genres: "9648,53", sort_by: "vote_average.desc", "vote_average.gte": "7.4", "vote_count.gte": "350" }
-    ));
-
-    // Binge-worthy Miniseries
-    promises.push(fetchRecSection(
-      "binge_miniseries",
-      "/api/recommendations/discover?media_type=tv&sort_by=vote_average.desc&min_vote_avg=8.0&min_vote_count=120",
-      "discover/tv",
-      { sort_by: "vote_average.desc", "vote_average.gte": "8.0", "vote_count.gte": "120" }
-    ));
-
-    // 80s & 90s Cult Era
-    promises.push(fetchRecSection(
-      "nostalgia_classics",
-      "/api/recommendations/discover?media_type=movie&year_gte=1980&year_lte=1999&sort_by=vote_average.desc&min_vote_avg=7.8&min_vote_count=600",
-      "discover/movie",
-      { "primary_release_date.gte": "1980-01-01", "primary_release_date.lte": "1999-12-31", sort_by: "vote_average.desc", "vote_average.gte": "7.8", "vote_count.gte": "600" }
-    ));
-
-    // Fresh off theaters / New on VOD
-    promises.push(fetchRecSection(
-      "vod_fresh",
-      "/api/recommendations/discover?media_type=movie&sort_by=popularity.desc&min_vote_avg=6.4&min_vote_count=80",
-      "discover/movie",
-      { sort_by: "popularity.desc", "vote_average.gte": "6.4", "vote_count.gte": "80" }
-    ));
-
-    // Genres
-    promises.push(fetchRecSection("genre_romcom", "/api/recommendations/discover?media_type=movie&genres=35,10749&sort_by=vote_average.desc&min_vote_avg=6.8&min_vote_count=150", "discover/movie", { with_genres: "35,10749", sort_by: "vote_average.desc", "vote_average.gte": "6.8", "vote_count.gte": "150" }));
-    promises.push(fetchRecSection("genre_comedy", "/api/recommendations/discover?media_type=movie&genres=35&sort_by=vote_average.desc&min_vote_avg=7.1&min_vote_count=250", "discover/movie", { with_genres: "35", sort_by: "vote_average.desc", "vote_average.gte": "7.1", "vote_count.gte": "250" }));
-    promises.push(fetchRecSection("genre_crime", "/api/recommendations/discover?media_type=movie&genres=80,9648&sort_by=vote_average.desc&min_vote_avg=7.4&min_vote_count=300", "discover/movie", { with_genres: "80,9648", sort_by: "vote_average.desc", "vote_average.gte": "7.4", "vote_count.gte": "300" }));
-    promises.push(fetchRecSection("genre_thriller", "/api/recommendations/discover?media_type=movie&genres=53,9648&sort_by=popularity.desc&min_vote_avg=7.2&min_vote_count=300", "discover/movie", { with_genres: "53,9648", sort_by: "popularity.desc", "vote_average.gte": "7.2", "vote_count.gte": "300" }));
-    promises.push(fetchRecSection("genre_horror", "/api/recommendations/discover?media_type=movie&genres=27,53&sort_by=vote_average.desc&min_vote_avg=6.8&min_vote_count=200", "discover/movie", { with_genres: "27,53", sort_by: "vote_average.desc", "vote_average.gte": "6.8", "vote_count.gte": "200" }));
-    promises.push(fetchRecSection("genre_scifi", "/api/recommendations/discover?media_type=movie&genres=878,14&sort_by=vote_average.desc&min_vote_avg=7.2&min_vote_count=350", "discover/movie", { with_genres: "878,14", sort_by: "vote_average.desc", "vote_average.gte": "7.2", "vote_count.gte": "350" }));
-    promises.push(fetchRecSection("genre_action", "/api/recommendations/discover?media_type=movie&genres=28,12&sort_by=vote_average.desc&min_vote_avg=7.3&min_vote_count=400", "discover/movie", { with_genres: "28,12", sort_by: "vote_average.desc", "vote_average.gte": "7.3", "vote_count.gte": "400" }));
-    promises.push(fetchRecSection("genre_animation", "/api/recommendations/discover?media_type=movie&genres=16&sort_by=vote_average.desc&min_vote_avg=7.6&min_vote_count=300", "discover/movie", { with_genres: "16", sort_by: "vote_average.desc", "vote_average.gte": "7.6", "vote_count.gte": "300" }));
-    promises.push(fetchRecSection("genre_drama", "/api/recommendations/discover?media_type=movie&genres=18&sort_by=vote_average.desc&min_vote_avg=7.8&min_vote_count=350", "discover/movie", { with_genres: "18", sort_by: "vote_average.desc", "vote_average.gte": "7.8", "vote_count.gte": "350" }));
-
-    if (seedMovie1) {
-      promises.push(fetchRecSection(`seed_movie_1`, `/api/recommendations/for_item?media_type=movie&title=${encodeURIComponent(seedMovie1.title)}`, `search/movie`, { query: seedMovie1.title }).then(res => ({ ...res, title: seedMovie1.title })));
-    }
-    if (seedMovie2 && seedMovie2.title !== (seedMovie1 && seedMovie1.title)) {
-      promises.push(fetchRecSection(`seed_movie_2`, `/api/recommendations/for_item?media_type=movie&title=${encodeURIComponent(seedMovie2.title)}`, `search/movie`, { query: seedMovie2.title }).then(res => ({ ...res, title: seedMovie2.title })));
-    }
-    if (seedShow1) {
-      promises.push(fetchRecSection(`seed_show_1`, `/api/recommendations/for_item?media_type=tv&title=${encodeURIComponent(seedShow1.title)}`, `search/tv`, { query: seedShow1.title }).then(res => ({ ...res, title: seedShow1.title })));
-    }
-    if (seedShow2 && seedShow2.title !== (seedShow1 && seedShow1.title)) {
-      promises.push(fetchRecSection(`seed_show_2`, `/api/recommendations/for_item?media_type=tv&title=${encodeURIComponent(seedShow2.title)}`, `search/tv`, { query: seedShow2.title }).then(res => ({ ...res, title: seedShow2.title })));
-    }
-
-    const activePids = (state.userVodSubscriptions || []).map(s => TMDB_GLOBAL_VOD_MAP[s]).filter(Boolean).join("|");
-
-    if (activePids) {
-      promises.push(fetchRecSection(
-        "myvod_hits",
-        `/api/recommendations/discover?media_type=movie&with_watch_providers=${encodeURIComponent(activePids)}&watch_region=${state.userVodCountry}&sort_by=popularity.desc&min_vote_avg=7.0&min_vote_count=150`,
-        "discover/movie",
-        { with_watch_providers: activePids, watch_region: state.userVodCountry, sort_by: "popularity.desc", "vote_average.gte": "7.0", "vote_count.gte": "150" }
-      ));
-      promises.push(fetchRecSection(
-        "myvod_shows",
-        `/api/recommendations/discover?media_type=tv&with_watch_providers=${encodeURIComponent(activePids)}&watch_region=${state.userVodCountry}&sort_by=popularity.desc&min_vote_avg=7.6&min_vote_count=150`,
-        "discover/tv",
-        { with_watch_providers: activePids, watch_region: state.userVodCountry, sort_by: "popularity.desc", "vote_average.gte": "7.6", "vote_count.gte": "150" }
-      ));
-    }
-
-    const responses = await Promise.all(promises);
+    const responses = await Promise.all(buildRecSectionPromises());
     recFeedData = {};
     responses.forEach(item => {
       recFeedData[item.key] = item;
@@ -1215,79 +1195,49 @@ export async function loadRecommendationsHub(forceRefresh = false) {
   }
 }
 
-export function renderRecommendationsFeed() {
-  const hub = document.getElementById("m3-rec-carousels-hub");
-  if (!hub || !recFeedData) return;
-
-  hub.innerHTML = "";
-
-  const hasTmdbKey = Boolean(localStorage.getItem("cinelog_tmdb_key"));
-  if (!hasTmdbKey) {
-    const banner = document.createElement("div");
-    banner.className = "m3-cloud-info-card";
-    banner.style.cssText = "margin-bottom: 24px; background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(56, 189, 248, 0.08)); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: var(--md-corner-xl); padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;";
-    banner.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 14px; min-width: 260px; flex: 1;">
-        <div style="width: 44px; height: 44px; border-radius: 12px; background: var(--md-sys-color-primary); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-          <span class="material-symbols-rounded" style="font-size: 24px;">auto_awesome</span>
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 2px;">
-          <div style="font-weight: 700; font-size: 0.92rem; color: var(--md-sys-color-on-surface);">Odblokuj pełny silnik rekomendacji online & VOD</div>
-          <div style="font-size: 0.78rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.4;">
-            Wprowadź darmowy klucz <b>TMDb API (The Movie Database)</b>, aby odkrywać trendy tygodnia, hity na Twoich VOD i ponad 10 000+ tytułów. (Klucz OMDb/IMDb odpowiada za oceny i recenzje).
-          </div>
+function buildTmdbKeyBanner() {
+  const banner = document.createElement("div");
+  banner.className = "m3-cloud-info-card";
+  banner.style.cssText = "margin-bottom: 24px; background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(56, 189, 248, 0.08)); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: var(--md-corner-xl); padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;";
+  banner.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 14px; min-width: 260px; flex: 1;">
+      <div style="width: 44px; height: 44px; border-radius: 12px; background: var(--md-sys-color-primary); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <span class="material-symbols-rounded" style="font-size: 24px;">auto_awesome</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <div style="font-weight: 700; font-size: 0.92rem; color: var(--md-sys-color-on-surface);">Odblokuj pełny silnik rekomendacji online & VOD</div>
+        <div style="font-size: 0.78rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.4;">
+          Wprowadź darmowy klucz <b>TMDb API (The Movie Database)</b>, aby odkrywać trendy tygodnia, hity na Twoich VOD i ponad 10 000+ tytułów. (Klucz OMDb/IMDb odpowiada za oceny i recenzje).
         </div>
       </div>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <button type="button" class="m3-btn-action-primary" onclick="if(window.openCloudSyncModal) window.openCloudSyncModal('keys');" style="font-weight: 700; padding: 9px 16px; font-size: 0.82rem;">
-          <span class="material-symbols-rounded" style="font-size: 18px;">key</span>
-          <span>Wprowadź klucz TMDb</span>
-        </button>
-        <a href="https://www.themoviedb.org/settings/api" target="_blank" class="m3-chip" style="text-decoration: none; font-weight: 700; padding: 9px 14px; font-size: 0.82rem;">
-          <span>Darmowy klucz ↗</span>
-        </a>
-      </div>
-    `;
-    hub.appendChild(banner);
-  }
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <button type="button" class="m3-btn-action-primary" onclick="if(window.openCloudSyncModal) window.openCloudSyncModal('keys');" style="font-weight: 700; padding: 9px 16px; font-size: 0.82rem;">
+        <span class="material-symbols-rounded" style="font-size: 18px;">key</span>
+        <span>Wprowadź klucz TMDb</span>
+      </button>
+      <a href="https://www.themoviedb.org/settings/api" target="_blank" class="m3-chip" style="text-decoration: none; font-weight: 700; padding: 9px 14px; font-size: 0.82rem;">
+        <span>Darmowy klucz ↗</span>
+      </a>
+    </div>
+  `;
+  return banner;
+}
 
-  if (currentRecFilter === "myvod" || currentRecFilter === "all") {
-    if (currentRecFilter === "myvod" && (!state.userVodSubscriptions || state.userVodSubscriptions.length === 0)) {
-      const banner = document.createElement("div");
-      banner.style.cssText = "text-align: center; padding: 40px 20px; color: var(--md-sys-color-on-surface-variant); background: var(--md-sys-color-surface-container); border-radius: var(--md-corner-large); border: 1px solid var(--md-sys-color-outline-variant); margin-bottom: 20px;";
-      banner.innerHTML = `
-        <span class="material-symbols-rounded" style="font-size: 40px; color: var(--md-sys-color-primary);">subscriptions</span>
-        <p style="margin-top: 10px; font-weight: 700; font-size: 1rem; color: var(--md-sys-color-on-surface);">Brak wybranych platform VOD</p>
-        <p style="font-size: 0.82rem; margin-top: 4px; max-width: 500px; margin-inline: auto;">Otwórz <b>Ustawienia VOD i Kraj</b> i zaznacz serwisy, które subskrybujesz, aby widzieć propozycje dostępne na Twoich VOD.</p>
-      `;
-      hub.appendChild(banner);
-    } else {
-      if (recFeedData.myvod_hits && recFeedData.myvod_hits.results && recFeedData.myvod_hits.results.length > 0) {
-        const raw = recFeedData.myvod_hits.results || [];
-        const filtered = raw.filter(it => !isItemInLibrary(it));
-        const section = buildCarouselSection(
-          "⭐ Hity filmowe na Twoich VOD",
-          `Wybitne i najpopularniejsze filmy dostępne w Twoich subskrypcjach (${(state.userVodSubscriptions || []).join(", ")})`,
-          "star",
-          filtered
-        );
-        if (section) hub.appendChild(section);
-      }
-      if (recFeedData.myvod_shows && recFeedData.myvod_shows.results && recFeedData.myvod_shows.results.length > 0) {
-        const raw = recFeedData.myvod_shows.results || [];
-        const filtered = raw.filter(it => !isItemInLibrary(it));
-        const section = buildCarouselSection(
-          "📺 Najlepsze seriale na Twoich VOD",
-          "Wciągające seriale z oceną powyżej 7.6★ dostępne w Twoich serwisach streamingowych",
-          "tv",
-          filtered
-        );
-        if (section) hub.appendChild(section);
-      }
-    }
-  }
+function appendMyVodSections(hub) {
+  if (!recFeedData.myvod_hits || !recFeedData.myvod_hits.results || recFeedData.myvod_hits.results.length === 0) return;
+  const raw = recFeedData.myvod_hits.results || [];
+  const filtered = raw.filter(it => !isItemInLibrary(it));
+  const section = buildCarouselSection(
+    "⭐ Hity filmowe na Twoich VOD",
+    `Wybitne i najpopularniejsze filmy dostępne w Twoich subskrypcjach (${(state.userVodSubscriptions || []).join(", ")})`,
+    "star",
+    filtered
+  );
+  if (section) hub.appendChild(section);
+}
 
-  const FEED_SECTIONS = [
+const FEED_SECTIONS = [
   { key: "seed_movie_1", filters: ["all", "personalized", "movies"], title: () => (`Bo uwielbiasz film: ${recFeedData.seed_movie_1.title}`),
     subtitle: () => ("Produkcje o zbliżonym klimacie, motywach i fabule dopasowane do Twojej oceny"), icon: "favorite" },
   { key: "seed_movie_2", filters: ["all", "personalized", "movies"], title: () => (`Bo podobał Ci się film: ${recFeedData.seed_movie_2.title}`),
@@ -1334,93 +1284,144 @@ export function renderRecommendationsFeed() {
     subtitle: () => ("Seriale z najwyższymi ocenami widzów na całym świecie"), icon: "tv" },
 ];
 
-for (const cfg of FEED_SECTIONS) {
-  if (!cfg.filters.includes(currentRecFilter)) continue;
-  const src = recFeedData[cfg.key];
-  if (!src) continue;
-  const filtered = (src.results || []).filter(it => !isItemInLibrary(it));
-  const section = buildCarouselSection(cfg.title(), cfg.subtitle(), cfg.icon, filtered);
-  if (section) hub.appendChild(section);
+function renderFeedSectionsFromTable(hub) {
+  for (const cfg of FEED_SECTIONS) {
+    if (!cfg.filters.includes(currentRecFilter)) continue;
+    const src = recFeedData[cfg.key];
+    if (!src) continue;
+    const filtered = (src.results || []).filter(it => !isItemInLibrary(it));
+    const section = buildCarouselSection(cfg.title(), cfg.subtitle(), cfg.icon, filtered);
+    if (section) hub.appendChild(section);
+  }
 }
 
+function appendMyVodEmptyBanner(hub) {
+  const banner = document.createElement("div");
+  banner.style.cssText = "text-align: center; padding: 40px 20px; color: var(--md-sys-color-on-surface-variant); background: var(--md-sys-color-surface-container); border-radius: var(--md-corner-large); border: 1px solid var(--md-sys-color-outline-variant); margin-bottom: 20px;";
+  banner.innerHTML = `
+    <span class="material-symbols-rounded" style="font-size: 40px; color: var(--md-sys-color-primary);">subscriptions</span>
+    <p style="margin-top: 10px; font-weight: 700; font-size: 1rem; color: var(--md-sys-color-on-surface);">Brak wybranych platform VOD</p>
+    <p style="font-size: 0.82rem; margin-top: 4px; max-width: 500px; margin-inline: auto;">Otwórz <b>Ustawienia VOD i Kraj</b> i zaznacz serwisy, które subskrybujesz, aby widzieć propozycje dostępne na Twoich VOD.</p>
+  `;
+  hub.appendChild(banner);
+}
+
+function appendLibraryFallbackSections(hub) {
+  const watchlistMovies = (state.movies || []).filter(m => m.status === "watchlist" || m.status === "planowane");
+  if (watchlistMovies.length > 0 && (currentRecFilter === "all" || currentRecFilter === "personalized" || currentRecFilter === "movies")) {
+    const section = buildCarouselSection(
+      "🍿 Do obejrzenia z Twojej biblioteki",
+      "Tytuły oczekujące w Twojej bibliotece na seans",
+      "schedule",
+      watchlistMovies.slice(0, 15)
+    );
+    if (section) hub.appendChild(section);
+  }
+
+  const fiveStarFavs = (state.movies || []).filter(m => m.rating === 5 || m.is_favorite);
+  if (fiveStarFavs.length > 0 && (currentRecFilter === "all" || currentRecFilter === "personalized" || currentRecFilter === "classics" || currentRecFilter === "movies")) {
+    const section = buildCarouselSection(
+      "⭐ Twoje ulubione i najwyżej ocenione (5★)",
+      "Klasyki i hity z Twojej prywatnej kolekcji",
+      "star",
+      fiveStarFavs.slice(0, 15)
+    );
+    if (section) hub.appendChild(section);
+  }
+
+  const watchingShows = (state.shows || []).filter(s => s.status === "watching" || (s.watched_count > 0 && s.status !== "watched"));
+  if (watchingShows.length > 0 && (currentRecFilter === "all" || currentRecFilter === "personalized" || currentRecFilter === "shows")) {
+    const section = buildCarouselSection(
+      "📺 Seriale w trakcie oglądania",
+      "Kontynuuj seans rozpoczętych sezonów i odcinków",
+      "live_tv",
+      watchingShows.slice(0, 15)
+    );
+    if (section) hub.appendChild(section);
+  }
+}
+
+function appendFeedEmptyStateCard(hub) {
+  const hasTmdb = Boolean(localStorage.getItem("cinelog_tmdb_key"));
+  const emptyCard = document.createElement("div");
+  emptyCard.className = "m3-surface-card";
+  emptyCard.style.cssText = "text-align: center; padding: 48px 24px; margin: 20px auto; max-width: 620px; background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-corner-xl); display: flex; flex-direction: column; align-items: center; gap: 14px;";
+
+  if (!hasTmdb) {
+    emptyCard.innerHTML = `
+      <div style="width: 56px; height: 56px; border-radius: 16px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); display: flex; align-items: center; justify-content: center;">
+        <span class="material-symbols-rounded" style="font-size: 32px;">key</span>
+      </div>
+      <div>
+        <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--md-sys-color-on-surface); margin-bottom: 6px;">Wymagany darmowy klucz TMDb API</h3>
+        <p style="font-size: 0.84rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.5; max-width: 480px;">
+          Sekcja <b>Dla Ciebie</b>, trendy tygodnia i katalogi VOD pobierają propozycje z bazy <b>The Movie Database (TMDb)</b>.<br>
+          <span style="font-size: 0.76rem; opacity: 0.85;">(Klucz OMDb/IMDb służy wyłącznie do pobierania ocen punktowych dla pojedynczych filmów).</span>
+        </p>
+      </div>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 4px;">
+        <button type="button" class="m3-btn-action-primary" onclick="if(window.openCloudSyncModal) window.openCloudSyncModal('keys');" style="font-weight: 700; padding: 10px 20px;">
+          <span class="material-symbols-rounded">key</span>
+          <span>Wprowadź klucz TMDb</span>
+        </button>
+        <a href="https://www.themoviedb.org/settings/api" target="_blank" class="m3-chip" style="font-weight: 700; padding: 10px 16px; text-decoration: none;">
+          <span>Darmowy klucz TMDb ↗</span>
+        </a>
+      </div>
+    `;
+  } else {
+    emptyCard.innerHTML = `
+      <span class="material-symbols-rounded" style="font-size: 40px; color: var(--md-sys-color-on-surface-variant);">movie_filter</span>
+      <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--md-sys-color-on-surface);">Brak pasujących propozycji</h3>
+      <p style="font-size: 0.84rem; color: var(--md-sys-color-on-surface-variant); max-width: 480px;">Wszystkie propozycje z tej kategorii znajdują się już w Twojej bibliotece lub filtr nie zwrócił wyników.</p>
+      <button type="button" class="m3-btn-action-primary" onclick="loadRecommendationsHub(true)" style="margin-top: 6px;">
+        <span class="material-symbols-rounded">refresh</span>
+        <span>Odśwież propozycje</span>
+      </button>
+    `;
+  }
+  hub.appendChild(emptyCard);
+}
+
+export function renderRecommendationsFeed() {
+  const hub = document.getElementById("m3-rec-carousels-hub");
+  if (!hub || !recFeedData) return;
+
+  hub.innerHTML = "";
+
+  if (!localStorage.getItem("cinelog_tmdb_key")) {
+    hub.appendChild(buildTmdbKeyBanner());
+  }
+
+  if (currentRecFilter === "myvod" || currentRecFilter === "all") {
+    if (currentRecFilter === "myvod" && (!state.userVodSubscriptions || state.userVodSubscriptions.length === 0)) {
+      appendMyVodEmptyBanner(hub);
+    } else {
+      appendMyVodSections(hub);
+      if (recFeedData.myvod_shows && recFeedData.myvod_shows.results && recFeedData.myvod_shows.results.length > 0) {
+        const raw = recFeedData.myvod_shows.results || [];
+        const filtered = raw.filter(it => !isItemInLibrary(it));
+        const section = buildCarouselSection(
+          "📺 Najlepsze seriale na Twoich VOD",
+          "Wciągające seriale z oceną powyżej 7.6★ dostępne w Twoich serwisach streamingowych",
+          "tv",
+          filtered
+        );
+        if (section) hub.appendChild(section);
+      }
+    }
+  }
+
+  renderFeedSectionsFromTable(hub);
+
   // Smart Offline / Library Fallback if online discovery returned empty
-  const carouselSections = hub.querySelectorAll(".m3-carousel-section");
-  if (carouselSections.length === 0) {
-    const watchlistMovies = (state.movies || []).filter(m => m.status === "watchlist" || m.status === "planowane");
-    if (watchlistMovies.length > 0 && (currentRecFilter === "all" || currentRecFilter === "personalized" || currentRecFilter === "movies")) {
-      const section = buildCarouselSection(
-        "🍿 Do obejrzenia z Twojej biblioteki",
-        "Tytuły oczekujące w Twojej bibliotece na seans",
-        "schedule",
-        watchlistMovies.slice(0, 15)
-      );
-      if (section) hub.appendChild(section);
-    }
-
-    const fiveStarFavs = (state.movies || []).filter(m => m.rating === 5 || m.is_favorite);
-    if (fiveStarFavs.length > 0 && (currentRecFilter === "all" || currentRecFilter === "personalized" || currentRecFilter === "classics" || currentRecFilter === "movies")) {
-      const section = buildCarouselSection(
-        "⭐ Twoje ulubione i najwyżej ocenione (5★)",
-        "Klasyki i hity z Twojej prywatnej kolekcji",
-        "star",
-        fiveStarFavs.slice(0, 15)
-      );
-      if (section) hub.appendChild(section);
-    }
-
-    const watchingShows = (state.shows || []).filter(s => s.status === "watching" || (s.watched_count > 0 && s.status !== "watched"));
-    if (watchingShows.length > 0 && (currentRecFilter === "all" || currentRecFilter === "personalized" || currentRecFilter === "shows")) {
-      const section = buildCarouselSection(
-        "📺 Seriale w trakcie oglądania",
-        "Kontynuuj seans rozpoczętych sezonów i odcinków",
-        "live_tv",
-        watchingShows.slice(0, 15)
-      );
-      if (section) hub.appendChild(section);
-    }
+  if (hub.querySelectorAll(".m3-carousel-section").length === 0) {
+    appendLibraryFallbackSections(hub);
   }
 
   // If still completely empty after checking everything
   if (hub.querySelectorAll(".m3-carousel-section").length === 0) {
-    const hasTmdb = Boolean(localStorage.getItem("cinelog_tmdb_key"));
-    const emptyCard = document.createElement("div");
-    emptyCard.className = "m3-surface-card";
-    emptyCard.style.cssText = "text-align: center; padding: 48px 24px; margin: 20px auto; max-width: 620px; background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-corner-xl); display: flex; flex-direction: column; align-items: center; gap: 14px;";
-
-    if (!hasTmdb) {
-      emptyCard.innerHTML = `
-        <div style="width: 56px; height: 56px; border-radius: 16px; background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); display: flex; align-items: center; justify-content: center;">
-          <span class="material-symbols-rounded" style="font-size: 32px;">key</span>
-        </div>
-        <div>
-          <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--md-sys-color-on-surface); margin-bottom: 6px;">Wymagany darmowy klucz TMDb API</h3>
-          <p style="font-size: 0.84rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.5; max-width: 480px;">
-            Sekcja <b>Dla Ciebie</b>, trendy tygodnia i katalogi VOD pobierają propozycje z bazy <b>The Movie Database (TMDb)</b>.<br>
-            <span style="font-size: 0.76rem; opacity: 0.85;">(Klucz OMDb/IMDb służy wyłącznie do pobierania ocen punktowych dla pojedynczych filmów).</span>
-          </p>
-        </div>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 4px;">
-          <button type="button" class="m3-btn-action-primary" onclick="if(window.openCloudSyncModal) window.openCloudSyncModal('keys');" style="font-weight: 700; padding: 10px 20px;">
-            <span class="material-symbols-rounded">key</span>
-            <span>Wprowadź klucz TMDb</span>
-          </button>
-          <a href="https://www.themoviedb.org/settings/api" target="_blank" class="m3-chip" style="font-weight: 700; padding: 10px 16px; text-decoration: none;">
-            <span>Darmowy klucz TMDb ↗</span>
-          </a>
-        </div>
-      `;
-    } else {
-      emptyCard.innerHTML = `
-        <span class="material-symbols-rounded" style="font-size: 40px; color: var(--md-sys-color-on-surface-variant);">movie_filter</span>
-        <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--md-sys-color-on-surface);">Brak pasujących propozycji</h3>
-        <p style="font-size: 0.84rem; color: var(--md-sys-color-on-surface-variant); max-width: 480px;">Wszystkie propozycje z tej kategorii znajdują się już w Twojej bibliotece lub filtr nie zwrócił wyników.</p>
-        <button type="button" class="m3-btn-action-primary" onclick="loadRecommendationsHub(true)" style="margin-top: 6px;">
-          <span class="material-symbols-rounded">refresh</span>
-          <span>Odśwież propozycje</span>
-        </button>
-      `;
-    }
-    hub.appendChild(emptyCard);
+    appendFeedEmptyStateCard(hub);
   }
 }
 
