@@ -88,6 +88,14 @@ python run.py
 ```
 Aplikacja uruchomi się pod adresem: **`http://localhost:5001`**.
 
+#### 4. Build frontendu (przy zmianach w JS)
+Frontend jest serwowany ze zminifikowanego bundla (`static/dist/app.min.js`, budowany esbuildem). Po modyfikacji plików w `static/js/` przebuduj:
+```bash
+npm ci
+npm run build   # lub: npm run watch (przebudowa przy zapisie)
+```
+CI weryfikuje, że zacommitowany bundle jest aktualny względem źródeł.
+
 ---
 
 ## 🛡️ Dwa elastyczne tryby pracy: Pełna Prywatność vs Wygodna Chmura

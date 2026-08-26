@@ -8,6 +8,10 @@
     "test": "tests"
   },
   "scripts": {
+    "build": "npm run build:app && npm run build:drive",
+    "build:app": "esbuild static/js/main.js --bundle --minify --sourcemap --outfile=static/dist/app.min.js",
+    "build:drive": "esbuild static/js/drive_sync.js --minify --sourcemap --outfile=static/dist/drive_sync.min.js",
+    "watch": "esbuild static/js/main.js --bundle --minify --sourcemap --outfile=static/dist/app.min.js --watch",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -23,6 +27,7 @@
   },
   "homepage": "https://github.com/pavvel42/CineLog#readme",
   "devDependencies": {
-    "@playwright/test": "^1.62.1"
+    "@playwright/test": "^1.62.1",
+    "esbuild": "^0.28.2"
   }
 }
