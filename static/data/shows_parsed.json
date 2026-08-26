@@ -1,0 +1,5100 @@
+[
+  {
+    "uuid": "4d85a3d2-a1a2-4485-b134-8c2a780b3657",
+    "title": "Maniac",
+    "original_title": "Maniac",
+    "year": "2018",
+    "genre": "Komedia, Sci-Fi",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 1,
+    "season_ep_counts": {
+      "1": 10
+    },
+    "episodes_watched": [],
+    "watched_count": 0,
+    "latest_progress": null,
+    "latest_season": null,
+    "latest_episode": null,
+    "rating": null,
+    "status": "followed",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-10-08 17:28:04",
+    "updated_at": "2025-10-08 17:28:04"
+  },
+  {
+    "uuid": "09a0a0f6-73b0-4091-b634-c1694f76e388",
+    "title": "Ted Lasso",
+    "original_title": "Ted Lasso",
+    "year": "2020",
+    "genre": "Komedia, Sport",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 3,
+    "season_ep_counts": {
+      "1": 10,
+      "2": 12,
+      "3": 12
+    },
+    "episodes_watched": [],
+    "watched_count": 0,
+    "latest_progress": null,
+    "latest_season": null,
+    "latest_episode": null,
+    "rating": null,
+    "status": "watchlist",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-10-27 09:32:04",
+    "updated_at": "2025-10-27 09:32:04"
+  },
+  {
+    "uuid": "a4364fcd-f2d3-4761-8ba3-627914cb0564",
+    "title": "Dr House",
+    "original_title": "Dr House",
+    "year": "2004",
+    "genre": "Dramat, Medyczny",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 8,
+    "season_ep_counts": {
+      "1": 11,
+      "2": 18,
+      "3": 16,
+      "4": 16,
+      "5": 18,
+      "6": 16,
+      "7": 16,
+      "8": 16
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "626d719d-81cf-4252-9815-9d6c9d713084",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2026-05-13 22:54:05"
+      },
+      {
+        "episode_id": "e8b77f7b-7321-4f6b-8a80-76ece5582e16",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2026-05-15 21:50:47"
+      },
+      {
+        "episode_id": "f52d4af2-269e-44c9-8059-9b9379c2d2e4",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2026-05-18 21:20:38"
+      },
+      {
+        "episode_id": "b6dd6257-fb7d-4f1c-97eb-89b1d65e59dd",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2026-05-19 21:51:57"
+      },
+      {
+        "episode_id": "fdb1429e-7010-4d13-b526-b22d3f6c21f7",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2026-05-20 21:11:02"
+      },
+      {
+        "episode_id": "486bb6bf-eafd-47d9-9f73-3a3e5d286aa4",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2026-05-22 21:39:10"
+      },
+      {
+        "episode_id": "a181c85e-ca0a-46ac-8d67-d38e990f0c5b",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2026-05-24 21:21:43"
+      },
+      {
+        "episode_id": "48bddb3e-62f5-4f2b-adaa-44ca8ed6ad5e",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2026-05-27 20:21:06"
+      },
+      {
+        "episode_id": "555736f8-267e-4dce-9f8f-41979a4a99b2",
+        "season": 1,
+        "episode": 9,
+        "created_at": "2026-05-29 22:42:58"
+      },
+      {
+        "episode_id": "a7f333b3-f7ba-455e-8f6b-58c8598ddaec",
+        "season": 1,
+        "episode": 10,
+        "created_at": "2026-05-30 21:09:58"
+      },
+      {
+        "episode_id": "4f40c22f-15b0-4530-b020-e992b576255e",
+        "season": 1,
+        "episode": 11,
+        "created_at": "2026-06-02 21:08:38"
+      },
+      {
+        "episode_id": "b3ecb951-ab8c-4f97-a0b7-1785d02ce0c1",
+        "season": 2,
+        "episode": 1,
+        "created_at": "2026-06-05 20:50:21"
+      },
+      {
+        "episode_id": "6c645c15-aba3-41cb-a561-e1e917ec889c",
+        "season": 2,
+        "episode": 2,
+        "created_at": "2026-06-08 23:58:33"
+      },
+      {
+        "episode_id": "577bc55a-36d5-4494-b37f-d50d2e25b5ee",
+        "season": 2,
+        "episode": 3,
+        "created_at": "2026-06-11 20:23:19"
+      },
+      {
+        "episode_id": "c9c23e69-d82c-4565-8bb9-07ec13c11754",
+        "season": 2,
+        "episode": 4,
+        "created_at": "2026-06-13 20:08:09"
+      },
+      {
+        "episode_id": "09a9d1c1-86ca-46f4-a238-fe93bd17c5e8",
+        "season": 2,
+        "episode": 5,
+        "created_at": "2026-06-14 21:34:53"
+      },
+      {
+        "episode_id": "277d1be9-6070-46a1-98e5-2499218c6e1c",
+        "season": 2,
+        "episode": 6,
+        "created_at": "2026-06-17 20:49:39"
+      },
+      {
+        "episode_id": "2a60c652-e714-4668-8f1d-7d3a9feefdff",
+        "season": 2,
+        "episode": 7,
+        "created_at": "2026-06-18 20:44:49"
+      },
+      {
+        "episode_id": "f836f571-3cce-476c-b836-c448ad261ec5",
+        "season": 2,
+        "episode": 8,
+        "created_at": "2026-06-21 21:26:23"
+      },
+      {
+        "episode_id": "88b4f474-3be7-4df4-b2ec-f16ec8a723e9",
+        "season": 2,
+        "episode": 9,
+        "created_at": "2026-06-23 21:48:47"
+      },
+      {
+        "episode_id": "31ab0b56-d5c9-4dc7-a76a-dca978116802",
+        "season": 2,
+        "episode": 10,
+        "created_at": "2026-06-24 20:51:50"
+      },
+      {
+        "episode_id": "c7332304-4822-4120-84f9-eccd7630a8a7",
+        "season": 2,
+        "episode": 11,
+        "created_at": "2026-06-26 21:36:28"
+      },
+      {
+        "episode_id": "9acb394a-cd1f-4318-b31f-63fbd11fc8c0",
+        "season": 2,
+        "episode": 12,
+        "created_at": "2026-06-28 21:26:10"
+      },
+      {
+        "episode_id": "8df661da-5f07-41a5-9fc6-20ce7b07fd31",
+        "season": 2,
+        "episode": 13,
+        "created_at": "2026-06-29 22:03:41"
+      },
+      {
+        "episode_id": "c35b9fea-1578-4709-88f9-e3d01feae1e0",
+        "season": 2,
+        "episode": 14,
+        "created_at": "2026-06-30 22:33:54"
+      },
+      {
+        "episode_id": "177a8a5f-6ffe-43b3-94bf-7a4b25b8a42f",
+        "season": 2,
+        "episode": 15,
+        "created_at": "2026-07-01 20:57:32"
+      },
+      {
+        "episode_id": "0da23e5c-6a36-4f18-86d3-db93ee33688d",
+        "season": 2,
+        "episode": 16,
+        "created_at": "2026-07-02 22:56:22"
+      },
+      {
+        "episode_id": "397b5f51-5ffa-46ef-94e4-180cfe9936a3",
+        "season": 2,
+        "episode": 17,
+        "created_at": "2026-07-04 21:15:24"
+      },
+      {
+        "episode_id": "ca97ebf5-55d5-46af-a663-d2cdb6f6dbf1",
+        "season": 2,
+        "episode": 18,
+        "created_at": "2026-07-05 20:06:53"
+      },
+      {
+        "episode_id": "d4c3a832-b231-460b-b8f2-ce6bd46b415d",
+        "season": 3,
+        "episode": 1,
+        "created_at": "2026-07-06 19:18:58"
+      },
+      {
+        "episode_id": "144823f7-e7e6-46c7-8158-24639d8776a0",
+        "season": 3,
+        "episode": 2,
+        "created_at": "2026-07-07 22:30:28"
+      },
+      {
+        "episode_id": "9bdf90f2-ba2c-4f19-b0b2-a5d18c7e6f42",
+        "season": 3,
+        "episode": 3,
+        "created_at": "2026-07-08 20:53:09"
+      },
+      {
+        "episode_id": "0c394ec7-1f31-4405-8d18-3eba3cd5fd7f",
+        "season": 3,
+        "episode": 4,
+        "created_at": "2026-07-11 21:49:18"
+      },
+      {
+        "episode_id": "d6312a80-1c61-4ec2-9014-2131750565f5",
+        "season": 3,
+        "episode": 5,
+        "created_at": "2026-07-12 21:50:39"
+      },
+      {
+        "episode_id": "b7f28572-3def-4849-9336-4f7e83efa9f3",
+        "season": 3,
+        "episode": 6,
+        "created_at": "2026-07-14 21:01:40"
+      },
+      {
+        "episode_id": "6aa42c9f-9217-4475-bd95-9e3f5a5226e6",
+        "season": 3,
+        "episode": 7,
+        "created_at": "2026-07-15 20:00:39"
+      },
+      {
+        "episode_id": "f4124360-1153-4e99-9c50-8720f982f4e0",
+        "season": 3,
+        "episode": 8,
+        "created_at": "2026-07-16 21:05:33"
+      },
+      {
+        "episode_id": "df92a621-63f4-469d-8534-a1018ddce719",
+        "season": 3,
+        "episode": 9,
+        "created_at": "2026-07-19 21:50:32"
+      },
+      {
+        "episode_id": "5b6a8102-0428-4378-bf50-23f440ef3935",
+        "season": 3,
+        "episode": 10,
+        "created_at": "2026-07-21 19:24:23"
+      },
+      {
+        "episode_id": "94f79dba-c581-4d2d-9a89-b71ea0d572c8",
+        "season": 3,
+        "episode": 11,
+        "created_at": "2026-07-22 20:46:42"
+      },
+      {
+        "episode_id": "d0421dfa-56ab-487a-8bc7-8e815a304528",
+        "season": 3,
+        "episode": 12,
+        "created_at": "2026-07-25 22:08:02"
+      },
+      {
+        "episode_id": "7a8104de-b205-47bb-bb16-f75776f186ab",
+        "season": 3,
+        "episode": 13,
+        "created_at": "2026-07-28 20:49:43"
+      },
+      {
+        "episode_id": "752a7d25-f190-4b7e-86b4-69efb74eba93",
+        "season": 3,
+        "episode": 14,
+        "created_at": "2026-07-31 20:08:04"
+      },
+      {
+        "episode_id": "50cae32d-0aba-490e-a2c3-28aa33107475",
+        "season": 3,
+        "episode": 15,
+        "created_at": "2026-08-01 20:02:50"
+      },
+      {
+        "episode_id": "c0d7ac73-095f-4a81-80d9-2bce7930ba20",
+        "season": 3,
+        "episode": 16,
+        "created_at": "2026-08-03 21:52:34"
+      },
+      {
+        "episode_id": "a7de02cc-dda4-44a7-8c3c-e284c7e53bbb",
+        "season": 4,
+        "episode": 1,
+        "created_at": "2026-08-06 20:22:55"
+      },
+      {
+        "episode_id": "be4969ec-6667-43bb-a3b5-63606fdc0bad",
+        "season": 4,
+        "episode": 2,
+        "created_at": "2026-08-08 20:51:23"
+      },
+      {
+        "episode_id": "b12b6680-7f07-4cb9-afd3-40c0f945f2fd",
+        "season": 4,
+        "episode": 3,
+        "created_at": "2026-08-10 22:24:21"
+      },
+      {
+        "episode_id": "ba220065-1526-4718-8d18-0a824447ceab",
+        "season": 4,
+        "episode": 4,
+        "created_at": "2026-08-12 20:51:33"
+      },
+      {
+        "episode_id": "523ae993-4b34-46bc-8ba4-35cc2e326567",
+        "season": 4,
+        "episode": 5,
+        "created_at": "2026-08-14 19:38:52"
+      },
+      {
+        "episode_id": "b7b8c1a5-9a45-493d-b227-890e4e76833a",
+        "season": 4,
+        "episode": 6,
+        "created_at": "2026-08-15 19:42:18"
+      },
+      {
+        "episode_id": "debac186-ba10-4217-8ad7-c9a2727716ec",
+        "season": 4,
+        "episode": 7,
+        "created_at": "2026-08-17 20:28:22"
+      },
+      {
+        "episode_id": "f2a9dc8a-ca9e-4a62-bae3-114ba3b442bd",
+        "season": 4,
+        "episode": 8,
+        "created_at": "2026-08-19 21:27:17"
+      },
+      {
+        "episode_id": "bff9507d-cd14-403e-8359-9af65d01f55f",
+        "season": 4,
+        "episode": 9,
+        "created_at": "2026-08-20 19:40:25"
+      },
+      {
+        "episode_id": "c8040fb7-ad97-4b67-9b89-e5cbd942644c",
+        "season": 4,
+        "episode": 10,
+        "created_at": "2026-08-23 20:01:09"
+      },
+      {
+        "episode_id": "5cb5e69c-5dc7-43e6-a529-64ffc74cc890",
+        "season": 4,
+        "episode": 11,
+        "created_at": "2026-08-25 19:04:15"
+      },
+      {
+        "episode_id": "f2e6195f-732e-4016-add7-02c92747b93c",
+        "season": 4,
+        "episode": 12,
+        "created_at": "2026-08-27 23:02:38"
+      },
+      {
+        "episode_id": "5df06e8c-878a-4ed9-a33f-fc8292ec89af",
+        "season": 4,
+        "episode": 13,
+        "created_at": "2026-08-29 20:48:04"
+      },
+      {
+        "episode_id": "bc55300b-06a2-41af-9d0a-f7f7f5e4a471",
+        "season": 4,
+        "episode": 14,
+        "created_at": "2026-08-31 20:17:15"
+      },
+      {
+        "episode_id": "c6641285-4303-4bc1-9e25-95b88fc9c86b",
+        "season": 4,
+        "episode": 15,
+        "created_at": "2026-09-01 21:24:58"
+      },
+      {
+        "episode_id": "ffa623d0-ea9e-4c8d-b1a8-b71f491b90e9",
+        "season": 4,
+        "episode": 16,
+        "created_at": "2026-09-03 22:13:39"
+      },
+      {
+        "episode_id": "b69f68c3-e60f-4420-ac33-350c73b911d8",
+        "season": 5,
+        "episode": 1,
+        "created_at": "2026-09-04 19:54:04"
+      },
+      {
+        "episode_id": "51d08109-fc90-4838-9874-1408f7b217c7",
+        "season": 5,
+        "episode": 2,
+        "created_at": "2026-09-06 23:51:43"
+      },
+      {
+        "episode_id": "4cc9f5f2-e42e-4037-8a55-2ea08acbbe09",
+        "season": 5,
+        "episode": 3,
+        "created_at": "2026-09-09 20:04:35"
+      },
+      {
+        "episode_id": "5c8ac066-cb2f-4fa3-ac91-3a7ca3404f08",
+        "season": 5,
+        "episode": 4,
+        "created_at": "2026-09-10 22:59:44"
+      },
+      {
+        "episode_id": "7e7838c9-ca55-438b-bc9a-be10238d6f44",
+        "season": 5,
+        "episode": 5,
+        "created_at": "2026-09-13 20:12:50"
+      },
+      {
+        "episode_id": "8d38bbd8-fba6-4bf7-8dbc-c65377a7e8b7",
+        "season": 5,
+        "episode": 6,
+        "created_at": "2026-09-14 20:36:23"
+      },
+      {
+        "episode_id": "b788f5d1-ffe5-45f6-a5ed-cfe34f2dad3f",
+        "season": 5,
+        "episode": 7,
+        "created_at": "2026-09-15 21:05:04"
+      },
+      {
+        "episode_id": "12e153a6-932c-4e01-92c6-5ee468d0a2a8",
+        "season": 5,
+        "episode": 8,
+        "created_at": "2026-09-18 21:26:49"
+      },
+      {
+        "episode_id": "8471b4b0-ae1b-4f69-b740-d83173318749",
+        "season": 5,
+        "episode": 9,
+        "created_at": "2026-09-19 23:41:04"
+      },
+      {
+        "episode_id": "2e9522d6-9679-4482-a3c9-88e48d2238e6",
+        "season": 5,
+        "episode": 10,
+        "created_at": "2026-09-21 19:53:49"
+      },
+      {
+        "episode_id": "84a2576c-1fc9-45f8-94d6-07350e2f8958",
+        "season": 5,
+        "episode": 11,
+        "created_at": "2026-09-22 21:58:55"
+      },
+      {
+        "episode_id": "5894f7f1-39b8-4bb2-b596-ca7cef4afa88",
+        "season": 5,
+        "episode": 12,
+        "created_at": "2026-09-23 20:10:20"
+      },
+      {
+        "episode_id": "f4d375c1-a293-49fa-b240-d7a14027ab7d",
+        "season": 5,
+        "episode": 13,
+        "created_at": "2026-09-26 22:54:05"
+      },
+      {
+        "episode_id": "80a8a23d-17ea-4c83-8892-042f9d4b2bf9",
+        "season": 5,
+        "episode": 14,
+        "created_at": "2026-09-29 20:40:19"
+      },
+      {
+        "episode_id": "b87b6384-9fdd-4e2e-a8a2-b7ad2bd3cdcd",
+        "season": 5,
+        "episode": 15,
+        "created_at": "2026-10-02 20:37:09"
+      },
+      {
+        "episode_id": "07437c3b-dd20-43bf-9342-af080a8bb5b4",
+        "season": 5,
+        "episode": 16,
+        "created_at": "2026-10-05 20:59:36"
+      }
+    ],
+    "watched_count": 77,
+    "latest_progress": "S05E16",
+    "latest_season": 5,
+    "latest_episode": 16,
+    "rating": null,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2026-05-13 22:54:05",
+    "updated_at": "2026-10-05 20:59:36"
+  },
+  {
+    "uuid": "d0401587-28e2-43bc-a6fd-d7afdd84cacc",
+    "title": "Arcane",
+    "original_title": "Arcane",
+    "year": "2021",
+    "genre": "Animacja, Akcja",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 2,
+    "season_ep_counts": {
+      "1": 9,
+      "2": 9
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "a4540937-4a27-4bf2-8baa-f744a08dd21b",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2024-12-22 21:31:56"
+      },
+      {
+        "episode_id": "741b77f5-4c24-4053-a7f5-ae02af5b8f47",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2024-12-24 21:51:51"
+      },
+      {
+        "episode_id": "343ada2a-76e5-4e78-bbf7-e1d36a662fce",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2024-12-25 21:10:28"
+      },
+      {
+        "episode_id": "fcef1972-bbf4-43ce-91be-b80eb7e6a14c",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2024-12-27 21:20:55"
+      },
+      {
+        "episode_id": "1b2ededb-8fc8-4fc0-83d5-bceb5edbb8ee",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2024-12-29 23:08:48"
+      },
+      {
+        "episode_id": "18c8a616-2410-4e9a-bf77-9cae7318b96d",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2024-12-31 20:07:17"
+      },
+      {
+        "episode_id": "f6729464-3f8e-440a-ab0a-e0e39d896047",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2025-01-01 20:24:55"
+      }
+    ],
+    "watched_count": 7,
+    "latest_progress": "S01E07",
+    "latest_season": 1,
+    "latest_episode": 7,
+    "rating": 4,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2024-12-22 21:31:56",
+    "updated_at": "2025-01-01 20:24:55"
+  },
+  {
+    "uuid": "cdd0b4d4-5542-47de-b6ad-f48b2314d0c8",
+    "title": "Gracze",
+    "original_title": "Gracze",
+    "year": "2020",
+    "genre": "Dramat, Komedia",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 3,
+    "season_ep_counts": {
+      "1": 9,
+      "2": 8,
+      "3": 9
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "64ab851b-f1fa-46e7-970d-750705eee1d4",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2025-03-06 21:19:31"
+      },
+      {
+        "episode_id": "0cf0374c-0c74-4c0f-9a57-553995560a2d",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2025-03-09 21:15:13"
+      },
+      {
+        "episode_id": "4926ce5f-7878-4140-ac2a-4f71a77d95f1",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2025-03-11 21:56:53"
+      },
+      {
+        "episode_id": "ba3df7ff-43b4-4ee5-a1e8-9e7e22498f66",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2025-03-14 19:06:27"
+      },
+      {
+        "episode_id": "8fd33afc-91fd-4a4f-8d18-ab95668c8477",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2025-03-16 22:23:02"
+      },
+      {
+        "episode_id": "c3affcfe-734a-4ca3-8116-e3fc62e7c1a6",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2025-03-17 20:18:04"
+      },
+      {
+        "episode_id": "f99f0704-20f0-456a-9e6a-66289c6d52d5",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2025-03-20 20:39:43"
+      },
+      {
+        "episode_id": "c14565c7-5d98-4115-b05e-eefe8ece1128",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2025-03-21 20:50:21"
+      },
+      {
+        "episode_id": "09f64405-0b99-4034-8a4e-255280051b10",
+        "season": 1,
+        "episode": 9,
+        "created_at": "2025-03-22 20:32:25"
+      }
+    ],
+    "watched_count": 9,
+    "latest_progress": "S01E09",
+    "latest_season": 1,
+    "latest_episode": 9,
+    "rating": 4,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-03-06 21:19:31",
+    "updated_at": "2025-03-22 20:32:25"
+  },
+  {
+    "uuid": "54a7b69b-1cd6-4b09-8f0e-6d2b315c167a",
+    "title": "Prawdziwy detektyw",
+    "original_title": "Prawdziwy detektyw",
+    "year": "2014",
+    "genre": "Kryminał, Dramat",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 4,
+    "season_ep_counts": {
+      "1": 8,
+      "2": 8,
+      "3": 8,
+      "4": 6
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "9dd2f9de-fd98-4e33-a498-abe92999bbef",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2025-02-16 20:39:20"
+      },
+      {
+        "episode_id": "88476c56-827c-4f8c-940a-c5e981df6517",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2025-02-19 22:37:21"
+      },
+      {
+        "episode_id": "54cc1e2a-5e4c-4287-8442-51dbd0d4ea67",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2025-02-21 22:19:30"
+      },
+      {
+        "episode_id": "b9aed8e4-e615-49c8-8bf8-1f864ec3f970",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2025-02-24 19:26:37"
+      },
+      {
+        "episode_id": "c86c6544-a7d4-4f50-b791-f1e543f9cd6b",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2025-02-27 21:38:30"
+      },
+      {
+        "episode_id": "86341718-2ba6-4db3-bafe-b1149561c813",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2025-03-02 21:46:03"
+      },
+      {
+        "episode_id": "ae441e21-d258-44f2-a5d4-a0fc61542765",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2025-03-05 22:49:53"
+      },
+      {
+        "episode_id": "504e2687-70e7-4756-84d9-145e30d73df7",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2025-03-06 19:44:07"
+      },
+      {
+        "episode_id": "9c89d374-c664-45a7-8077-3e33690e7e62",
+        "season": 2,
+        "episode": 1,
+        "created_at": "2025-03-08 20:44:13"
+      },
+      {
+        "episode_id": "84c86c46-2359-4fa4-b4ad-af890ff1aa9f",
+        "season": 2,
+        "episode": 2,
+        "created_at": "2025-03-10 22:47:46"
+      },
+      {
+        "episode_id": "f4e95734-5052-4700-a077-96a38685abaa",
+        "season": 2,
+        "episode": 3,
+        "created_at": "2025-03-11 21:42:30"
+      },
+      {
+        "episode_id": "c5a11f5c-ad05-4912-9ab2-8d4a8bd88fcd",
+        "season": 2,
+        "episode": 4,
+        "created_at": "2025-03-12 21:34:21"
+      },
+      {
+        "episode_id": "31383975-7bf3-4a34-9c2d-fa9743ad3d62",
+        "season": 2,
+        "episode": 5,
+        "created_at": "2025-03-15 21:51:44"
+      },
+      {
+        "episode_id": "4c3077c4-fb75-4923-b910-abb3f1053252",
+        "season": 2,
+        "episode": 6,
+        "created_at": "2025-03-16 20:19:14"
+      },
+      {
+        "episode_id": "594b2a3a-7ad4-45a1-9129-950d7d2f4e58",
+        "season": 2,
+        "episode": 7,
+        "created_at": "2025-03-18 22:44:45"
+      },
+      {
+        "episode_id": "92cf6021-1f33-442d-89ac-908746015028",
+        "season": 2,
+        "episode": 8,
+        "created_at": "2025-03-21 23:50:46"
+      },
+      {
+        "episode_id": "c5e78b23-f461-4f09-985a-befbd1812f77",
+        "season": 3,
+        "episode": 1,
+        "created_at": "2025-03-24 21:57:25"
+      },
+      {
+        "episode_id": "713f8f8c-ec8b-4537-98ab-4778143b45e3",
+        "season": 3,
+        "episode": 2,
+        "created_at": "2025-03-25 20:18:45"
+      },
+      {
+        "episode_id": "4568f426-89e0-4e22-93f4-a49b33baba88",
+        "season": 3,
+        "episode": 3,
+        "created_at": "2025-03-28 20:30:13"
+      },
+      {
+        "episode_id": "3d4196fe-963a-4617-bdab-07e79d9d028e",
+        "season": 3,
+        "episode": 4,
+        "created_at": "2025-03-31 21:08:06"
+      },
+      {
+        "episode_id": "0d700ea4-3b9b-4d45-a350-55e439c59df9",
+        "season": 3,
+        "episode": 5,
+        "created_at": "2025-04-01 19:57:33"
+      },
+      {
+        "episode_id": "23310a28-c550-4ca8-ae62-990c19bd4f93",
+        "season": 3,
+        "episode": 6,
+        "created_at": "2025-04-02 21:45:30"
+      },
+      {
+        "episode_id": "e1721c83-ef5e-4376-a723-fb72682b163a",
+        "season": 3,
+        "episode": 7,
+        "created_at": "2025-04-03 23:59:10"
+      },
+      {
+        "episode_id": "4910fade-5238-4bf2-8988-e418f6c31218",
+        "season": 3,
+        "episode": 8,
+        "created_at": "2025-04-05 21:12:48"
+      },
+      {
+        "episode_id": "88ffbd40-3b72-486d-92fa-675fa6fd0cb1",
+        "season": 4,
+        "episode": 1,
+        "created_at": "2025-04-08 19:49:05"
+      },
+      {
+        "episode_id": "6afa828c-2cd1-4b9f-abe5-841fe9c96c52",
+        "season": 4,
+        "episode": 2,
+        "created_at": "2025-04-11 22:59:02"
+      },
+      {
+        "episode_id": "2fb21e66-7ed1-4aab-89b7-c9bc65a16fa9",
+        "season": 4,
+        "episode": 3,
+        "created_at": "2025-04-12 23:02:53"
+      },
+      {
+        "episode_id": "4c636e95-025f-4543-8997-623ae0723d96",
+        "season": 4,
+        "episode": 4,
+        "created_at": "2025-04-15 23:59:18"
+      },
+      {
+        "episode_id": "a42d0cd7-fd35-4f6a-b450-388748d90846",
+        "season": 4,
+        "episode": 5,
+        "created_at": "2025-04-18 21:59:21"
+      },
+      {
+        "episode_id": "45d8a6ad-77d0-459e-8114-14f8d9df0d0e",
+        "season": 4,
+        "episode": 6,
+        "created_at": "2025-04-21 21:56:08"
+      }
+    ],
+    "watched_count": 30,
+    "latest_progress": "S04E06",
+    "latest_season": 4,
+    "latest_episode": 6,
+    "rating": 5,
+    "status": "watched",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-02-16 20:39:20",
+    "updated_at": "2025-04-21 21:56:08"
+  },
+  {
+    "uuid": "b928e23f-4ee4-434e-8e92-0136ac3a812f",
+    "title": "Sexify",
+    "original_title": "Sexify",
+    "year": "2021",
+    "genre": "Komedia, Dramat",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 2,
+    "season_ep_counts": {
+      "1": 8,
+      "2": 8
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "aca58d95-915a-4c30-8b86-b5a1ca6fbff8",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2025-11-09 20:47:21"
+      },
+      {
+        "episode_id": "6d7df5d0-d3b5-4af7-a7ce-378fe5a4983b",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2025-11-10 20:54:40"
+      },
+      {
+        "episode_id": "23ff23d3-fb4f-488a-af4d-d219186b2880",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2025-11-13 20:25:42"
+      },
+      {
+        "episode_id": "725d4259-3c4b-4eec-a231-ee7342c2d2eb",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2025-11-15 20:15:00"
+      },
+      {
+        "episode_id": "42f525b9-02ed-43ce-92a8-1713b90ed44b",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2025-11-17 23:19:37"
+      },
+      {
+        "episode_id": "4e8adc4b-7724-4041-9e43-fbd2aaf407f7",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2025-11-20 20:15:03"
+      },
+      {
+        "episode_id": "c5144d98-b41c-404f-a346-f415e5267a2b",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2025-11-21 21:32:59"
+      },
+      {
+        "episode_id": "9d5817e8-5e17-4b66-8b87-959ff0cd7f05",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2025-11-23 21:40:58"
+      },
+      {
+        "episode_id": "fd247c11-bf6b-4cdf-b479-7b6127372b52",
+        "season": 2,
+        "episode": 1,
+        "created_at": "2025-11-24 20:08:30"
+      },
+      {
+        "episode_id": "899ac252-c1e1-494a-b888-3058e9ad0e9b",
+        "season": 2,
+        "episode": 2,
+        "created_at": "2025-11-27 20:44:35"
+      },
+      {
+        "episode_id": "df85c777-9887-4bfe-8136-9c65ae2ae341",
+        "season": 2,
+        "episode": 3,
+        "created_at": "2025-11-30 22:48:15"
+      },
+      {
+        "episode_id": "906d5c8c-ead0-4c89-93fe-8a295c9deee0",
+        "season": 2,
+        "episode": 4,
+        "created_at": "2025-12-01 21:33:45"
+      },
+      {
+        "episode_id": "89628f6e-929c-43b3-b3c0-8bf18167999f",
+        "season": 2,
+        "episode": 5,
+        "created_at": "2025-12-02 19:35:57"
+      },
+      {
+        "episode_id": "3495311e-ae27-4432-9dc1-e7eb711c7673",
+        "season": 2,
+        "episode": 6,
+        "created_at": "2025-12-03 20:54:33"
+      },
+      {
+        "episode_id": "0e3e25f2-cf06-41c7-b20b-274b82a7f586",
+        "season": 2,
+        "episode": 7,
+        "created_at": "2025-12-06 21:05:57"
+      },
+      {
+        "episode_id": "765e6cb5-8f0d-4540-8ec7-d662905c7bdd",
+        "season": 2,
+        "episode": 8,
+        "created_at": "2025-12-08 19:26:29"
+      }
+    ],
+    "watched_count": 16,
+    "latest_progress": "S02E08",
+    "latest_season": 2,
+    "latest_episode": 8,
+    "rating": 5,
+    "status": "watched",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-11-09 20:47:21",
+    "updated_at": "2025-12-08 19:26:29"
+  },
+  {
+    "uuid": "0c760d28-df49-4037-b40a-9181ac09bdb7",
+    "title": "Gra o tron",
+    "original_title": "Gra o tron",
+    "year": "2011",
+    "genre": "Fantasy, Dramat",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 8,
+    "season_ep_counts": {
+      "1": 10,
+      "2": 10,
+      "3": 10,
+      "4": 10,
+      "5": 10,
+      "6": 10,
+      "7": 7,
+      "8": 6
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "0f6ce9bf-fe7e-4362-8a89-b0f0105291d3",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2025-12-17 19:22:44"
+      },
+      {
+        "episode_id": "c4db5a62-2e13-418d-a8ab-80ea497ec6d1",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2025-12-18 23:30:02"
+      },
+      {
+        "episode_id": "fe2bd987-5fdc-4bbf-ab9c-d71cf6ba745b",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2025-12-19 22:46:41"
+      },
+      {
+        "episode_id": "aec76a82-148b-4376-a02a-4e5760a399d4",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2025-12-21 21:58:58"
+      },
+      {
+        "episode_id": "2db0728d-1e5e-4e54-9907-7299dc3bbdd8",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2025-12-24 22:08:41"
+      },
+      {
+        "episode_id": "00e3a026-d5b6-4e85-b902-39d9fa8dae42",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2025-12-27 20:08:46"
+      },
+      {
+        "episode_id": "882ccd1e-6c93-4791-8b60-c511b8168aeb",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2025-12-28 23:29:43"
+      },
+      {
+        "episode_id": "3040413c-4690-4b15-a7b6-08dc589decb0",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2025-12-30 22:15:29"
+      },
+      {
+        "episode_id": "c41c147e-9d6b-4b62-ab53-5a19a902b73f",
+        "season": 1,
+        "episode": 9,
+        "created_at": "2026-01-02 22:02:51"
+      },
+      {
+        "episode_id": "99086e47-7249-462c-8898-7462980cb95c",
+        "season": 1,
+        "episode": 10,
+        "created_at": "2026-01-03 20:04:06"
+      }
+    ],
+    "watched_count": 10,
+    "latest_progress": "S01E10",
+    "latest_season": 1,
+    "latest_episode": 10,
+    "rating": 5,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-12-17 19:22:44",
+    "updated_at": "2026-01-03 20:04:06"
+  },
+  {
+    "uuid": "378e6510-8f10-433e-abe4-2e7db96c1163",
+    "title": "Fleabag",
+    "original_title": "Fleabag",
+    "year": "2016",
+    "genre": "Komedia, Dramat",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 2,
+    "season_ep_counts": {
+      "1": 6,
+      "2": 6
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "4a0d2b73-fe54-4e4b-80ff-517323dfecd7",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2025-01-22 22:49:03"
+      },
+      {
+        "episode_id": "c5c51060-9911-41e7-93d5-63ae51a3ac26",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2025-01-23 22:46:36"
+      },
+      {
+        "episode_id": "a903ae67-fc56-4b53-a4ac-b722e0527739",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2025-01-26 22:15:19"
+      },
+      {
+        "episode_id": "97777f10-f2d2-493f-8e85-140d0f9aeb70",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2025-01-29 20:19:17"
+      },
+      {
+        "episode_id": "0c00988a-7ee1-411a-8e4c-3ab56d5d0477",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2025-02-01 23:40:43"
+      },
+      {
+        "episode_id": "b2414482-5198-44d8-8643-3603c92a7d7c",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2025-02-03 23:42:24"
+      },
+      {
+        "episode_id": "7938878a-89b5-4ab0-8121-69db2f12b150",
+        "season": 2,
+        "episode": 1,
+        "created_at": "2025-02-05 21:19:24"
+      },
+      {
+        "episode_id": "7688d11f-ce47-48be-a4f4-3c62b523c0de",
+        "season": 2,
+        "episode": 2,
+        "created_at": "2025-02-06 22:19:54"
+      },
+      {
+        "episode_id": "3e2bf9c9-636f-4e5c-a253-e70687ad8b26",
+        "season": 2,
+        "episode": 3,
+        "created_at": "2025-02-07 21:26:35"
+      },
+      {
+        "episode_id": "5efeef4f-d8dd-4bc0-b325-3aa3ec170298",
+        "season": 2,
+        "episode": 4,
+        "created_at": "2025-02-09 20:41:05"
+      },
+      {
+        "episode_id": "ac75c344-608e-449e-84b9-e6020d31812e",
+        "season": 2,
+        "episode": 5,
+        "created_at": "2025-02-10 21:53:12"
+      },
+      {
+        "episode_id": "966be275-c2fe-4954-8dfd-9531302b7831",
+        "season": 2,
+        "episode": 6,
+        "created_at": "2025-02-13 21:55:04"
+      }
+    ],
+    "watched_count": 12,
+    "latest_progress": "S02E06",
+    "latest_season": 2,
+    "latest_episode": 6,
+    "rating": 4,
+    "status": "watched",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-01-22 22:49:03",
+    "updated_at": "2025-02-13 21:55:04"
+  },
+  {
+    "uuid": "f64ab6ec-30a5-448e-afe9-b3d0363908bf",
+    "title": "Mediateka",
+    "original_title": "Mediateka",
+    "year": "2021",
+    "genre": "Satyra, Komedia",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 4,
+    "season_ep_counts": {
+      "1": 6,
+      "2": 6,
+      "3": 6,
+      "4": 7
+    },
+    "episodes_watched": [],
+    "watched_count": 0,
+    "latest_progress": null,
+    "latest_season": null,
+    "latest_episode": null,
+    "rating": null,
+    "status": "followed",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2026-03-08 17:58:00",
+    "updated_at": "2026-03-08 17:58:00"
+  },
+  {
+    "uuid": "b42a2d93-9aba-4f15-b214-90623e1a963e",
+    "title": "Rozdział czwarty",
+    "original_title": "Rozdział czwarty",
+    "year": "2019",
+    "genre": "Dramat, Kryminał",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 3,
+    "season_ep_counts": {
+      "1": 8,
+      "2": 8,
+      "3": 8
+    },
+    "episodes_watched": [],
+    "watched_count": 0,
+    "latest_progress": null,
+    "latest_season": null,
+    "latest_episode": null,
+    "rating": null,
+    "status": "watchlist",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-08-08 23:30:58",
+    "updated_at": "2025-08-08 23:30:58"
+  },
+  {
+    "uuid": "550c2fe9-654c-41d9-b2e6-182801bb819c",
+    "title": "Fullmetal Alchemist: Brotherhood",
+    "original_title": "Fullmetal Alchemist: Brotherhood",
+    "year": "2009",
+    "genre": "Anime, Przygodowy",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 1,
+    "season_ep_counts": {
+      "1": 64
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "5c11ab6d-42f5-43f5-8ef4-c34d5bf86f3c",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2025-01-10 20:34:41"
+      },
+      {
+        "episode_id": "78308631-b8f0-488e-bb37-afaecd8563ca",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2025-01-13 22:29:06"
+      },
+      {
+        "episode_id": "dd34aa18-9001-4ed4-8bb4-01e769f753f1",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2025-01-15 23:23:20"
+      },
+      {
+        "episode_id": "9442b5e6-9583-4d58-af4c-51198da5d39b",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2025-01-16 22:01:16"
+      },
+      {
+        "episode_id": "91ddb9bf-613d-4de9-bae2-802354720d2d",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2025-01-19 21:09:12"
+      },
+      {
+        "episode_id": "d253d966-c36b-4a0a-81e0-2a89566a9ce7",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2025-01-20 21:41:43"
+      },
+      {
+        "episode_id": "bb96f602-2b11-4c36-b5f8-e3a87d97ac0f",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2025-01-22 23:41:47"
+      },
+      {
+        "episode_id": "e3ad64d4-eab9-4b02-af1d-c1217d024c6d",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2025-01-24 20:46:34"
+      },
+      {
+        "episode_id": "13075157-d8c1-48e7-96cd-315508a8ac7f",
+        "season": 1,
+        "episode": 9,
+        "created_at": "2025-01-27 23:03:33"
+      },
+      {
+        "episode_id": "3b3f3800-a175-49c3-97b1-02a92332a50e",
+        "season": 1,
+        "episode": 10,
+        "created_at": "2025-01-30 19:00:26"
+      },
+      {
+        "episode_id": "0f79a8a7-5f8a-44bd-b4bd-0c938177b661",
+        "season": 1,
+        "episode": 11,
+        "created_at": "2025-01-31 22:00:13"
+      },
+      {
+        "episode_id": "7ce40679-a8c6-4bc0-bbb3-447be9aa144b",
+        "season": 1,
+        "episode": 12,
+        "created_at": "2025-02-03 21:59:39"
+      },
+      {
+        "episode_id": "b8e19f56-8787-4a21-8448-2a220308aa5e",
+        "season": 1,
+        "episode": 13,
+        "created_at": "2025-02-04 19:35:26"
+      },
+      {
+        "episode_id": "ac8d6c7d-b2a6-4468-902b-124380913ac1",
+        "season": 1,
+        "episode": 14,
+        "created_at": "2025-02-06 21:18:01"
+      },
+      {
+        "episode_id": "863e1f2a-18a8-46ef-ab05-3fc41b656dab",
+        "season": 1,
+        "episode": 15,
+        "created_at": "2025-02-08 22:58:11"
+      },
+      {
+        "episode_id": "446f64dd-5abc-46e5-90b1-e3eb409e7a80",
+        "season": 1,
+        "episode": 16,
+        "created_at": "2025-02-09 20:39:33"
+      },
+      {
+        "episode_id": "b27e1442-fd7f-4973-be42-df5b90a3fbbf",
+        "season": 1,
+        "episode": 17,
+        "created_at": "2025-02-11 19:25:29"
+      },
+      {
+        "episode_id": "dbb44021-fdde-44af-a75b-395a14a34f7f",
+        "season": 1,
+        "episode": 18,
+        "created_at": "2025-02-12 20:52:54"
+      },
+      {
+        "episode_id": "79db7862-8d7d-4772-a08e-2f5c61177270",
+        "season": 1,
+        "episode": 19,
+        "created_at": "2025-02-15 22:05:25"
+      },
+      {
+        "episode_id": "6f14b3f6-d867-488b-bff6-b824152aeaec",
+        "season": 1,
+        "episode": 20,
+        "created_at": "2025-02-16 21:44:10"
+      },
+      {
+        "episode_id": "873570a2-e511-4961-9869-a217f94d8fcb",
+        "season": 1,
+        "episode": 21,
+        "created_at": "2025-02-19 22:36:54"
+      },
+      {
+        "episode_id": "79ba630a-9118-4400-a336-c243b139c476",
+        "season": 1,
+        "episode": 22,
+        "created_at": "2025-02-20 20:57:55"
+      },
+      {
+        "episode_id": "8b040f53-e639-49d4-87c6-8688ecf32053",
+        "season": 1,
+        "episode": 23,
+        "created_at": "2025-02-22 19:04:43"
+      },
+      {
+        "episode_id": "f622d842-0402-4b3c-9082-11a5d9b59f84",
+        "season": 1,
+        "episode": 24,
+        "created_at": "2025-02-25 21:11:59"
+      },
+      {
+        "episode_id": "edcabf94-65f6-4a53-9226-a8b3b674410d",
+        "season": 1,
+        "episode": 25,
+        "created_at": "2025-02-26 21:48:52"
+      },
+      {
+        "episode_id": "639fc471-d975-4f00-95ab-a8ae9112fbc0",
+        "season": 1,
+        "episode": 26,
+        "created_at": "2025-02-27 20:36:15"
+      },
+      {
+        "episode_id": "ca5e151b-23d3-4d4c-bd5f-f093c16f9bcc",
+        "season": 1,
+        "episode": 27,
+        "created_at": "2025-03-02 22:21:24"
+      },
+      {
+        "episode_id": "1901ef87-0dbf-4caf-988a-3f87f96d40f8",
+        "season": 1,
+        "episode": 28,
+        "created_at": "2025-03-05 22:32:47"
+      },
+      {
+        "episode_id": "f4719986-9d26-4599-84dd-8df59aec56a8",
+        "season": 1,
+        "episode": 29,
+        "created_at": "2025-03-07 20:04:21"
+      },
+      {
+        "episode_id": "c8969c5b-45f8-428d-a255-e1bb07958c1f",
+        "season": 1,
+        "episode": 30,
+        "created_at": "2025-03-10 20:49:20"
+      },
+      {
+        "episode_id": "2f8c83e5-6e8d-4644-a01b-fbcbf0eebcce",
+        "season": 1,
+        "episode": 31,
+        "created_at": "2025-03-12 21:22:35"
+      },
+      {
+        "episode_id": "cc4d5819-4b9d-4d58-9e5d-9c7ac5acc354",
+        "season": 1,
+        "episode": 32,
+        "created_at": "2025-03-15 21:24:05"
+      },
+      {
+        "episode_id": "c8ad0899-b630-494d-a147-adeb277b0667",
+        "season": 1,
+        "episode": 33,
+        "created_at": "2025-03-16 22:05:17"
+      },
+      {
+        "episode_id": "01547950-176d-421f-9b46-ebdc5c56d9bc",
+        "season": 1,
+        "episode": 34,
+        "created_at": "2025-03-19 20:24:20"
+      },
+      {
+        "episode_id": "2ff8e87e-1659-4c89-a1eb-faa91a2bd69c",
+        "season": 1,
+        "episode": 35,
+        "created_at": "2025-03-21 21:48:17"
+      },
+      {
+        "episode_id": "16f142a2-06b9-49aa-9a71-67c768759545",
+        "season": 1,
+        "episode": 36,
+        "created_at": "2025-03-23 21:35:32"
+      },
+      {
+        "episode_id": "629ef3d8-dd1c-4267-930d-dda6c8d0f9e5",
+        "season": 1,
+        "episode": 37,
+        "created_at": "2025-03-25 21:38:38"
+      },
+      {
+        "episode_id": "8f3dc97f-e6b0-4a0a-b98f-5dbe15aede0f",
+        "season": 1,
+        "episode": 38,
+        "created_at": "2025-03-26 20:24:49"
+      },
+      {
+        "episode_id": "44d7df9a-238b-45b7-ab64-777c6177a771",
+        "season": 1,
+        "episode": 39,
+        "created_at": "2025-03-27 21:10:43"
+      },
+      {
+        "episode_id": "6bcd5ce7-46a5-4fe8-af46-f1b12ace1aa9",
+        "season": 1,
+        "episode": 40,
+        "created_at": "2025-03-29 20:09:04"
+      },
+      {
+        "episode_id": "b88cddde-3f20-46c2-b1b8-8d65406f64d6",
+        "season": 1,
+        "episode": 41,
+        "created_at": "2025-03-31 21:04:23"
+      },
+      {
+        "episode_id": "4dfe1117-22af-411f-9b62-8a9d75366b9f",
+        "season": 1,
+        "episode": 42,
+        "created_at": "2025-04-03 21:39:12"
+      }
+    ],
+    "watched_count": 42,
+    "latest_progress": "S01E42",
+    "latest_season": 1,
+    "latest_episode": 42,
+    "rating": null,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-01-10 20:34:41",
+    "updated_at": "2025-04-03 21:39:12"
+  },
+  {
+    "uuid": "6082786f-ca00-4f58-ac52-1d13b719bb68",
+    "title": "Sherlock",
+    "original_title": "Sherlock",
+    "year": "2010",
+    "genre": "Kryminał, Tajemnica",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 4,
+    "season_ep_counts": {
+      "1": 3,
+      "2": 3,
+      "3": 3,
+      "4": 3
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "22d90db3-982a-4277-b966-d59fa6aa59e5",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2025-05-05 21:52:55"
+      },
+      {
+        "episode_id": "f6ee5cdb-2d79-42d1-906e-50c77aa061e9",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2025-05-07 20:44:12"
+      },
+      {
+        "episode_id": "f7bf5244-7db2-47aa-a205-e54fb1e8c09d",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2025-05-09 23:18:47"
+      },
+      {
+        "episode_id": "64976593-c92e-4c93-9105-c8d647c1c017",
+        "season": 2,
+        "episode": 1,
+        "created_at": "2025-05-12 22:20:24"
+      },
+      {
+        "episode_id": "2e0fb5b3-8bae-491e-bf4c-c10f979c30cf",
+        "season": 2,
+        "episode": 2,
+        "created_at": "2025-05-14 19:36:12"
+      },
+      {
+        "episode_id": "35ab8466-b557-4b00-b166-cdcf762cdfbc",
+        "season": 2,
+        "episode": 3,
+        "created_at": "2025-05-17 22:01:46"
+      },
+      {
+        "episode_id": "68bd80d7-cb88-4c32-8bb0-2a8bd908a121",
+        "season": 3,
+        "episode": 1,
+        "created_at": "2025-05-19 22:04:52"
+      },
+      {
+        "episode_id": "2775ee42-a89e-42f2-80af-bf3f3df51967",
+        "season": 3,
+        "episode": 2,
+        "created_at": "2025-05-22 21:40:19"
+      }
+    ],
+    "watched_count": 8,
+    "latest_progress": "S03E02",
+    "latest_season": 3,
+    "latest_episode": 2,
+    "rating": 1,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-05-05 21:52:55",
+    "updated_at": "2025-05-22 21:40:19"
+  },
+  {
+    "uuid": "c0582da5-a757-475b-947f-83b1bc69c155",
+    "title": "Detektyw Bruno",
+    "original_title": "Detektyw Bruno",
+    "year": "2014",
+    "genre": "Kryminał, Dramat",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 4,
+    "season_ep_counts": {
+      "1": 8,
+      "2": 8,
+      "3": 8,
+      "4": 8
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "09697101-8b2c-450a-ab15-c11bb113d50b",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2025-06-15 21:58:55"
+      },
+      {
+        "episode_id": "15c1604f-ea16-4354-a35f-c9c198049562",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2025-06-17 22:51:34"
+      },
+      {
+        "episode_id": "9cd8758b-a5a1-4825-aa95-28c35ae1dbad",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2025-06-18 22:42:42"
+      },
+      {
+        "episode_id": "c0afd193-f780-4f2f-a64d-5922a590fd3c",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2025-06-19 21:41:43"
+      },
+      {
+        "episode_id": "38d5101f-423c-4d9d-993e-478302b34254",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2025-06-21 23:27:06"
+      },
+      {
+        "episode_id": "721e8b1f-3895-4939-9342-a09fb00ac64c",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2025-06-24 22:35:37"
+      },
+      {
+        "episode_id": "2697384d-801e-4690-b0c0-7fcc96add4df",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2025-06-26 20:49:43"
+      },
+      {
+        "episode_id": "f633cc2d-eba9-40e1-aa7d-5d964ba17233",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2025-06-28 23:30:06"
+      },
+      {
+        "episode_id": "7490adeb-57d3-47d3-8fd8-0bbb592c1107",
+        "season": 2,
+        "episode": 1,
+        "created_at": "2025-06-29 19:46:09"
+      },
+      {
+        "episode_id": "b25f13df-b8d4-4848-b02b-a49f18fdd2b9",
+        "season": 2,
+        "episode": 2,
+        "created_at": "2025-06-30 21:22:30"
+      },
+      {
+        "episode_id": "05c8234b-1d76-4a66-b5f5-9cb0cf685878",
+        "season": 2,
+        "episode": 3,
+        "created_at": "2025-07-02 20:19:02"
+      },
+      {
+        "episode_id": "bd90b81a-fbe0-46b8-ae0f-65a82a131c1f",
+        "season": 2,
+        "episode": 4,
+        "created_at": "2025-07-04 21:43:51"
+      },
+      {
+        "episode_id": "f55dce6d-6d26-4b37-8f52-42d354bbbcf8",
+        "season": 2,
+        "episode": 5,
+        "created_at": "2025-07-05 21:35:10"
+      },
+      {
+        "episode_id": "a84554c3-a3f6-4c61-afb7-0dab2f383b43",
+        "season": 2,
+        "episode": 6,
+        "created_at": "2025-07-07 20:25:40"
+      },
+      {
+        "episode_id": "979aa051-7317-491a-b283-daa4e212ab7c",
+        "season": 2,
+        "episode": 7,
+        "created_at": "2025-07-09 20:47:39"
+      },
+      {
+        "episode_id": "b4299924-c098-4750-8741-9b4834ae4abd",
+        "season": 2,
+        "episode": 8,
+        "created_at": "2025-07-11 20:45:13"
+      },
+      {
+        "episode_id": "5373bf4d-5da4-4cb9-afdc-999289718eea",
+        "season": 3,
+        "episode": 1,
+        "created_at": "2025-07-12 21:51:55"
+      },
+      {
+        "episode_id": "f7464c02-8718-44c1-bd4e-d26edcd5bfae",
+        "season": 3,
+        "episode": 2,
+        "created_at": "2025-07-13 21:16:42"
+      },
+      {
+        "episode_id": "591196dc-1d3e-403a-9645-f0e4647dc392",
+        "season": 3,
+        "episode": 3,
+        "created_at": "2025-07-16 20:24:39"
+      },
+      {
+        "episode_id": "ccf4ffb0-b4bb-473f-ac70-51d1d051267f",
+        "season": 3,
+        "episode": 4,
+        "created_at": "2025-07-18 22:39:11"
+      },
+      {
+        "episode_id": "1e2c2e7d-502c-40ee-a24a-66a6ac0f6801",
+        "season": 3,
+        "episode": 5,
+        "created_at": "2025-07-20 23:37:05"
+      },
+      {
+        "episode_id": "63725424-82c5-4b21-a430-12dab1850eb8",
+        "season": 3,
+        "episode": 6,
+        "created_at": "2025-07-21 20:11:23"
+      },
+      {
+        "episode_id": "a2b03c4b-7c96-4b55-af8d-8ded6c4c450b",
+        "season": 3,
+        "episode": 7,
+        "created_at": "2025-07-23 21:36:24"
+      },
+      {
+        "episode_id": "2ab7b2ef-8e0e-4033-ac59-1da8fff96acf",
+        "season": 3,
+        "episode": 8,
+        "created_at": "2025-07-26 21:41:59"
+      },
+      {
+        "episode_id": "0db977a9-9e91-471c-b374-ccbfd78c57d3",
+        "season": 4,
+        "episode": 1,
+        "created_at": "2025-07-28 20:11:20"
+      },
+      {
+        "episode_id": "f6bd80c7-624a-4a50-90b1-fde031f3f0c0",
+        "season": 4,
+        "episode": 2,
+        "created_at": "2025-07-30 23:31:08"
+      },
+      {
+        "episode_id": "b5cbe3f5-6a66-4184-bde1-bf5daf4847f0",
+        "season": 4,
+        "episode": 3,
+        "created_at": "2025-08-02 21:31:26"
+      },
+      {
+        "episode_id": "38749f3c-c2d4-4b56-8bbe-d98007e67cb0",
+        "season": 4,
+        "episode": 4,
+        "created_at": "2025-08-04 21:05:36"
+      },
+      {
+        "episode_id": "751303b9-c7de-46ea-ab0f-be4449e64c22",
+        "season": 4,
+        "episode": 5,
+        "created_at": "2025-08-06 19:14:34"
+      },
+      {
+        "episode_id": "929d6377-1cfb-455f-82c4-2e488cbadae5",
+        "season": 4,
+        "episode": 6,
+        "created_at": "2025-08-09 22:49:31"
+      },
+      {
+        "episode_id": "d296a12d-8ac3-4ac4-9dea-a737fdab3441",
+        "season": 4,
+        "episode": 7,
+        "created_at": "2025-08-10 20:34:52"
+      },
+      {
+        "episode_id": "1a37f6bd-6cd6-4011-bd61-f13b37f25d36",
+        "season": 4,
+        "episode": 8,
+        "created_at": "2025-08-11 22:28:34"
+      }
+    ],
+    "watched_count": 32,
+    "latest_progress": "S04E08",
+    "latest_season": 4,
+    "latest_episode": 8,
+    "rating": 5,
+    "status": "watched",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-06-15 21:58:55",
+    "updated_at": "2025-08-11 22:28:34"
+  },
+  {
+    "uuid": "dd83ad03-7066-4289-9644-84a0d1151fff",
+    "title": "Mandalorian",
+    "original_title": "Mandalorian",
+    "year": "2019",
+    "genre": "Sci-Fi, Przygodowy",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 4,
+    "season_ep_counts": {
+      "1": 8,
+      "2": 8,
+      "3": 8,
+      "4": 8
+    },
+    "episodes_watched": [],
+    "watched_count": 0,
+    "latest_progress": null,
+    "latest_season": null,
+    "latest_episode": null,
+    "rating": null,
+    "status": "followed",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2026-08-09 18:22:55",
+    "updated_at": "2026-08-09 18:22:55"
+  },
+  {
+    "uuid": "59c2f153-b06b-4f0c-9682-2e22bcd4344f",
+    "title": "Poker Face",
+    "original_title": "Poker Face",
+    "year": "2023",
+    "genre": "Kryminał, Komedia",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 2,
+    "season_ep_counts": {
+      "1": 10,
+      "2": 12
+    },
+    "episodes_watched": [],
+    "watched_count": 0,
+    "latest_progress": null,
+    "latest_season": null,
+    "latest_episode": null,
+    "rating": null,
+    "status": "followed",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-07-24 21:13:51",
+    "updated_at": "2025-07-24 21:13:51"
+  },
+  {
+    "uuid": "d0437e4c-34e5-4699-88eb-e27a23a4e70e",
+    "title": "Mr. Robot",
+    "original_title": "Mr. Robot",
+    "year": "2015",
+    "genre": "Dramat, Technothriller",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 4,
+    "season_ep_counts": {
+      "1": 10,
+      "2": 12,
+      "3": 10,
+      "4": 13
+    },
+    "episodes_watched": [],
+    "watched_count": 0,
+    "latest_progress": null,
+    "latest_season": null,
+    "latest_episode": null,
+    "rating": null,
+    "status": "followed",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-10-17 20:10:39",
+    "updated_at": "2025-10-17 20:10:39"
+  },
+  {
+    "uuid": "c4d598f7-e14f-4093-8b6a-d0c7a2356dd4",
+    "title": "Wataha",
+    "original_title": "Wataha",
+    "year": "2014",
+    "genre": "Kryminał, Thriller",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 3,
+    "season_ep_counts": {
+      "1": 8,
+      "2": 6,
+      "3": 6
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "4aea1b8f-b43c-4e0a-ba9f-c10e52daf681",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2024-12-24 20:34:10"
+      },
+      {
+        "episode_id": "d0afb235-ade6-4f51-a670-93a0fc48f615",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2024-12-26 21:54:32"
+      },
+      {
+        "episode_id": "fe1393cd-0f2d-4c15-ab34-6d3a695e5ea9",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2024-12-27 19:48:50"
+      },
+      {
+        "episode_id": "257035db-3fea-490a-a1f8-072dddb7570e",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2024-12-29 22:08:44"
+      },
+      {
+        "episode_id": "7d4d2add-6488-4945-ad1d-b537d7f34368",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2025-01-01 20:15:48"
+      },
+      {
+        "episode_id": "135508d0-73b5-4ad5-a00b-4b356a0aa7d5",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2025-01-02 21:17:40"
+      }
+    ],
+    "watched_count": 6,
+    "latest_progress": "S01E06",
+    "latest_season": 1,
+    "latest_episode": 6,
+    "rating": 4,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2024-12-24 20:34:10",
+    "updated_at": "2025-01-02 21:17:40"
+  },
+  {
+    "uuid": "13f3cade-7a10-413f-b6a2-c52b00473139",
+    "title": "Rzymskie porachunki",
+    "original_title": "Rzymskie porachunki",
+    "year": "2021",
+    "genre": "Dramat, Historyczny",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 2,
+    "season_ep_counts": {
+      "1": 8,
+      "2": 8
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "17d821b8-bb93-4d40-98df-f535c62dbaea",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2025-04-20 20:00:55"
+      },
+      {
+        "episode_id": "1036708d-d9a0-4007-9bb4-7c18b28187c4",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2025-04-23 23:40:42"
+      },
+      {
+        "episode_id": "52a74a41-44be-4486-bea5-a387363be5cb",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2025-04-26 20:27:52"
+      },
+      {
+        "episode_id": "c9ce44bd-7c3f-4add-9a38-5db590eeb067",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2025-04-28 20:36:08"
+      },
+      {
+        "episode_id": "c8acffcf-a04d-4d14-997d-bae10bc2ea72",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2025-04-30 22:48:03"
+      },
+      {
+        "episode_id": "002c4c22-74de-4f70-b0f8-1dba28719b9b",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2025-05-02 19:59:54"
+      },
+      {
+        "episode_id": "4d470ed6-a666-4769-a1d4-6f8221c50e41",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2025-05-04 20:44:58"
+      },
+      {
+        "episode_id": "40198303-5c45-4e4d-a793-13b817e52113",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2025-05-05 22:56:17"
+      },
+      {
+        "episode_id": "4e35da80-a027-4a18-a576-a4100d41ee47",
+        "season": 2,
+        "episode": 1,
+        "created_at": "2025-05-07 21:41:10"
+      },
+      {
+        "episode_id": "185df528-b425-4e19-9758-d47ea7cde143",
+        "season": 2,
+        "episode": 2,
+        "created_at": "2025-05-10 21:14:27"
+      }
+    ],
+    "watched_count": 10,
+    "latest_progress": "S02E02",
+    "latest_season": 2,
+    "latest_episode": 2,
+    "rating": 5,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-04-20 20:00:55",
+    "updated_at": "2025-05-10 21:14:27"
+  },
+  {
+    "uuid": "6c1cc405-dc3f-42e0-bcf7-b8421edf3bfa",
+    "title": "Kruk",
+    "original_title": "Kruk",
+    "year": "2018",
+    "genre": "Dramat, Kryminał",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 2,
+    "season_ep_counts": {
+      "1": 8,
+      "2": 8
+    },
+    "episodes_watched": [],
+    "watched_count": 0,
+    "latest_progress": null,
+    "latest_season": null,
+    "latest_episode": null,
+    "rating": null,
+    "status": "watchlist",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2026-08-21 08:21:52",
+    "updated_at": "2026-08-21 08:21:52"
+  },
+  {
+    "uuid": "1a6b6a7d-1a38-4ad6-8e53-2ffdbb134f02",
+    "title": "Mroczne zaginięcia",
+    "original_title": "Mroczne zaginięcia",
+    "year": "2017",
+    "genre": "Sci-Fi, Tajemnica",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 3,
+    "season_ep_counts": {
+      "1": 10,
+      "2": 8,
+      "3": 8
+    },
+    "episodes_watched": [],
+    "watched_count": 0,
+    "latest_progress": null,
+    "latest_season": null,
+    "latest_episode": null,
+    "rating": null,
+    "status": "watchlist",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-12-24 10:24:05",
+    "updated_at": "2025-12-24 10:24:05"
+  },
+  {
+    "uuid": "0316d2d6-fa4a-48ef-a383-7348873dc8bd",
+    "title": "Absolutni debiutanci",
+    "original_title": "Absolutni debiutanci",
+    "year": "2016",
+    "genre": "Dramat, Młodzieżowy",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 3,
+    "season_ep_counts": {
+      "1": 8,
+      "2": 8,
+      "3": 8
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "ad58db1b-fe31-437a-a43e-558c2215df00",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2026-03-11 22:48:55"
+      },
+      {
+        "episode_id": "70aa5b0d-2a03-4ad4-a667-b9829c3de1b0",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2026-03-12 19:36:00"
+      },
+      {
+        "episode_id": "9db7284b-6965-41d1-ab7e-2e6426c0747e",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2026-03-14 22:40:47"
+      },
+      {
+        "episode_id": "c0a0473a-23d7-46a1-99b8-14fce5871d89",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2026-03-17 21:13:05"
+      },
+      {
+        "episode_id": "ca840003-5083-4fef-adec-6bbdf69777a1",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2026-03-18 21:24:22"
+      },
+      {
+        "episode_id": "999a1d86-99db-4302-8dab-66d33f87dfc2",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2026-03-19 20:41:05"
+      },
+      {
+        "episode_id": "a88d4108-d8d9-44b8-990f-74e906ddf6ca",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2026-03-22 21:49:44"
+      },
+      {
+        "episode_id": "4ba8a4ca-6449-4b6f-bf72-ae52304b2370",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2026-03-24 20:38:32"
+      },
+      {
+        "episode_id": "122dd7be-980b-481e-a359-5d1f7fe4a42e",
+        "season": 2,
+        "episode": 1,
+        "created_at": "2026-03-25 21:07:15"
+      }
+    ],
+    "watched_count": 9,
+    "latest_progress": "S02E01",
+    "latest_season": 2,
+    "latest_episode": 1,
+    "rating": null,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2026-03-11 22:48:55",
+    "updated_at": "2026-03-25 21:07:15"
+  },
+  {
+    "uuid": "aed54a46-8bde-405b-9d8b-abd76bbdb66f",
+    "title": "Belfer",
+    "original_title": "Belfer",
+    "year": "2016",
+    "genre": "Kryminał, Dramat",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 3,
+    "season_ep_counts": {
+      "1": 8,
+      "2": 8,
+      "3": 8
+    },
+    "episodes_watched": [],
+    "watched_count": 0,
+    "latest_progress": null,
+    "latest_season": null,
+    "latest_episode": null,
+    "rating": null,
+    "status": "followed",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2026-06-19 18:53:36",
+    "updated_at": "2026-06-19 18:53:36"
+  },
+  {
+    "uuid": "4350ab06-1059-4a28-861b-4f5b45a08539",
+    "title": "1670",
+    "original_title": "1670",
+    "year": "2023",
+    "genre": "Komedia, Historyczna",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 2,
+    "season_ep_counts": {
+      "1": 8,
+      "2": 8
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "0f7ae302-ec2e-4815-8a32-17d2373aedf8",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2026-05-15 21:00:16"
+      },
+      {
+        "episode_id": "6c6f6d2e-6a59-4043-8461-52348044beb2",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2026-05-17 21:40:45"
+      },
+      {
+        "episode_id": "4708203b-2716-40c1-9db5-428389a3c811",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2026-05-20 21:40:34"
+      },
+      {
+        "episode_id": "27c6cbb1-cedd-469d-b96c-9a0a3404c02a",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2026-05-21 20:32:58"
+      },
+      {
+        "episode_id": "ae59aa52-a65b-422b-95a3-86d9c362a810",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2026-05-24 20:37:40"
+      },
+      {
+        "episode_id": "3d175712-d8b2-4277-b413-db19bade8d5d",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2026-05-27 19:44:27"
+      },
+      {
+        "episode_id": "9bdc70d1-9cbf-4b8c-b410-2d5d1db14bfc",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2026-05-28 20:59:27"
+      },
+      {
+        "episode_id": "033e02f7-1e93-4127-acf7-2140bd9bc648",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2026-05-29 20:47:42"
+      },
+      {
+        "episode_id": "d28fcf68-c871-47b3-8468-b74d85e3ade5",
+        "season": 2,
+        "episode": 1,
+        "created_at": "2026-06-01 19:31:22"
+      },
+      {
+        "episode_id": "44cdbfdd-df9b-441e-87f7-bda1bff15840",
+        "season": 2,
+        "episode": 2,
+        "created_at": "2026-06-04 20:23:08"
+      },
+      {
+        "episode_id": "6de8370a-ce9e-4ebd-95c3-48530783e43c",
+        "season": 2,
+        "episode": 3,
+        "created_at": "2026-06-07 22:49:57"
+      }
+    ],
+    "watched_count": 11,
+    "latest_progress": "S02E03",
+    "latest_season": 2,
+    "latest_episode": 3,
+    "rating": null,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2026-05-15 21:00:16",
+    "updated_at": "2026-06-07 22:49:57"
+  },
+  {
+    "uuid": "90ce82e8-e9a5-4368-9812-9eb27c13f47a",
+    "title": "Bear",
+    "original_title": "Bear",
+    "year": "2022",
+    "genre": "Dramat, Komedia",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 4,
+    "season_ep_counts": {
+      "1": 8,
+      "2": 10,
+      "3": 10,
+      "4": 10
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "2ab8bd33-911f-430b-9bff-00b07fe670f3",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2026-05-12 21:23:03"
+      },
+      {
+        "episode_id": "b90800f3-ac93-481a-92eb-eab0e4eec67c",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2026-05-14 20:49:06"
+      },
+      {
+        "episode_id": "03254fbd-dce8-41c5-9bd3-0aec0b461173",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2026-05-15 20:32:00"
+      },
+      {
+        "episode_id": "ee6081ac-2dd0-422e-a66b-f2eaeb93f78c",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2026-05-16 19:23:24"
+      },
+      {
+        "episode_id": "3979d5f5-6b5b-4975-a7dc-2bc0bd9c4693",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2026-05-17 21:58:45"
+      },
+      {
+        "episode_id": "13f06822-d374-4a11-8571-295951e744e4",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2026-05-19 20:58:46"
+      },
+      {
+        "episode_id": "3922a7e4-2de9-42f8-8d7b-ec04e6e59b32",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2026-05-22 20:32:43"
+      },
+      {
+        "episode_id": "48454343-ddb4-49dc-b710-6966e0827f76",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2026-05-25 23:25:04"
+      },
+      {
+        "episode_id": "4aa5f9d3-335f-4f59-9e71-7fca020a4497",
+        "season": 2,
+        "episode": 1,
+        "created_at": "2026-05-27 20:35:29"
+      },
+      {
+        "episode_id": "97790e84-5e47-4e22-b6c3-e6423e19fc1d",
+        "season": 2,
+        "episode": 2,
+        "created_at": "2026-05-30 22:47:39"
+      },
+      {
+        "episode_id": "c2aef674-8beb-4e78-a683-73a3bb82b796",
+        "season": 2,
+        "episode": 3,
+        "created_at": "2026-06-01 23:49:12"
+      },
+      {
+        "episode_id": "58af393c-8aa2-44c9-bba5-bd76061efb95",
+        "season": 2,
+        "episode": 4,
+        "created_at": "2026-06-02 20:59:26"
+      },
+      {
+        "episode_id": "c2492e5e-005f-40e6-95c3-b2dbf374190d",
+        "season": 2,
+        "episode": 5,
+        "created_at": "2026-06-05 22:56:00"
+      },
+      {
+        "episode_id": "87a1ec02-3487-4e41-9a9c-672a4eb9047d",
+        "season": 2,
+        "episode": 6,
+        "created_at": "2026-06-08 20:47:46"
+      },
+      {
+        "episode_id": "0b3d0c36-17d0-4810-87a2-a10bb62edb49",
+        "season": 2,
+        "episode": 7,
+        "created_at": "2026-06-09 21:03:09"
+      },
+      {
+        "episode_id": "755d814b-5f5b-4255-a544-9887b36ab3ed",
+        "season": 2,
+        "episode": 8,
+        "created_at": "2026-06-10 22:33:26"
+      },
+      {
+        "episode_id": "64f434d6-d1e9-4691-a320-9116222df6a4",
+        "season": 2,
+        "episode": 9,
+        "created_at": "2026-06-13 19:06:32"
+      },
+      {
+        "episode_id": "3c9d128a-2176-4930-b6d7-0248a995ecc3",
+        "season": 2,
+        "episode": 10,
+        "created_at": "2026-06-14 21:03:27"
+      },
+      {
+        "episode_id": "d4f76322-b362-40d2-a498-8bdecd0254db",
+        "season": 3,
+        "episode": 1,
+        "created_at": "2026-06-16 20:20:59"
+      },
+      {
+        "episode_id": "33e4f986-f18c-4cdc-931e-b7233bcdf203",
+        "season": 3,
+        "episode": 2,
+        "created_at": "2026-06-19 20:28:17"
+      },
+      {
+        "episode_id": "7316ce64-2a14-4a96-9b0c-62eb27c8fc6c",
+        "season": 3,
+        "episode": 3,
+        "created_at": "2026-06-20 22:37:06"
+      },
+      {
+        "episode_id": "3527a5c8-c534-4a08-b6f2-4d1c5bb8b9c8",
+        "season": 3,
+        "episode": 4,
+        "created_at": "2026-06-22 20:07:34"
+      },
+      {
+        "episode_id": "cebeabaa-2859-4b34-9725-d2c71eb2a7b8",
+        "season": 3,
+        "episode": 5,
+        "created_at": "2026-06-24 20:16:54"
+      },
+      {
+        "episode_id": "d5ff2a1f-370b-4a29-8a53-0df99a72083c",
+        "season": 3,
+        "episode": 6,
+        "created_at": "2026-06-27 20:45:44"
+      },
+      {
+        "episode_id": "837217e0-6570-46ea-9b11-f51ff7e9101d",
+        "season": 3,
+        "episode": 7,
+        "created_at": "2026-06-29 19:45:15"
+      },
+      {
+        "episode_id": "f3bc9a71-07f4-4ee5-ac82-989ffd9cfbb0",
+        "season": 3,
+        "episode": 8,
+        "created_at": "2026-06-30 21:16:52"
+      },
+      {
+        "episode_id": "7648776e-183f-4a70-bff6-579e8cd4b90a",
+        "season": 3,
+        "episode": 9,
+        "created_at": "2026-07-02 22:35:47"
+      },
+      {
+        "episode_id": "c7ecfe71-d493-47fc-8fc9-8d2e030f9be9",
+        "season": 3,
+        "episode": 10,
+        "created_at": "2026-07-03 22:08:07"
+      },
+      {
+        "episode_id": "f004e897-a15b-4e18-afb0-64065f4b1a97",
+        "season": 4,
+        "episode": 1,
+        "created_at": "2026-07-04 19:52:25"
+      },
+      {
+        "episode_id": "0594b24f-1332-4c31-9010-318aeadc9960",
+        "season": 4,
+        "episode": 2,
+        "created_at": "2026-07-07 19:37:16"
+      },
+      {
+        "episode_id": "e7b33085-178b-4968-a0f8-7ba2cf2e3296",
+        "season": 4,
+        "episode": 3,
+        "created_at": "2026-07-08 20:41:28"
+      },
+      {
+        "episode_id": "6ee35607-92ea-4324-ac93-e5962b015723",
+        "season": 4,
+        "episode": 4,
+        "created_at": "2026-07-10 19:29:03"
+      },
+      {
+        "episode_id": "5a9c0679-2c3d-47e2-ad39-da75aee70ab2",
+        "season": 4,
+        "episode": 5,
+        "created_at": "2026-07-13 20:01:24"
+      },
+      {
+        "episode_id": "08dec921-260c-4547-a228-0fe3722dce13",
+        "season": 4,
+        "episode": 6,
+        "created_at": "2026-07-14 23:17:17"
+      },
+      {
+        "episode_id": "e1fdc6d1-6978-4221-bfb7-5c574b8c031f",
+        "season": 4,
+        "episode": 7,
+        "created_at": "2026-07-17 21:15:41"
+      },
+      {
+        "episode_id": "330faaa3-6b52-493c-a321-e64e620d4a1f",
+        "season": 4,
+        "episode": 8,
+        "created_at": "2026-07-20 21:05:17"
+      },
+      {
+        "episode_id": "8b2d158a-cd5a-4324-be7c-80e9a1791e93",
+        "season": 4,
+        "episode": 9,
+        "created_at": "2026-07-23 22:33:15"
+      },
+      {
+        "episode_id": "c80c2195-8b65-44ce-bacc-99705beec570",
+        "season": 4,
+        "episode": 10,
+        "created_at": "2026-07-24 23:50:45"
+      }
+    ],
+    "watched_count": 38,
+    "latest_progress": "S04E10",
+    "latest_season": 4,
+    "latest_episode": 10,
+    "rating": 4,
+    "status": "watched",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2026-05-12 21:23:03",
+    "updated_at": "2026-07-24 23:50:45"
+  },
+  {
+    "uuid": "5bd93609-b297-4782-bcf4-74aace63cb1a",
+    "title": "Wielka wodna historia",
+    "original_title": "Wielka wodna historia",
+    "year": "2022",
+    "genre": "Dramat, Katastroficzny",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 1,
+    "season_ep_counts": {
+      "1": 5
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "47eb340d-c74e-48ff-8f89-569de550d736",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2026-01-25 20:14:01"
+      },
+      {
+        "episode_id": "ffe62994-9580-4c2a-844f-c4b85b80b8d1",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2026-01-26 22:30:33"
+      },
+      {
+        "episode_id": "889fe107-443b-4d0f-bdbc-3093a8284442",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2026-01-27 23:06:15"
+      },
+      {
+        "episode_id": "636fa890-cc21-4bdb-bb8f-e8c4d8b48ead",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2026-01-30 19:14:36"
+      },
+      {
+        "episode_id": "5168bbf2-97af-4bde-bc8e-9d782d14e9f4",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2026-02-01 23:54:11"
+      }
+    ],
+    "watched_count": 5,
+    "latest_progress": "S01E05",
+    "latest_season": 1,
+    "latest_episode": 5,
+    "rating": 2,
+    "status": "watched",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2026-01-25 20:14:01",
+    "updated_at": "2026-02-01 23:54:11"
+  },
+  {
+    "uuid": "64953d5f-0cb4-4891-988d-f23b3ccff6eb",
+    "title": "Detektyw Brunner",
+    "original_title": "Detektyw Brunner",
+    "year": "2015",
+    "genre": "Kryminał, Komedia",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 2,
+    "season_ep_counts": {
+      "1": 13,
+      "2": 13
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "f86b543a-e1b2-43cc-8f76-7343fcedf994",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2024-12-26 19:12:53"
+      },
+      {
+        "episode_id": "3b8d3447-0e61-465f-971b-1b8009b7fdf7",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2024-12-28 21:11:31"
+      },
+      {
+        "episode_id": "9d37efb6-eafb-4e90-94ec-84ce002ccb25",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2024-12-31 20:33:30"
+      },
+      {
+        "episode_id": "d8230076-cd6b-403b-ab35-37a02d6e0291",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2025-01-01 22:21:45"
+      },
+      {
+        "episode_id": "c63ce21d-2443-4958-aacf-33a9b466fab6",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2025-01-03 19:09:37"
+      },
+      {
+        "episode_id": "b45c9a54-5fa3-4531-9291-6e60f5e72daf",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2025-01-04 22:55:23"
+      },
+      {
+        "episode_id": "f9d2014a-22ee-4f07-9296-1fb34d407b28",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2025-01-07 20:06:21"
+      },
+      {
+        "episode_id": "a630ad9d-7cb9-43f5-b5ed-f382a3a6ef83",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2025-01-08 22:27:50"
+      },
+      {
+        "episode_id": "c9784b52-9d1c-4838-adc8-cca8e3bcd6f3",
+        "season": 1,
+        "episode": 9,
+        "created_at": "2025-01-10 20:35:44"
+      },
+      {
+        "episode_id": "bbe71835-4e8b-478a-a0dd-c7f12ce3d822",
+        "season": 1,
+        "episode": 10,
+        "created_at": "2025-01-12 20:37:52"
+      },
+      {
+        "episode_id": "f2dde1f5-b3b6-4344-b2e3-c6f00075d3d5",
+        "season": 1,
+        "episode": 11,
+        "created_at": "2025-01-15 20:11:46"
+      },
+      {
+        "episode_id": "5176a9d1-9a36-44d6-ae9c-e8ff084a3c4b",
+        "season": 1,
+        "episode": 12,
+        "created_at": "2025-01-18 20:49:36"
+      },
+      {
+        "episode_id": "54c7743b-2401-442a-bf05-fbf5efcac577",
+        "season": 1,
+        "episode": 13,
+        "created_at": "2025-01-21 20:36:06"
+      },
+      {
+        "episode_id": "16b6bf61-f68c-42e6-a2a4-5909a2dd22d5",
+        "season": 2,
+        "episode": 1,
+        "created_at": "2025-01-22 20:20:10"
+      },
+      {
+        "episode_id": "43e4f668-02ea-42df-b256-56e355f3ad50",
+        "season": 2,
+        "episode": 2,
+        "created_at": "2025-01-25 21:46:56"
+      },
+      {
+        "episode_id": "b86d066b-1ba8-47c6-897a-24ad41b455b8",
+        "season": 2,
+        "episode": 3,
+        "created_at": "2025-01-26 20:04:22"
+      },
+      {
+        "episode_id": "e271fff9-2a95-47f6-b817-0ebf6b6e64c5",
+        "season": 2,
+        "episode": 4,
+        "created_at": "2025-01-27 19:28:46"
+      },
+      {
+        "episode_id": "d42cb1ae-19f7-48cb-a016-c7438bc83a02",
+        "season": 2,
+        "episode": 5,
+        "created_at": "2025-01-29 21:24:22"
+      },
+      {
+        "episode_id": "29a3db6d-39bf-4a38-afe9-be90c21c3fb3",
+        "season": 2,
+        "episode": 6,
+        "created_at": "2025-01-31 22:36:41"
+      },
+      {
+        "episode_id": "42d943ee-5197-4e75-8523-d4fd4b7f2183",
+        "season": 2,
+        "episode": 7,
+        "created_at": "2025-02-02 19:54:02"
+      },
+      {
+        "episode_id": "13335bc9-bb63-4ff5-a931-0971601e0211",
+        "season": 2,
+        "episode": 8,
+        "created_at": "2025-02-03 19:10:56"
+      },
+      {
+        "episode_id": "e4aa786d-9d17-4218-bc3b-0de5981262ac",
+        "season": 2,
+        "episode": 9,
+        "created_at": "2025-02-06 23:05:21"
+      },
+      {
+        "episode_id": "6f27c1b9-e3c6-4edb-9b79-2afa2a3d418d",
+        "season": 2,
+        "episode": 10,
+        "created_at": "2025-02-08 22:27:41"
+      },
+      {
+        "episode_id": "b27b7bb4-68c6-40b2-b0a2-cee8f9722cc1",
+        "season": 2,
+        "episode": 11,
+        "created_at": "2025-02-09 19:21:13"
+      },
+      {
+        "episode_id": "4c2272f3-4811-4562-a91c-f19243e8644b",
+        "season": 2,
+        "episode": 12,
+        "created_at": "2025-02-12 22:46:34"
+      }
+    ],
+    "watched_count": 25,
+    "latest_progress": "S02E12",
+    "latest_season": 2,
+    "latest_episode": 12,
+    "rating": null,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2024-12-26 19:12:53",
+    "updated_at": "2025-02-12 22:46:34"
+  },
+  {
+    "uuid": "a97a2846-d2ea-4f18-8b67-97a1166ecfe3",
+    "title": "Cyberpunk: Edgerunners",
+    "original_title": "Cyberpunk: Edgerunners",
+    "year": "2022",
+    "genre": "Animacja, Akcja",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 1,
+    "season_ep_counts": {
+      "1": 10
+    },
+    "episodes_watched": [],
+    "watched_count": 0,
+    "latest_progress": null,
+    "latest_season": null,
+    "latest_episode": null,
+    "rating": null,
+    "status": "watchlist",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2026-06-08 09:00:27",
+    "updated_at": "2026-06-08 09:00:27"
+  },
+  {
+    "uuid": "f08ce6c2-f6ff-4521-8225-0530952a5345",
+    "title": "Ostatni z nas",
+    "original_title": "Ostatni z nas",
+    "year": "2023",
+    "genre": "Dramat, Horror",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 2,
+    "season_ep_counts": {
+      "1": 9,
+      "2": 7
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "14f9c394-fa20-4403-8ab4-27e3a3607681",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2025-03-24 19:13:10"
+      },
+      {
+        "episode_id": "e516b0d4-7d35-42cc-b88f-d0cd65c06b93",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2025-03-26 22:19:50"
+      },
+      {
+        "episode_id": "e2afa629-5efb-436e-af54-60336334fa2a",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2025-03-29 20:41:34"
+      },
+      {
+        "episode_id": "436e3c49-770e-49db-b092-d40143675d58",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2025-03-31 20:28:02"
+      },
+      {
+        "episode_id": "aadf3692-b24b-4b96-8092-7b7426b07ff6",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2025-04-01 22:36:03"
+      },
+      {
+        "episode_id": "c1a72883-f880-4878-a9fb-07638a9c66f7",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2025-04-02 19:22:51"
+      },
+      {
+        "episode_id": "6b2b78b9-85c7-43be-9183-010f6319629b",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2025-04-05 20:03:53"
+      },
+      {
+        "episode_id": "79ec533c-3c53-490e-a1b4-1171929d674d",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2025-04-08 21:59:30"
+      },
+      {
+        "episode_id": "923b7820-8089-48c5-88e3-f771b6dcbd05",
+        "season": 1,
+        "episode": 9,
+        "created_at": "2025-04-10 19:57:54"
+      },
+      {
+        "episode_id": "c1d71f4a-f302-4d16-9eca-cae925bf213d",
+        "season": 2,
+        "episode": 1,
+        "created_at": "2025-04-13 22:43:39"
+      },
+      {
+        "episode_id": "0aeccec7-204d-49da-b156-7f2acef74829",
+        "season": 2,
+        "episode": 2,
+        "created_at": "2025-04-15 20:10:13"
+      },
+      {
+        "episode_id": "a091e5b4-d293-4e6e-bf4d-093033b0fb53",
+        "season": 2,
+        "episode": 3,
+        "created_at": "2025-04-17 19:43:27"
+      },
+      {
+        "episode_id": "ceae1325-ea07-4d80-ba23-6c22e92a7b97",
+        "season": 2,
+        "episode": 4,
+        "created_at": "2025-04-18 22:16:20"
+      },
+      {
+        "episode_id": "46b518de-db4b-48eb-937d-0bd18d536c75",
+        "season": 2,
+        "episode": 5,
+        "created_at": "2025-04-19 19:35:25"
+      },
+      {
+        "episode_id": "966b62ea-9f80-496b-b34e-356ac95b61f8",
+        "season": 2,
+        "episode": 6,
+        "created_at": "2025-04-22 21:55:00"
+      },
+      {
+        "episode_id": "9682d9ff-910c-4cb7-a5f0-6b0a264ef59d",
+        "season": 2,
+        "episode": 7,
+        "created_at": "2025-04-25 22:07:26"
+      }
+    ],
+    "watched_count": 16,
+    "latest_progress": "S02E07",
+    "latest_season": 2,
+    "latest_episode": 7,
+    "rating": 5,
+    "status": "watched",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-03-24 19:13:10",
+    "updated_at": "2025-04-25 22:07:26"
+  },
+  {
+    "uuid": "e11bf0d4-8637-4f04-99ee-7dc9c7cfeca8",
+    "title": "Boska komedia",
+    "original_title": "Boska komedia",
+    "year": "2019",
+    "genre": "Fantasy, Komedia",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 2,
+    "season_ep_counts": {
+      "1": 10,
+      "2": 10
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "9be4f19f-9270-4d60-bc4f-48e4a7a02a3d",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2025-10-10 22:16:24"
+      },
+      {
+        "episode_id": "ae49c079-9bd0-44c7-9e45-455e24d38751",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2025-10-12 19:17:25"
+      },
+      {
+        "episode_id": "3cd1ff3f-b0c5-4278-94dc-cba5e1035e1c",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2025-10-15 21:25:56"
+      },
+      {
+        "episode_id": "567e642e-052d-4b9a-9f58-4603e5a3d8e9",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2025-10-16 22:58:17"
+      },
+      {
+        "episode_id": "1924c644-af52-4666-b239-09f4dbb54645",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2025-10-18 20:53:31"
+      },
+      {
+        "episode_id": "44f8b53c-5224-4d05-9369-2867c626e38f",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2025-10-19 19:47:28"
+      },
+      {
+        "episode_id": "e9d6bb7e-361d-4014-b114-56de301c8db3",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2025-10-22 21:41:05"
+      },
+      {
+        "episode_id": "0e63813e-d22e-4226-9fb8-944dde0018aa",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2025-10-24 22:48:33"
+      },
+      {
+        "episode_id": "22b9f24c-6744-4fb8-81bd-55d5b5a6571c",
+        "season": 1,
+        "episode": 9,
+        "created_at": "2025-10-27 22:04:19"
+      }
+    ],
+    "watched_count": 9,
+    "latest_progress": "S01E09",
+    "latest_season": 1,
+    "latest_episode": 9,
+    "rating": null,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-10-10 22:16:24",
+    "updated_at": "2025-10-27 22:04:19"
+  },
+  {
+    "uuid": "cf5e0f0b-cd67-45df-9b79-04e0ce30a61d",
+    "title": "Sukcesja",
+    "original_title": "Sukcesja",
+    "year": "2018",
+    "genre": "Dramat",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 4,
+    "season_ep_counts": {
+      "1": 10,
+      "2": 10,
+      "3": 9,
+      "4": 10
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "462363a9-32f8-4bab-b462-e3e85c418a83",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2026-05-30 19:03:58"
+      },
+      {
+        "episode_id": "ae61716a-1fb6-41ae-ac4e-8cbba2aa378c",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2026-06-01 22:32:25"
+      },
+      {
+        "episode_id": "ded7d3ef-f5e4-49c1-ad76-1ffa7233d5af",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2026-06-02 20:31:38"
+      },
+      {
+        "episode_id": "42378962-e4fd-4c34-9670-7a2129dc073e",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2026-06-04 21:22:22"
+      },
+      {
+        "episode_id": "29b44cb1-0cb5-4e5c-a2f5-f7c20706fec2",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2026-06-07 22:05:18"
+      },
+      {
+        "episode_id": "ad7d6f81-39a0-4145-a5ba-b05038aa76df",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2026-06-10 22:13:54"
+      },
+      {
+        "episode_id": "f796611f-c7c1-4b1b-9d58-631b052226b9",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2026-06-11 20:26:32"
+      },
+      {
+        "episode_id": "cd0579e2-99e4-404c-ac56-e0cda5ba2472",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2026-06-14 19:58:08"
+      },
+      {
+        "episode_id": "f78ee9e8-b676-491d-8e32-9b4bf168c605",
+        "season": 1,
+        "episode": 9,
+        "created_at": "2026-06-15 20:38:51"
+      },
+      {
+        "episode_id": "7580e4e9-5945-4186-9a01-8d296060b1eb",
+        "season": 1,
+        "episode": 10,
+        "created_at": "2026-06-18 21:27:57"
+      },
+      {
+        "episode_id": "95a0f356-65ab-49ff-9fa4-a627d30608be",
+        "season": 2,
+        "episode": 1,
+        "created_at": "2026-06-19 21:43:33"
+      },
+      {
+        "episode_id": "a5b83693-8fbb-4749-9fcd-859ed6e18109",
+        "season": 2,
+        "episode": 2,
+        "created_at": "2026-06-20 19:42:53"
+      },
+      {
+        "episode_id": "5616af7e-1057-4002-bb53-359e1bacbd0d",
+        "season": 2,
+        "episode": 3,
+        "created_at": "2026-06-23 21:19:43"
+      },
+      {
+        "episode_id": "f3c2944a-b60a-4dcc-a7f7-745142da8609",
+        "season": 2,
+        "episode": 4,
+        "created_at": "2026-06-25 21:55:17"
+      },
+      {
+        "episode_id": "0e88c8ec-e651-43e1-bd84-6fc9c3f62136",
+        "season": 2,
+        "episode": 5,
+        "created_at": "2026-06-28 20:09:33"
+      }
+    ],
+    "watched_count": 15,
+    "latest_progress": "S02E05",
+    "latest_season": 2,
+    "latest_episode": 5,
+    "rating": null,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2026-05-30 19:03:58",
+    "updated_at": "2026-06-28 20:09:33"
+  },
+  {
+    "uuid": "4269c28c-4bac-4edf-bf5a-229e7f53d344",
+    "title": "Pakt",
+    "original_title": "Pakt",
+    "year": "2015",
+    "genre": "Dramat, Kryminał",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 2,
+    "season_ep_counts": {
+      "1": 8,
+      "2": 8
+    },
+    "episodes_watched": [],
+    "watched_count": 0,
+    "latest_progress": null,
+    "latest_season": null,
+    "latest_episode": null,
+    "rating": null,
+    "status": "watchlist",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-09-11 12:01:41",
+    "updated_at": "2025-09-11 12:01:41"
+  },
+  {
+    "uuid": "d0e656e5-9271-4f6e-bea8-2e3ab54401cb",
+    "title": "Breaking Bad",
+    "original_title": "Breaking Bad",
+    "year": "2008",
+    "genre": "Dramat, Kryminał",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 5,
+    "season_ep_counts": {
+      "1": 7,
+      "2": 13,
+      "3": 13,
+      "4": 13,
+      "5": 16
+    },
+    "episodes_watched": [],
+    "watched_count": 0,
+    "latest_progress": null,
+    "latest_season": null,
+    "latest_episode": null,
+    "rating": null,
+    "status": "followed",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2026-01-30 18:02:37",
+    "updated_at": "2026-01-30 18:02:37"
+  },
+  {
+    "uuid": "e8184f34-e491-4f7d-91c4-6efcfcb896bb",
+    "title": "Severance",
+    "original_title": "Severance",
+    "year": "2022",
+    "genre": "Thriller, Sci-Fi",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 2,
+    "season_ep_counts": {
+      "1": 9,
+      "2": 10
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "e061f65f-a859-4f8c-9734-18fe2b843ef3",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2025-01-29 20:19:54"
+      },
+      {
+        "episode_id": "b9a5d4d0-4237-41f1-bdac-dc5e20c0f275",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2025-02-01 20:06:30"
+      },
+      {
+        "episode_id": "16dc5a6e-a789-4770-95ec-024ae64b9b37",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2025-02-04 22:11:43"
+      },
+      {
+        "episode_id": "e3082ddc-c9c0-4b7d-aba4-170b4e9d23e9",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2025-02-05 20:47:55"
+      },
+      {
+        "episode_id": "787515b9-1e26-4d31-99e9-275876b90436",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2025-02-07 20:37:18"
+      },
+      {
+        "episode_id": "78e36397-123b-41cf-9ee3-39fff1bdb598",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2025-02-08 22:37:37"
+      },
+      {
+        "episode_id": "69c165ae-4c61-4ae8-87a3-7f1061b512ed",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2025-02-09 21:55:43"
+      },
+      {
+        "episode_id": "68c0cbef-57b9-46b0-b346-a332fe0a824e",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2025-02-10 22:09:08"
+      }
+    ],
+    "watched_count": 8,
+    "latest_progress": "S01E08",
+    "latest_season": 1,
+    "latest_episode": 8,
+    "rating": null,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-01-29 20:19:54",
+    "updated_at": "2025-02-10 22:09:08"
+  },
+  {
+    "uuid": "afd0d2f7-e352-4444-af04-af36567c5d44",
+    "title": "Andor",
+    "original_title": "Andor",
+    "year": "2022",
+    "genre": "Sci-Fi, Szpiegowski",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 2,
+    "season_ep_counts": {
+      "1": 12,
+      "2": 12
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "73b9c2ac-0134-476b-8ed9-fa95a26e865b",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2026-05-08 21:11:20"
+      },
+      {
+        "episode_id": "7d54ec82-288f-4435-83b5-34db938703c9",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2026-05-10 20:49:10"
+      },
+      {
+        "episode_id": "f71fb9a6-6dd4-4c96-a744-cb9e6dedcba5",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2026-05-11 19:27:40"
+      },
+      {
+        "episode_id": "f337b261-5f83-42d5-bb0c-7919330ccff5",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2026-05-13 20:02:34"
+      },
+      {
+        "episode_id": "ad3f5dd4-0496-46ba-b0c9-a2be87f1d48c",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2026-05-14 22:48:53"
+      },
+      {
+        "episode_id": "4fe54745-5827-4e80-a082-1918b18ad67d",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2026-05-15 21:15:14"
+      },
+      {
+        "episode_id": "d2e76deb-10b6-4662-aac1-d5ca4e5d8f12",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2026-05-16 19:32:37"
+      },
+      {
+        "episode_id": "862c92fd-98ab-42e7-8531-9f0fba533122",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2026-05-17 20:18:29"
+      }
+    ],
+    "watched_count": 8,
+    "latest_progress": "S01E08",
+    "latest_season": 1,
+    "latest_episode": 8,
+    "rating": null,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2026-05-08 21:11:20",
+    "updated_at": "2026-05-17 20:18:29"
+  },
+  {
+    "uuid": "fd1935cc-74ed-460e-bb2d-520ba4f34185",
+    "title": "Mindhunter",
+    "original_title": "Mindhunter",
+    "year": "2017",
+    "genre": "Kryminał, Dramat",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 2,
+    "season_ep_counts": {
+      "1": 10,
+      "2": 9
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "3a799efa-04e5-4bd5-a744-acd4cfdfc6f9",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2025-07-26 20:58:58"
+      },
+      {
+        "episode_id": "812faa38-96f6-4c09-859c-1ba0bbec721d",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2025-07-27 22:08:13"
+      },
+      {
+        "episode_id": "e0653245-600c-4c71-8990-a647cac8d87e",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2025-07-28 19:45:41"
+      },
+      {
+        "episode_id": "0c472187-fea3-4d37-980b-68530c7031eb",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2025-07-31 20:34:39"
+      },
+      {
+        "episode_id": "6ab1cdb6-1da4-46fe-b093-70850c5921f8",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2025-08-03 19:53:01"
+      },
+      {
+        "episode_id": "349b5089-2733-4670-b3ad-a2ba797209c0",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2025-08-05 20:35:16"
+      },
+      {
+        "episode_id": "a9987bdf-19d9-40b5-a962-d9966bbe3b5a",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2025-08-08 21:00:19"
+      },
+      {
+        "episode_id": "e60c1638-d4a5-481e-ab38-2a0a231d260b",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2025-08-11 20:38:44"
+      },
+      {
+        "episode_id": "1b341937-c8e6-4939-9d2f-ed2a485f7888",
+        "season": 1,
+        "episode": 9,
+        "created_at": "2025-08-12 21:39:07"
+      },
+      {
+        "episode_id": "f91e5fcd-85ec-4729-94dd-1b56435391b2",
+        "season": 1,
+        "episode": 10,
+        "created_at": "2025-08-14 20:12:49"
+      },
+      {
+        "episode_id": "e90d21cb-7f11-4a36-8c52-d2710a167e18",
+        "season": 2,
+        "episode": 1,
+        "created_at": "2025-08-16 22:18:10"
+      },
+      {
+        "episode_id": "abf0263e-0343-4b64-80b3-700f3c088990",
+        "season": 2,
+        "episode": 2,
+        "created_at": "2025-08-17 21:30:21"
+      },
+      {
+        "episode_id": "f30ee4fe-262e-4559-be7d-9a19ab450578",
+        "season": 2,
+        "episode": 3,
+        "created_at": "2025-08-18 23:53:36"
+      },
+      {
+        "episode_id": "41822509-e79f-4f3d-99ee-2c3bb93c4b0b",
+        "season": 2,
+        "episode": 4,
+        "created_at": "2025-08-19 22:04:46"
+      }
+    ],
+    "watched_count": 14,
+    "latest_progress": "S02E04",
+    "latest_season": 2,
+    "latest_episode": 4,
+    "rating": null,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-07-26 20:58:58",
+    "updated_at": "2025-08-19 22:04:46"
+  },
+  {
+    "uuid": "fb481ded-0f03-4337-b9f6-143bb2383056",
+    "title": "Attack on Titan",
+    "original_title": "Attack on Titan",
+    "year": "2013",
+    "genre": "Anime, Akcja",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 4,
+    "season_ep_counts": {
+      "1": 25,
+      "2": 12,
+      "3": 16,
+      "4": 28
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "bd10f87c-6d0e-4597-900d-92a7ad409244",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2026-04-17 22:23:51"
+      },
+      {
+        "episode_id": "236dd176-da1c-46ae-8279-e2ab0bbf6334",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2026-04-18 19:48:56"
+      },
+      {
+        "episode_id": "9f2ebefc-f480-491e-b00e-0efce4ffc31a",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2026-04-21 21:21:22"
+      },
+      {
+        "episode_id": "1d24181c-2ed0-47d4-97bc-ad3ad0a17fe8",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2026-04-23 22:05:23"
+      },
+      {
+        "episode_id": "d9c59cd9-b09d-421b-a2be-4009d5f0fb6a",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2026-04-25 21:29:17"
+      },
+      {
+        "episode_id": "21ec4754-1cf1-4654-aab2-02c2cc0243c6",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2026-04-27 22:41:56"
+      }
+    ],
+    "watched_count": 6,
+    "latest_progress": "S01E06",
+    "latest_season": 1,
+    "latest_episode": 6,
+    "rating": null,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2026-04-17 22:23:51",
+    "updated_at": "2026-04-27 22:41:56"
+  },
+  {
+    "uuid": "95ca788d-d6bc-4712-aecc-a931ef705d01",
+    "title": "Peaky Blinders",
+    "original_title": "Peaky Blinders",
+    "year": "2013",
+    "genre": "Kryminał, Dramat",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 6,
+    "season_ep_counts": {
+      "1": 6,
+      "2": 6,
+      "3": 6,
+      "4": 6,
+      "5": 6,
+      "6": 6
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "c7774fae-6137-48c3-9c7f-aca62e671784",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2024-12-02 22:43:28"
+      },
+      {
+        "episode_id": "f933a9fa-ba2e-4eb3-96aa-5382e1446b45",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2024-12-04 21:55:43"
+      },
+      {
+        "episode_id": "0bc4d7ba-70d0-4bcb-a949-ece5e3395b1a",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2024-12-05 21:31:07"
+      },
+      {
+        "episode_id": "865a7766-ad8c-4fea-9e4b-061eb45e9463",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2024-12-06 20:20:00"
+      },
+      {
+        "episode_id": "df865633-ab7a-4b66-b4ac-c7e2fa575cea",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2024-12-09 21:36:14"
+      },
+      {
+        "episode_id": "a9660a5a-6ecf-4ed2-9861-c9f39e44e98c",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2024-12-11 21:44:44"
+      },
+      {
+        "episode_id": "260e37cc-6287-4624-a433-1510ad21b4cc",
+        "season": 2,
+        "episode": 1,
+        "created_at": "2024-12-14 20:22:42"
+      },
+      {
+        "episode_id": "282c6470-ef32-472a-a4b5-c72302fb2869",
+        "season": 2,
+        "episode": 2,
+        "created_at": "2024-12-17 22:39:03"
+      },
+      {
+        "episode_id": "c05db774-132a-4e58-aa57-e880de9205ea",
+        "season": 2,
+        "episode": 3,
+        "created_at": "2024-12-20 22:54:31"
+      },
+      {
+        "episode_id": "8ced4707-3903-4b65-81c6-1eeb0ce3c8c8",
+        "season": 2,
+        "episode": 4,
+        "created_at": "2024-12-22 20:21:17"
+      },
+      {
+        "episode_id": "cd1f75a3-71b6-4ca1-b587-3920142e3df0",
+        "season": 2,
+        "episode": 5,
+        "created_at": "2024-12-25 20:52:15"
+      },
+      {
+        "episode_id": "fb0d3cda-1e63-4261-90e9-688872730e7b",
+        "season": 2,
+        "episode": 6,
+        "created_at": "2024-12-28 21:54:31"
+      },
+      {
+        "episode_id": "8ea02346-092c-4801-a98f-04f86747d24a",
+        "season": 3,
+        "episode": 1,
+        "created_at": "2024-12-30 22:01:06"
+      },
+      {
+        "episode_id": "a335b2c8-9e7b-4e95-b692-641a9aad10ce",
+        "season": 3,
+        "episode": 2,
+        "created_at": "2025-01-02 19:05:50"
+      },
+      {
+        "episode_id": "f34a7949-74ca-4ad7-abe5-be96a7939a2e",
+        "season": 3,
+        "episode": 3,
+        "created_at": "2025-01-04 22:35:13"
+      },
+      {
+        "episode_id": "54fc286f-7457-4d47-9825-301039112943",
+        "season": 3,
+        "episode": 4,
+        "created_at": "2025-01-06 20:03:52"
+      },
+      {
+        "episode_id": "b7461b72-5d00-4f1b-a83c-1c2bb776e729",
+        "season": 3,
+        "episode": 5,
+        "created_at": "2025-01-09 22:38:30"
+      },
+      {
+        "episode_id": "5aea6352-5763-4e1e-808f-fab938c46b38",
+        "season": 3,
+        "episode": 6,
+        "created_at": "2025-01-11 19:48:42"
+      },
+      {
+        "episode_id": "2a061609-e599-4d3c-8bb8-1d381b37ef19",
+        "season": 4,
+        "episode": 1,
+        "created_at": "2025-01-13 21:23:44"
+      },
+      {
+        "episode_id": "41191aa7-1b61-4453-a8c2-094db8b818cf",
+        "season": 4,
+        "episode": 2,
+        "created_at": "2025-01-15 19:45:47"
+      },
+      {
+        "episode_id": "7500f785-3730-4fba-a494-dd5cda296905",
+        "season": 4,
+        "episode": 3,
+        "created_at": "2025-01-18 20:07:59"
+      },
+      {
+        "episode_id": "a21c0c06-ed37-4567-8be7-728e6a1aba9d",
+        "season": 4,
+        "episode": 4,
+        "created_at": "2025-01-19 22:06:48"
+      },
+      {
+        "episode_id": "96dd6c82-a890-4e31-b517-5f39735444fb",
+        "season": 4,
+        "episode": 5,
+        "created_at": "2025-01-22 21:49:57"
+      },
+      {
+        "episode_id": "8da03d88-0c6f-4051-bc78-842387c5f526",
+        "season": 4,
+        "episode": 6,
+        "created_at": "2025-01-25 19:31:00"
+      }
+    ],
+    "watched_count": 24,
+    "latest_progress": "S04E06",
+    "latest_season": 4,
+    "latest_episode": 6,
+    "rating": 4,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2024-12-02 22:43:28",
+    "updated_at": "2025-01-25 19:31:00"
+  },
+  {
+    "uuid": "632d0302-1a82-433c-a0dd-a0ffd0b3d752",
+    "title": "Czarnobyl. Reaktor nr 4",
+    "original_title": "Czarnobyl. Reaktor nr 4",
+    "year": "2020",
+    "genre": "Dramat",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 1,
+    "season_ep_counts": {
+      "1": 4
+    },
+    "episodes_watched": [],
+    "watched_count": 0,
+    "latest_progress": null,
+    "latest_season": null,
+    "latest_episode": null,
+    "rating": null,
+    "status": "followed",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2026-05-27 20:11:46",
+    "updated_at": "2026-05-27 20:11:46"
+  },
+  {
+    "uuid": "4236c0bf-e936-4a85-ba46-fbe3d255a4de",
+    "title": "Death Note",
+    "original_title": "Death Note",
+    "year": "2006",
+    "genre": "Anime, Thriller",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 1,
+    "season_ep_counts": {
+      "1": 37
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "b148b2a6-ea79-47e1-9be7-02abfac08fc4",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2024-11-16 21:24:26"
+      },
+      {
+        "episode_id": "235fc3d5-2224-4806-8e07-2a5273edb223",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2024-11-17 20:21:18"
+      },
+      {
+        "episode_id": "b3952193-d7d3-49d9-8c85-92338325bd9e",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2024-11-19 21:56:47"
+      },
+      {
+        "episode_id": "37a3c30a-a1f0-4a7a-8db7-8572ef7db821",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2024-11-22 22:45:47"
+      },
+      {
+        "episode_id": "ac20af11-ebd3-4927-9865-28e6afc5c20e",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2024-11-23 20:45:18"
+      },
+      {
+        "episode_id": "a30a6658-b1be-4df2-8ae0-b8a080ff2909",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2024-11-24 23:41:11"
+      },
+      {
+        "episode_id": "9215583a-9532-4aba-baf9-85ff8ff19886",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2024-11-26 22:48:22"
+      },
+      {
+        "episode_id": "4932936e-88ad-4ab1-9765-4a18e4d466eb",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2024-11-29 22:43:47"
+      },
+      {
+        "episode_id": "0d95aaf5-2534-41bc-a180-b78a06783c34",
+        "season": 1,
+        "episode": 9,
+        "created_at": "2024-12-01 22:33:06"
+      },
+      {
+        "episode_id": "495fa2fc-fbc8-477e-a933-0fc4c918a346",
+        "season": 1,
+        "episode": 10,
+        "created_at": "2024-12-04 19:17:48"
+      },
+      {
+        "episode_id": "34396729-4b8e-4509-88cb-a592b0cad2eb",
+        "season": 1,
+        "episode": 11,
+        "created_at": "2024-12-07 20:53:03"
+      },
+      {
+        "episode_id": "acef45c4-de37-40fb-9db9-4eee1a3c2131",
+        "season": 1,
+        "episode": 12,
+        "created_at": "2024-12-10 19:52:28"
+      },
+      {
+        "episode_id": "3cd30e99-638e-4388-8faf-6d4aa5a99ebc",
+        "season": 1,
+        "episode": 13,
+        "created_at": "2024-12-13 21:14:47"
+      },
+      {
+        "episode_id": "0c06df90-aa1c-4023-b164-423549a2afde",
+        "season": 1,
+        "episode": 14,
+        "created_at": "2024-12-16 22:51:44"
+      },
+      {
+        "episode_id": "0dc5fb06-8d58-49b7-b740-d87c500a174e",
+        "season": 1,
+        "episode": 15,
+        "created_at": "2024-12-18 20:50:43"
+      },
+      {
+        "episode_id": "dec00f3a-dc46-4b34-87ea-b19bde6cf36b",
+        "season": 1,
+        "episode": 16,
+        "created_at": "2024-12-19 22:12:39"
+      },
+      {
+        "episode_id": "5e244824-a5cb-4c6e-b5a4-c55bb4629214",
+        "season": 1,
+        "episode": 17,
+        "created_at": "2024-12-21 22:58:40"
+      },
+      {
+        "episode_id": "318910ec-f6db-42b6-b993-ff63c6b18d94",
+        "season": 1,
+        "episode": 18,
+        "created_at": "2024-12-24 21:38:12"
+      },
+      {
+        "episode_id": "bc2e2b59-2c7d-4667-b664-c7202fddb26a",
+        "season": 1,
+        "episode": 19,
+        "created_at": "2024-12-26 21:43:04"
+      },
+      {
+        "episode_id": "214c0a4d-43a5-44d2-8e7d-3f5a4773e66a",
+        "season": 1,
+        "episode": 20,
+        "created_at": "2024-12-29 19:02:27"
+      },
+      {
+        "episode_id": "efffa2f4-b5ae-429d-b761-7d80549fc34c",
+        "season": 1,
+        "episode": 21,
+        "created_at": "2024-12-30 21:16:00"
+      },
+      {
+        "episode_id": "eeb093fe-c60e-44d5-8d04-dcb698cd2655",
+        "season": 1,
+        "episode": 22,
+        "created_at": "2024-12-31 19:59:20"
+      },
+      {
+        "episode_id": "8cd74c27-929a-4586-8a37-6c367d94bf10",
+        "season": 1,
+        "episode": 23,
+        "created_at": "2025-01-03 21:42:19"
+      },
+      {
+        "episode_id": "2f120b9e-f4fd-45b7-b84f-6e3b86804a8a",
+        "season": 1,
+        "episode": 24,
+        "created_at": "2025-01-05 19:45:20"
+      },
+      {
+        "episode_id": "67465743-897b-403d-8b07-4d1a6a7a7841",
+        "season": 1,
+        "episode": 25,
+        "created_at": "2025-01-08 19:32:10"
+      },
+      {
+        "episode_id": "5c5d3f1b-54c0-46c2-94f6-516ea9d049dc",
+        "season": 1,
+        "episode": 26,
+        "created_at": "2025-01-09 20:56:13"
+      },
+      {
+        "episode_id": "8fb3a134-ff23-46e9-b990-3d9687cec69d",
+        "season": 1,
+        "episode": 27,
+        "created_at": "2025-01-11 20:48:39"
+      },
+      {
+        "episode_id": "a46b6fce-e78d-447c-bd87-703472173fa3",
+        "season": 1,
+        "episode": 28,
+        "created_at": "2025-01-14 19:42:22"
+      },
+      {
+        "episode_id": "61a1a29c-5228-4d8d-a2ba-9fceaebbaf9c",
+        "season": 1,
+        "episode": 29,
+        "created_at": "2025-01-17 23:15:02"
+      },
+      {
+        "episode_id": "84517303-e94d-4fbe-8653-1d4748677b30",
+        "season": 1,
+        "episode": 30,
+        "created_at": "2025-01-18 20:34:46"
+      },
+      {
+        "episode_id": "e5f5c891-4be3-48a8-8b39-dccf7c9f3bc3",
+        "season": 1,
+        "episode": 31,
+        "created_at": "2025-01-20 21:32:28"
+      },
+      {
+        "episode_id": "f8bca9ac-2ada-42ce-9890-99c9f2be029f",
+        "season": 1,
+        "episode": 32,
+        "created_at": "2025-01-23 20:32:05"
+      },
+      {
+        "episode_id": "c6097cd8-a127-4c6b-ab9b-153d35f5c654",
+        "season": 1,
+        "episode": 33,
+        "created_at": "2025-01-26 21:40:04"
+      },
+      {
+        "episode_id": "d428df6c-89aa-4293-b4a0-dcd41a9af29e",
+        "season": 1,
+        "episode": 34,
+        "created_at": "2025-01-27 22:27:53"
+      },
+      {
+        "episode_id": "f0938776-d116-4014-a585-08286f6bbdf3",
+        "season": 1,
+        "episode": 35,
+        "created_at": "2025-01-30 22:47:49"
+      },
+      {
+        "episode_id": "09b2eae6-54eb-4c91-b784-ae08758fc8fa",
+        "season": 1,
+        "episode": 36,
+        "created_at": "2025-01-31 22:09:01"
+      },
+      {
+        "episode_id": "9330ba83-1208-4e20-8ede-9b46407d0aff",
+        "season": 1,
+        "episode": 37,
+        "created_at": "2025-02-01 19:11:50"
+      }
+    ],
+    "watched_count": 37,
+    "latest_progress": "S01E37",
+    "latest_season": 1,
+    "latest_episode": 37,
+    "rating": 4,
+    "status": "watched",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2024-11-16 21:24:26",
+    "updated_at": "2025-02-01 19:11:50"
+  },
+  {
+    "uuid": "db6f1c33-bbb4-40ce-96f0-1335c5ab48da",
+    "title": "Dzicy, dziksi",
+    "original_title": "Dzicy, dziksi",
+    "year": "2021",
+    "genre": "Dramat, Romans",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 3,
+    "season_ep_counts": {
+      "1": 8,
+      "2": 8,
+      "3": 8
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "a43447fb-0182-4782-88ea-e7d41e494952",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2025-06-10 20:24:43"
+      },
+      {
+        "episode_id": "d926fe41-b36d-4121-8ba6-fe0995ea6825",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2025-06-13 21:48:47"
+      },
+      {
+        "episode_id": "4d2551eb-af95-4e79-8971-bf514a32bb22",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2025-06-14 20:32:06"
+      },
+      {
+        "episode_id": "d2769c96-6526-4474-a1a4-51ff700b8b43",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2025-06-17 19:48:59"
+      },
+      {
+        "episode_id": "641816b7-bf2b-43b4-a2e9-e52738491ecc",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2025-06-20 19:10:34"
+      },
+      {
+        "episode_id": "ea06f94b-e310-4f72-ad62-d0944c4d6e40",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2025-06-23 20:40:09"
+      },
+      {
+        "episode_id": "1f8c56e0-2431-43fd-8e19-0d07dff0b9bf",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2025-06-26 21:00:35"
+      },
+      {
+        "episode_id": "15cadfaf-f26d-4dd3-8c2a-a0b18982cbf8",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2025-06-27 19:38:25"
+      },
+      {
+        "episode_id": "69a3b991-3634-446c-9806-a961b9d707a9",
+        "season": 2,
+        "episode": 1,
+        "created_at": "2025-06-29 20:47:57"
+      },
+      {
+        "episode_id": "d5b211a9-9dec-4b83-b885-8f7e2f1a25a8",
+        "season": 2,
+        "episode": 2,
+        "created_at": "2025-07-02 22:09:10"
+      },
+      {
+        "episode_id": "0dec644c-da2d-4156-913a-1734ccb68571",
+        "season": 2,
+        "episode": 3,
+        "created_at": "2025-07-04 20:11:42"
+      },
+      {
+        "episode_id": "402d105b-113e-4f84-abf3-90964a68369c",
+        "season": 2,
+        "episode": 4,
+        "created_at": "2025-07-07 21:35:04"
+      },
+      {
+        "episode_id": "20d2b528-5b6d-4b7c-94b2-a582f3981e9e",
+        "season": 2,
+        "episode": 5,
+        "created_at": "2025-07-08 20:37:31"
+      },
+      {
+        "episode_id": "31891f48-e66e-4c11-91de-febf9e98961d",
+        "season": 2,
+        "episode": 6,
+        "created_at": "2025-07-11 21:06:18"
+      },
+      {
+        "episode_id": "958c2936-b186-48ce-8e40-bfbaa8cfe589",
+        "season": 2,
+        "episode": 7,
+        "created_at": "2025-07-13 21:21:39"
+      },
+      {
+        "episode_id": "2b2bf58c-6da5-4dad-b56a-abc050fb35b0",
+        "season": 2,
+        "episode": 8,
+        "created_at": "2025-07-14 21:23:51"
+      },
+      {
+        "episode_id": "6fa5d3b0-a40d-4ea5-bd64-987eb652ae99",
+        "season": 3,
+        "episode": 1,
+        "created_at": "2025-07-15 20:50:14"
+      },
+      {
+        "episode_id": "7ade4367-e0bd-402c-94e1-4f3abba41ae0",
+        "season": 3,
+        "episode": 2,
+        "created_at": "2025-07-17 22:08:43"
+      },
+      {
+        "episode_id": "2cff45f8-1bdc-44a9-8d3a-5d767caa281b",
+        "season": 3,
+        "episode": 3,
+        "created_at": "2025-07-19 21:49:19"
+      },
+      {
+        "episode_id": "e42c0aea-23d7-463d-9391-d017dbd4a86d",
+        "season": 3,
+        "episode": 4,
+        "created_at": "2025-07-22 21:53:17"
+      },
+      {
+        "episode_id": "134d695a-ba38-4c8f-9393-09d1a06a187d",
+        "season": 3,
+        "episode": 5,
+        "created_at": "2025-07-25 20:46:56"
+      },
+      {
+        "episode_id": "67b6e467-9432-4797-94f6-c67ad0095507",
+        "season": 3,
+        "episode": 6,
+        "created_at": "2025-07-26 22:40:01"
+      },
+      {
+        "episode_id": "ffaca645-e4dc-4306-8b20-ce3e42b7c048",
+        "season": 3,
+        "episode": 7,
+        "created_at": "2025-07-29 20:02:35"
+      },
+      {
+        "episode_id": "e4354021-392a-4fc4-a47a-c5915da64a3a",
+        "season": 3,
+        "episode": 8,
+        "created_at": "2025-08-01 21:49:09"
+      }
+    ],
+    "watched_count": 24,
+    "latest_progress": "S03E08",
+    "latest_season": 3,
+    "latest_episode": 8,
+    "rating": 5,
+    "status": "watched",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-06-10 20:24:43",
+    "updated_at": "2025-08-01 21:49:09"
+  },
+  {
+    "uuid": "65ebd4dc-b49b-4b72-8631-9c165827bc1d",
+    "title": "Westworld",
+    "original_title": "Westworld",
+    "year": "2016",
+    "genre": "Sci-Fi, Western",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 4,
+    "season_ep_counts": {
+      "1": 10,
+      "2": 10,
+      "3": 8,
+      "4": 8
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "f6c8b8b9-d915-4664-bd27-4ad5a9a54c24",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2025-02-21 20:32:00"
+      },
+      {
+        "episode_id": "2ddc756b-28c2-4ce9-b23b-80d423ef5561",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2025-02-24 21:48:32"
+      },
+      {
+        "episode_id": "bb64a525-bc65-4d94-a56d-4d11f7bd8499",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2025-02-27 23:42:55"
+      },
+      {
+        "episode_id": "1017ab44-3b53-464b-bcd6-1da4c2efda8b",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2025-03-01 23:02:14"
+      },
+      {
+        "episode_id": "ca9d2704-e860-4cb1-8494-205c34ef2552",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2025-03-03 20:02:42"
+      },
+      {
+        "episode_id": "fb07ee93-0a37-41ab-8be3-534ae1ad640c",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2025-03-05 20:58:29"
+      },
+      {
+        "episode_id": "d5ba304c-4603-49ee-9463-c183a2317211",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2025-03-08 20:45:33"
+      },
+      {
+        "episode_id": "60e696ff-a757-43f9-a06c-c2f52c816bf0",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2025-03-11 20:34:36"
+      },
+      {
+        "episode_id": "6057153a-4067-4790-8444-050413ed280a",
+        "season": 1,
+        "episode": 9,
+        "created_at": "2025-03-13 21:57:53"
+      },
+      {
+        "episode_id": "caeb9959-7ca2-4582-9854-09d9de22dc3f",
+        "season": 1,
+        "episode": 10,
+        "created_at": "2025-03-14 21:22:52"
+      },
+      {
+        "episode_id": "2a6524af-709d-438b-a393-6d45e1ccff0d",
+        "season": 2,
+        "episode": 1,
+        "created_at": "2025-03-16 22:00:32"
+      },
+      {
+        "episode_id": "28489240-2fd9-4ce1-a676-27ca3625fc20",
+        "season": 2,
+        "episode": 2,
+        "created_at": "2025-03-17 19:41:17"
+      },
+      {
+        "episode_id": "cfa9026b-6a24-4f46-baf7-fa21a93e7b5b",
+        "season": 2,
+        "episode": 3,
+        "created_at": "2025-03-19 21:52:07"
+      },
+      {
+        "episode_id": "973e129c-35f0-41be-baa1-219a7a9398bb",
+        "season": 2,
+        "episode": 4,
+        "created_at": "2025-03-21 22:30:43"
+      },
+      {
+        "episode_id": "92d00319-20bd-4422-8b0b-81de3e612d66",
+        "season": 2,
+        "episode": 5,
+        "created_at": "2025-03-22 21:26:01"
+      },
+      {
+        "episode_id": "2598f383-9280-4da2-a40b-50e40a086989",
+        "season": 2,
+        "episode": 6,
+        "created_at": "2025-03-25 20:40:32"
+      },
+      {
+        "episode_id": "996f7e88-67cb-4c39-b54f-1b928442906f",
+        "season": 2,
+        "episode": 7,
+        "created_at": "2025-03-26 20:59:11"
+      },
+      {
+        "episode_id": "48907b6d-d240-4f02-a968-1fc1ba5c865d",
+        "season": 2,
+        "episode": 8,
+        "created_at": "2025-03-29 21:56:46"
+      },
+      {
+        "episode_id": "38283a05-2baa-43c9-bb4e-9ecdde0787b1",
+        "season": 2,
+        "episode": 9,
+        "created_at": "2025-03-30 20:38:30"
+      },
+      {
+        "episode_id": "9f8acdeb-2e8f-45a8-847a-3b7ed209383b",
+        "season": 2,
+        "episode": 10,
+        "created_at": "2025-04-01 21:50:37"
+      },
+      {
+        "episode_id": "74169e82-ec1f-41ce-97b9-4dfbaf82e70c",
+        "season": 3,
+        "episode": 1,
+        "created_at": "2025-04-04 21:10:46"
+      },
+      {
+        "episode_id": "043d72db-1bcb-404c-a1d8-b96a62ada157",
+        "season": 3,
+        "episode": 2,
+        "created_at": "2025-04-07 21:14:24"
+      },
+      {
+        "episode_id": "2649a478-d396-4f0a-ab77-af9eaf32baf8",
+        "season": 3,
+        "episode": 3,
+        "created_at": "2025-04-08 21:58:32"
+      },
+      {
+        "episode_id": "e0b4659a-09fe-4cdd-998d-65ba9d6022c5",
+        "season": 3,
+        "episode": 4,
+        "created_at": "2025-04-11 19:30:57"
+      },
+      {
+        "episode_id": "e6e8790b-215d-4b1f-a8cd-f44d7b742440",
+        "season": 3,
+        "episode": 5,
+        "created_at": "2025-04-14 21:07:05"
+      },
+      {
+        "episode_id": "a6340d1a-adb6-40f4-865d-e86ef00f63ef",
+        "season": 3,
+        "episode": 6,
+        "created_at": "2025-04-17 21:00:57"
+      },
+      {
+        "episode_id": "6dd013f3-87a2-4e22-b298-b8110b1ec578",
+        "season": 3,
+        "episode": 7,
+        "created_at": "2025-04-19 21:23:55"
+      },
+      {
+        "episode_id": "96cbdafb-59bb-4900-a198-b718c4c7aab4",
+        "season": 3,
+        "episode": 8,
+        "created_at": "2025-04-20 23:30:50"
+      },
+      {
+        "episode_id": "224629cd-6cec-4f82-9903-f9b3937ca77c",
+        "season": 4,
+        "episode": 1,
+        "created_at": "2025-04-23 23:53:44"
+      },
+      {
+        "episode_id": "9929afeb-4884-4a14-9575-11addbeae9f8",
+        "season": 4,
+        "episode": 2,
+        "created_at": "2025-04-25 21:14:58"
+      },
+      {
+        "episode_id": "01d23a76-ca17-4780-be5f-902fb58ac738",
+        "season": 4,
+        "episode": 3,
+        "created_at": "2025-04-28 21:12:00"
+      },
+      {
+        "episode_id": "b0117b0a-3496-41d6-a790-55b06001f54d",
+        "season": 4,
+        "episode": 4,
+        "created_at": "2025-05-01 21:33:00"
+      },
+      {
+        "episode_id": "40ee131d-95da-4216-a6cd-ae3c6d130705",
+        "season": 4,
+        "episode": 5,
+        "created_at": "2025-05-03 21:06:09"
+      },
+      {
+        "episode_id": "fde6849b-468b-42af-9ca4-364d5d9ad9f1",
+        "season": 4,
+        "episode": 6,
+        "created_at": "2025-05-05 22:27:36"
+      },
+      {
+        "episode_id": "7b8301cf-8ebc-4d7e-88a6-5b858d56bff6",
+        "season": 4,
+        "episode": 7,
+        "created_at": "2025-05-08 20:13:26"
+      },
+      {
+        "episode_id": "93e0f235-4e80-410b-bd0e-e0b640f7924b",
+        "season": 4,
+        "episode": 8,
+        "created_at": "2025-05-09 20:35:30"
+      }
+    ],
+    "watched_count": 36,
+    "latest_progress": "S04E08",
+    "latest_season": 4,
+    "latest_episode": 8,
+    "rating": 3,
+    "status": "watched",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-02-21 20:32:00",
+    "updated_at": "2025-05-09 20:35:30"
+  },
+  {
+    "uuid": "296b67bf-f301-4b6c-b306-1300c879d932",
+    "title": "Czarnobylskie lato",
+    "original_title": "Czarnobylskie lato",
+    "year": "2018",
+    "genre": "Dramat, Tajemnica",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 2,
+    "season_ep_counts": {
+      "1": 6,
+      "2": 6
+    },
+    "episodes_watched": [],
+    "watched_count": 0,
+    "latest_progress": null,
+    "latest_season": null,
+    "latest_episode": null,
+    "rating": null,
+    "status": "watchlist",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-09-22 11:14:28",
+    "updated_at": "2025-09-22 11:14:28"
+  },
+  {
+    "uuid": "6c878546-7faf-4458-af14-f7775dad348e",
+    "title": "Zachowane",
+    "original_title": "Zachowane",
+    "year": "2016",
+    "genre": "Dramat, Sci-Fi",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 4,
+    "season_ep_counts": {
+      "1": 8,
+      "2": 8,
+      "3": 8,
+      "4": 8
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "f6ee137d-639c-4c6c-a926-205d0d53551a",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2025-08-18 21:43:45"
+      },
+      {
+        "episode_id": "99a9af6a-ed05-4732-b8bf-46fa25343e85",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2025-08-21 19:05:52"
+      },
+      {
+        "episode_id": "09aa5570-9be9-40c7-947d-7bfc5eef0d1e",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2025-08-23 19:16:14"
+      },
+      {
+        "episode_id": "b62bccb1-4956-4c36-8560-9e8aa7fb1997",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2025-08-26 20:25:39"
+      },
+      {
+        "episode_id": "706078eb-7e8e-4d12-a3ea-21a22cde9187",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2025-08-29 19:49:52"
+      },
+      {
+        "episode_id": "31dae817-4937-490f-84a5-b18bcdcd0a34",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2025-08-30 20:42:59"
+      },
+      {
+        "episode_id": "2b633b18-9d7d-4756-bb4e-c9f5b2cd9a0a",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2025-08-31 22:32:33"
+      },
+      {
+        "episode_id": "163b5481-284e-4cd4-b9c3-ee050012d399",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2025-09-03 19:15:41"
+      },
+      {
+        "episode_id": "33478a91-9609-498e-a7cb-a27a65281970",
+        "season": 2,
+        "episode": 1,
+        "created_at": "2025-09-05 22:22:42"
+      },
+      {
+        "episode_id": "48d495a4-8cb2-4aa2-9715-1c03eb4f3638",
+        "season": 2,
+        "episode": 2,
+        "created_at": "2025-09-08 19:45:04"
+      },
+      {
+        "episode_id": "d0c59550-f69a-4539-98f4-2098591cc524",
+        "season": 2,
+        "episode": 3,
+        "created_at": "2025-09-11 22:58:37"
+      },
+      {
+        "episode_id": "0130d66b-932d-4648-a769-b0f1ee01b9e0",
+        "season": 2,
+        "episode": 4,
+        "created_at": "2025-09-13 20:12:29"
+      },
+      {
+        "episode_id": "4b541670-80cf-41db-9287-e3138f026c2c",
+        "season": 2,
+        "episode": 5,
+        "created_at": "2025-09-15 20:32:06"
+      },
+      {
+        "episode_id": "89b4094a-e048-41de-81f8-3199f4eae769",
+        "season": 2,
+        "episode": 6,
+        "created_at": "2025-09-17 23:51:32"
+      },
+      {
+        "episode_id": "3e4727fd-c51c-41f4-bbcf-2b31902bd154",
+        "season": 2,
+        "episode": 7,
+        "created_at": "2025-09-20 20:28:24"
+      },
+      {
+        "episode_id": "dcad8ec2-963a-4333-a582-95dc75f1c654",
+        "season": 2,
+        "episode": 8,
+        "created_at": "2025-09-22 23:29:43"
+      },
+      {
+        "episode_id": "fe83c32a-c9e5-4c47-a237-a8c161f6dfbe",
+        "season": 3,
+        "episode": 1,
+        "created_at": "2025-09-23 21:16:04"
+      },
+      {
+        "episode_id": "5a64845e-f498-46ad-a994-bf8450d3ba03",
+        "season": 3,
+        "episode": 2,
+        "created_at": "2025-09-24 21:14:51"
+      },
+      {
+        "episode_id": "17cf775f-498b-4f67-bf8d-cf96436ae2bb",
+        "season": 3,
+        "episode": 3,
+        "created_at": "2025-09-27 21:44:53"
+      },
+      {
+        "episode_id": "2db13deb-ee6f-4bea-8df7-164713769ff9",
+        "season": 3,
+        "episode": 4,
+        "created_at": "2025-09-29 21:52:21"
+      },
+      {
+        "episode_id": "f2765513-2eca-4629-84e2-269192ded495",
+        "season": 3,
+        "episode": 5,
+        "created_at": "2025-10-01 20:13:57"
+      },
+      {
+        "episode_id": "3c1fdff0-331d-48bb-bcb3-636d7fbe6bb3",
+        "season": 3,
+        "episode": 6,
+        "created_at": "2025-10-04 21:58:12"
+      },
+      {
+        "episode_id": "3fec0a37-d5be-48dc-b3e8-82493aad5840",
+        "season": 3,
+        "episode": 7,
+        "created_at": "2025-10-07 20:16:13"
+      },
+      {
+        "episode_id": "ad0205f5-1417-42f9-ab91-731a1eb05b4a",
+        "season": 3,
+        "episode": 8,
+        "created_at": "2025-10-10 20:49:06"
+      },
+      {
+        "episode_id": "7b777e71-d917-48f8-8ad1-c18cf53f091e",
+        "season": 4,
+        "episode": 1,
+        "created_at": "2025-10-13 19:54:34"
+      },
+      {
+        "episode_id": "9313b3a7-e5a1-46e4-a188-6146fc40a3d4",
+        "season": 4,
+        "episode": 2,
+        "created_at": "2025-10-15 21:31:57"
+      },
+      {
+        "episode_id": "38db128d-65db-4e43-87bf-8db782d9a774",
+        "season": 4,
+        "episode": 3,
+        "created_at": "2025-10-17 21:48:58"
+      },
+      {
+        "episode_id": "8a6fc4b3-f08d-412e-ba73-2f356c5540f0",
+        "season": 4,
+        "episode": 4,
+        "created_at": "2025-10-20 19:33:51"
+      },
+      {
+        "episode_id": "750acc98-2cbf-4769-86a1-a468afb3e3ad",
+        "season": 4,
+        "episode": 5,
+        "created_at": "2025-10-21 21:25:55"
+      },
+      {
+        "episode_id": "ac9204b4-0306-4258-8227-b8d5b0701a53",
+        "season": 4,
+        "episode": 6,
+        "created_at": "2025-10-22 21:29:20"
+      },
+      {
+        "episode_id": "427bbffb-dca1-4dcc-9cdf-06645c91f845",
+        "season": 4,
+        "episode": 7,
+        "created_at": "2025-10-23 20:06:20"
+      },
+      {
+        "episode_id": "57d52b78-9cf3-437e-b562-037b78aa16ea",
+        "season": 4,
+        "episode": 8,
+        "created_at": "2025-10-24 21:15:17"
+      }
+    ],
+    "watched_count": 32,
+    "latest_progress": "S04E08",
+    "latest_season": 4,
+    "latest_episode": 8,
+    "rating": 3,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-08-18 21:43:45",
+    "updated_at": "2025-10-24 21:15:17"
+  },
+  {
+    "uuid": "12439b0f-e835-4080-9951-8f98679f2f42",
+    "title": "Wiedźmin",
+    "original_title": "Wiedźmin",
+    "year": "2019",
+    "genre": "Fantasy, Przygodowy",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 3,
+    "season_ep_counts": {
+      "1": 8,
+      "2": 8,
+      "3": 8
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "1991103f-d06e-4cbc-ba83-59b6af9e7a0e",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2025-10-16 20:08:36"
+      },
+      {
+        "episode_id": "323132fa-6181-42de-9b37-0ca76ea5e341",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2025-10-19 20:15:35"
+      },
+      {
+        "episode_id": "2d36226c-027e-489c-8e40-483b7915ad7e",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2025-10-20 22:47:09"
+      },
+      {
+        "episode_id": "b876a455-88b3-452d-845a-91b8a1726883",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2025-10-22 21:57:54"
+      },
+      {
+        "episode_id": "0c36ad4e-915d-4a63-9bc6-c9288fe84e20",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2025-10-24 22:19:16"
+      },
+      {
+        "episode_id": "79fe7ccc-4119-40f6-9056-61993728ddc2",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2025-10-26 19:10:03"
+      },
+      {
+        "episode_id": "8f73198e-5c3d-4d5f-9c68-01d642803aa0",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2025-10-29 19:47:21"
+      },
+      {
+        "episode_id": "59e110eb-1f09-4b9d-a969-29b20513eda8",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2025-11-01 23:16:22"
+      },
+      {
+        "episode_id": "48dc1e26-c7c2-464a-bab8-328f2cae93a2",
+        "season": 2,
+        "episode": 1,
+        "created_at": "2025-11-04 21:41:34"
+      },
+      {
+        "episode_id": "e3bef3d6-726a-430d-bc8c-fa8fc655a597",
+        "season": 2,
+        "episode": 2,
+        "created_at": "2025-11-06 20:32:31"
+      },
+      {
+        "episode_id": "de46222e-2514-47ce-b4e3-5f7ba1b7e3d8",
+        "season": 2,
+        "episode": 3,
+        "created_at": "2025-11-07 20:18:29"
+      },
+      {
+        "episode_id": "9256d707-9cc0-4b67-a19b-224a6bfc2a47",
+        "season": 2,
+        "episode": 4,
+        "created_at": "2025-11-08 21:59:21"
+      }
+    ],
+    "watched_count": 12,
+    "latest_progress": "S02E04",
+    "latest_season": 2,
+    "latest_episode": 4,
+    "rating": 4,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-10-16 20:08:36",
+    "updated_at": "2025-11-08 21:59:21"
+  },
+  {
+    "uuid": "9e3bf1b3-4330-425c-9a9b-0d42154ff37d",
+    "title": "Chernobyl",
+    "original_title": "Chernobyl",
+    "year": "2019",
+    "genre": "Dramat, Historyczny",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 1,
+    "season_ep_counts": {
+      "1": 5
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "5cf85eeb-f053-4851-9ce0-e2bbc7edea02",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2025-10-30 20:56:28"
+      },
+      {
+        "episode_id": "05e9f407-daad-40b1-af13-2a6d2ad55c0b",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2025-11-02 21:28:26"
+      },
+      {
+        "episode_id": "bfeef19d-b360-4faa-be6e-9d47f0c0804b",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2025-11-03 22:42:16"
+      },
+      {
+        "episode_id": "e0f1e44c-efd1-4588-9054-b2d518763576",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2025-11-04 20:25:06"
+      },
+      {
+        "episode_id": "fefac198-c3d6-4d54-8623-bc7465a29cc8",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2025-11-06 21:01:49"
+      }
+    ],
+    "watched_count": 5,
+    "latest_progress": "S01E05",
+    "latest_season": 1,
+    "latest_episode": 5,
+    "rating": 3,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2025-10-30 20:56:28",
+    "updated_at": "2025-11-06 21:01:49"
+  },
+  {
+    "uuid": "219b606d-205c-4491-a061-09db7172f636",
+    "title": "Rodzina Soprano",
+    "original_title": "Rodzina Soprano",
+    "year": "1999",
+    "genre": "Dramat, Kryminał",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 6,
+    "season_ep_counts": {
+      "1": 13,
+      "2": 13,
+      "3": 13,
+      "4": 13,
+      "5": 13,
+      "6": 21
+    },
+    "episodes_watched": [],
+    "watched_count": 0,
+    "latest_progress": null,
+    "latest_season": null,
+    "latest_episode": null,
+    "rating": null,
+    "status": "followed",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2026-03-20 15:47:18",
+    "updated_at": "2026-03-20 15:47:18"
+  },
+  {
+    "uuid": "5fa72012-8c57-4277-81d9-09b4cbf8f29e",
+    "title": "Devs",
+    "original_title": "Devs",
+    "year": "2020",
+    "genre": "Sci-Fi, Thriller",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 1,
+    "season_ep_counts": {
+      "1": 8
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "79e546e7-dd3e-4854-9340-64b0ea4f4a80",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2026-02-04 19:22:55"
+      },
+      {
+        "episode_id": "2296e3f1-71e1-4b9f-8c6d-768e45bcf3ba",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2026-02-06 23:34:59"
+      },
+      {
+        "episode_id": "a2c723d4-bfb8-4bb9-a18c-549274e0079a",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2026-02-09 21:37:38"
+      },
+      {
+        "episode_id": "58e0058f-e8af-401f-8f45-f6f788a613b4",
+        "season": 1,
+        "episode": 4,
+        "created_at": "2026-02-12 21:40:40"
+      },
+      {
+        "episode_id": "6986305a-5da3-49cf-8ed0-730d711dc1dd",
+        "season": 1,
+        "episode": 5,
+        "created_at": "2026-02-14 21:51:05"
+      },
+      {
+        "episode_id": "d913057d-c21f-44fc-90bc-bad585f80d9b",
+        "season": 1,
+        "episode": 6,
+        "created_at": "2026-02-16 20:00:00"
+      },
+      {
+        "episode_id": "7def3b8e-ec0d-4c3a-b011-b125022111e5",
+        "season": 1,
+        "episode": 7,
+        "created_at": "2026-02-17 20:30:34"
+      },
+      {
+        "episode_id": "3b30ee97-98d5-4cf5-8afc-f9e8cc476b72",
+        "season": 1,
+        "episode": 8,
+        "created_at": "2026-02-19 20:49:27"
+      }
+    ],
+    "watched_count": 8,
+    "latest_progress": "S01E08",
+    "latest_season": 1,
+    "latest_episode": 8,
+    "rating": 5,
+    "status": "watched",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2026-02-04 19:22:55",
+    "updated_at": "2026-02-19 20:49:27"
+  },
+  {
+    "uuid": "d413c850-63c4-476d-a55f-a725bcb3c168",
+    "title": "Station Eleven",
+    "original_title": "Station Eleven",
+    "year": "2021",
+    "genre": "Dramat, Sci-Fi",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 1,
+    "season_ep_counts": {
+      "1": 10
+    },
+    "episodes_watched": [],
+    "watched_count": 0,
+    "latest_progress": null,
+    "latest_season": null,
+    "latest_episode": null,
+    "rating": null,
+    "status": "followed",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2026-01-14 18:10:45",
+    "updated_at": "2026-01-14 18:10:45"
+  },
+  {
+    "uuid": "3fbbff57-b6f5-4f1c-84a5-31cdf97f4994",
+    "title": "Czarne lustro",
+    "original_title": "Czarne lustro",
+    "year": "2011",
+    "genre": "Sci-Fi, Antologia",
+    "poster_url": "",
+    "plot": "",
+    "cast": [],
+    "director": "",
+    "total_seasons": 6,
+    "season_ep_counts": {
+      "1": 3,
+      "2": 4,
+      "3": 6,
+      "4": 6,
+      "5": 6,
+      "6": 5
+    },
+    "episodes_watched": [
+      {
+        "episode_id": "cebd3b2b-9cfb-4ce7-a8f2-c584ccca1e14",
+        "season": 1,
+        "episode": 1,
+        "created_at": "2026-05-09 21:33:48"
+      },
+      {
+        "episode_id": "44d18524-cf0e-4567-882d-7fc1be3074f8",
+        "season": 1,
+        "episode": 2,
+        "created_at": "2026-05-12 21:18:41"
+      },
+      {
+        "episode_id": "a30b669c-1c40-4045-8a22-eae922f9cafe",
+        "season": 1,
+        "episode": 3,
+        "created_at": "2026-05-14 20:04:11"
+      },
+      {
+        "episode_id": "5215b503-3012-4819-bdf3-73789f6ccab4",
+        "season": 2,
+        "episode": 1,
+        "created_at": "2026-05-16 21:17:44"
+      },
+      {
+        "episode_id": "4838a888-1a2e-4864-b8ea-ca362f999b2a",
+        "season": 2,
+        "episode": 2,
+        "created_at": "2026-05-17 20:34:01"
+      },
+      {
+        "episode_id": "269334ef-1717-4654-bb99-78150219a9c7",
+        "season": 2,
+        "episode": 3,
+        "created_at": "2026-05-19 19:28:46"
+      },
+      {
+        "episode_id": "7f96dd35-cca9-4089-8925-4bb54fc37d4e",
+        "season": 2,
+        "episode": 4,
+        "created_at": "2026-05-20 21:21:26"
+      },
+      {
+        "episode_id": "f39ef1be-c025-43ea-97f2-a67814898025",
+        "season": 3,
+        "episode": 1,
+        "created_at": "2026-05-22 21:02:21"
+      },
+      {
+        "episode_id": "2e7d952b-785b-4a07-8b0e-a0b912464474",
+        "season": 3,
+        "episode": 2,
+        "created_at": "2026-05-23 19:49:25"
+      },
+      {
+        "episode_id": "1f38df55-033a-44d6-9408-539161af0e8e",
+        "season": 3,
+        "episode": 3,
+        "created_at": "2026-05-24 22:16:52"
+      }
+    ],
+    "watched_count": 10,
+    "latest_progress": "S03E03",
+    "latest_season": 3,
+    "latest_episode": 3,
+    "rating": 1,
+    "status": "watching",
+    "tmdb_id": null,
+    "imdb_id": null,
+    "created_at": "2026-05-09 21:33:48",
+    "updated_at": "2026-05-24 22:16:52"
+  }
+]
