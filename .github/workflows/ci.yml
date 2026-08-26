@@ -58,7 +58,7 @@ jobs:
 
       - name: Syntax-check JS modules (strict ESM)
         run: |
-          for f in static/js/main.js static/js/drive_sync.js static/sw.js static/js/modules/*.js; do
+          for f in static/js/main.js static/js/drive_sync.js sw.js static/js/modules/*.js; do
             node --check "$f"
           done
 

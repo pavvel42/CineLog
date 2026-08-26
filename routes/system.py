@@ -29,11 +29,16 @@ log = logging.getLogger("cinelog")
 bp = Blueprint("system", __name__)
 
 INDEX_HTML = Path(__file__).resolve().parent.parent / "index.html"
+SW_JS = Path(__file__).resolve().parent.parent / "sw.js"
 
 @bp.route("/")
 @bp.route("/m3")
-def index() -> ResponseReturnValue:
+def index():
     return send_file(INDEX_HTML)
+
+@bp.route("/sw.js")
+def service_worker():
+    return send_file(SW_JS, mimetype="application/javascript")
 
 # --- MULTI-RESULT LIVE SEARCH API ---
 @bp.route("/api/data", methods=["GET"])

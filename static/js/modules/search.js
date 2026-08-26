@@ -1,4 +1,4 @@
-import { state, saveLocalDatabase, getGradientForTitle, findDuplicateInLibrary, normalizeTitleForLibrary, escapeHtml, safeUrl, getKeyHeaders } from './state.js';
+import { state, saveLocalDatabase, getGradientForTitle, findDuplicateInLibrary, normalizeTitleForLibrary, escapeHtml, safeUrl, getKeyHeaders, fetchWithTimeout } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { getUserLanguage } from './vod.js';
@@ -200,7 +200,7 @@ async function fetchBackendProductionDetail(item) {
       type: item.type || searchType,
       lang: getUserLanguage()
     });
-    const res = await fetch(`/api/search_detail?${params.toString()}`, { headers: getKeyHeaders() });
+    const res = await fetchWithTimeout(`/api/search_detail?${params.toString()}`, { headers: getKeyHeaders() });
     if (res.ok) {
       return { detail: await res.json(), backendSuccess: true };
     }
@@ -217,7 +217,7 @@ async function resolveTmdbProductionId(item, tmdbType, localTmdbKey) {
   // If we have an IMDb ID but no numeric TMDb ID, resolve it via /find/tt...
   if (!tmdbId && imdbId) {
     try {
-      const findRes = await fetch(`https://api.themoviedb.org/3/find/${encodeURIComponent(imdbId)}?api_key=${encodeURIComponent(localTmdbKey)}&external_source=imdb_id&language=${getUserLanguage()}`);
+      const findRes = await fetchWithTimeout(`https://api.themoviedb.org/3/find/${encodeURIComponent(imdbId)}?api_key=${encodeURIComponent(localTmdbKey)}&external_source=imdb_id&language=${getUserLanguage()}`);
       if (findRes.ok) {
         const findJson = await findRes.json();
         const resArr = tmdbType === "tv" ? findJson.tv_results : findJson.movie_results;
@@ -231,7 +231,7 @@ async function resolveTmdbProductionId(item, tmdbType, localTmdbKey) {
     try {
       const cleanTitle = (item.title || "").replace(/\s*\([^)]*\)/g, "").trim();
       const sUrl = `https://api.themoviedb.org/3/search/${tmdbType}?api_key=${encodeURIComponent(localTmdbKey)}&query=${encodeURIComponent(cleanTitle)}&language=${getUserLanguage()}${item.year ? (tmdbType === 'tv' ? `&first_air_date_year=${item.year}` : `&year=${item.year}`) : ''}`;
-      const sRes = await fetch(sUrl);
+      const sRes = await fetchWithTimeout(sUrl);
       if (sRes.ok) {
         const sData = await sRes.json();
         if (sData.results && sData.results.length > 0) tmdbId = sData.results[0].id;
@@ -244,7 +244,7 @@ async function resolveTmdbProductionId(item, tmdbType, localTmdbKey) {
 
 async function fetchTmdbPlotEn(tmdbType, tmdbId, localTmdbKey) {
   try {
-    const tmdbResEn = await fetch(`https://api.themoviedb.org/3/${tmdbType}/${tmdbId}?api_key=${encodeURIComponent(localTmdbKey)}&language=en-US`);
+    const tmdbResEn = await fetchWithTimeout(`https://api.themoviedb.org/3/${tmdbType}/${tmdbId}?api_key=${encodeURIComponent(localTmdbKey)}&language=en-US`);
     if (tmdbResEn.ok) {
       const tDataEn = await tmdbResEn.json();
       return tDataEn.overview || "";
@@ -290,7 +290,7 @@ async function fetchTmdbProductionDetail(item, localTmdbKey) {
 
     if (!tmdbId) return result;
 
-    const tmdbRes = await fetch(`https://api.themoviedb.org/3/${tmdbType}/${tmdbId}?api_key=${encodeURIComponent(localTmdbKey)}&language=${getUserLanguage()}&append_to_response=credits,watch/providers,release_dates`);
+    const tmdbRes = await fetchWithTimeout(`https://api.themoviedb.org/3/${tmdbType}/${tmdbId}?api_key=${encodeURIComponent(localTmdbKey)}&language=${getUserLanguage()}&append_to_response=credits,watch/providers,release_dates`);
     if (!tmdbRes.ok) return result;
 
     const tData = await tmdbRes.json();
@@ -310,7 +310,7 @@ async function applyOmdbFallback(item, detail, localOmdbKey) {
   try {
     const cleanTitle = (item.title || "").replace(/\s*\([^)]*\)/g, "").trim();
     const omdbParam = item.imdb_id ? `i=${encodeURIComponent(item.imdb_id)}` : `t=${encodeURIComponent(cleanTitle)}${item.year ? `&y=${item.year}` : ''}`;
-    const omdbRes = await fetch(`https://www.omdbapi.com/?apikey=${encodeURIComponent(localOmdbKey)}&${omdbParam}&plot=full`);
+    const omdbRes = await fetchWithTimeout(`https://www.omdbapi.com/?apikey=${encodeURIComponent(localOmdbKey)}&${omdbParam}&plot=full`, {}, 6000);
     if (!omdbRes.ok) return detail;
     const omdbData = await omdbRes.json();
     if (omdbData.Response !== "True") return detail;
@@ -431,6 +431,7 @@ export async function selectProductionDetail(item) {
     stepPreview.style.display = "flex";
   } catch (e) {
     console.error("Error loading detail:", e);
+    showToastNotification("Nie udało się wczytać szczegółów tytułu.", "error");
   }
 }
 
@@ -575,7 +576,7 @@ async function fetchAddSearchResults(query) {
   // 1. If backend server might be available, try it
   if (!isStaticEnv) {
     try {
-      const res = await fetch(`/api/search_preview?q=${encodeURIComponent(query)}&type=${searchType}&lang=${getUserLanguage()}`, { headers: getKeyHeaders() });
+      const res = await fetchWithTimeout(`/api/search_preview?q=${encodeURIComponent(query)}&type=${searchType}&lang=${getUserLanguage()}`, { headers: getKeyHeaders() });
       if (res.ok) {
         data = await res.json();
       }
@@ -588,7 +589,7 @@ async function fetchAddSearchResults(query) {
   if (!data && rawTmdbKey) {
     try {
       const tmdbEndpoint = searchType === "series" ? "tv" : "movie";
-      const res = await fetch(`https://api.themoviedb.org/3/search/${tmdbEndpoint}?api_key=${encodeURIComponent(rawTmdbKey)}&query=${encodeURIComponent(query)}&language=${getUserLanguage()}&include_adult=false`);
+      const res = await fetchWithTimeout(`https://api.themoviedb.org/3/search/${tmdbEndpoint}?api_key=${encodeURIComponent(rawTmdbKey)}&query=${encodeURIComponent(query)}&language=${getUserLanguage()}&include_adult=false`);
       if (res.ok) {
         const tmdbJson = await res.json();
         const results = (tmdbJson.results || []).map(item => ({
@@ -750,6 +751,7 @@ function initAddSearchFlow() {
       handleAddSearchResponse(data, stepSearch, document.getElementById("m3-add-step-results"), resultsContainer, searchError, searchErrorText);
     } catch (err) {
       console.error("Search preview process error:", err);
+      showToastNotification("Wyszukiwanie nie powiodło się (sprawdź połączenie).", "error");
     } finally {
       if (btnSearchTrigger) {
         btnSearchTrigger.innerHTML = origHtml;

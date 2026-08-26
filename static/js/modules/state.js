@@ -118,6 +118,20 @@ export function getKeyHeaders() {
   return headers;
 }
 
+/**
+ * fetch z limitem czasu — na komórkach zawieszony request nie może
+ * blokować UI na zawsze (np. spinner wyszukiwania).
+ * @param {string} url
+ * @param {RequestInit} [options]
+ * @param {number} [timeoutMs=8000]
+ * @returns {Promise<Response>}
+ */
+export function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 // Progressive rendering: append cards in chunks so large libraries don't freeze the UI.
 // A generation counter cancels pending chunks when a newer render starts.
 /**

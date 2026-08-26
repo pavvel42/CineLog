@@ -4,7 +4,7 @@
 Jedno źródło prawdy: plik VERSION (np. "10.25").
   python scripts/sync_version.py check  -> wyjście 1 przy rozjeździe (używa CI)
   python scripts/sync_version.py fix    -> propaguje VERSION do index.html
-                                           i static/sw.js oraz wersjonowanych JS
+                                           i sw.js oraz wersjonowanych JS
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 HTML = (ROOT / "index.html",)
-SW = ROOT / "static" / "sw.js"
+SW = ROOT / "sw.js"
 JS_VERSIONED = ("static/js/theme_bootstrap.js", "static/js/sw_register.js")
 EXEMPT = re.compile(r'config\.js\?v=')  # opcjonalny plik użytkownika ma własną wersję
 
