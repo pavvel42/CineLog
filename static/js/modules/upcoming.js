@@ -1,4 +1,4 @@
-import { state, getGradientForTitle } from './state.js';
+import { state, getGradientForTitle, getKeyHeaders } from './state.js';
 import { showToastNotification } from './ui.js';
 import { openMovieDetail } from './movies.js';
 import { openEpisodeTracker } from './shows.js';
@@ -25,13 +25,12 @@ export async function loadUpcomingData(forceRefresh = false) {
       const today = new Date();
       const todayStr = today.toISOString().split("T")[0];
       const localKey = localStorage.getItem("cinelog_tmdb_key");
-      const tmdbParam = localKey ? `&tmdb_key=${encodeURIComponent(localKey)}` : "";
 
       let items = [];
 
       // 1. Try Flask API /api/upcoming first
       try {
-        const res = await fetch(forceRefresh ? `/api/upcoming?refresh=1${tmdbParam}` : `/api/upcoming${tmdbParam}`);
+        const res = await fetch(forceRefresh ? "/api/upcoming?refresh=1" : "/api/upcoming", { headers: getKeyHeaders() });
         if (res.ok) {
           const data = await res.json();
           items = data.items || [];
@@ -258,7 +257,7 @@ export function renderUpcoming() {
       : `<span class="m3-meta-badge" style="font-size: 11px; padding: 2px 6px;"><span class="material-symbols-rounded" style="font-size: 12px;">movie</span> Film</span>`;
 
     const posterHtml = it.poster_url 
-      ? `<img src="${it.poster_url}" alt="${it.title}" class="m3-upcoming-poster" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div class="m3-upcoming-poster" style="display: none; align-items: center; justify-content: center; background: ${getGradientForTitle(it.title)}; font-size: 10px; color: #fff; font-weight: 700; text-align: center; padding: 4px;">${it.title}</div>`
+      ? `<img src="${it.poster_url}" alt="${it.title}" class="m3-upcoming-poster" loading="lazy" data-fallback-display="flex"><div class="m3-upcoming-poster" style="display: none; align-items: center; justify-content: center; background: ${getGradientForTitle(it.title)}; font-size: 10px; color: #fff; font-weight: 700; text-align: center; padding: 4px;">${it.title}</div>`
       : `<div class="m3-upcoming-poster" style="display: flex; align-items: center; justify-content: center; background: ${getGradientForTitle(it.title)}; font-size: 10px; color: #fff; font-weight: 700; text-align: center; padding: 4px;">${it.title}</div>`;
 
     return `

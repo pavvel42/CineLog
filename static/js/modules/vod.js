@@ -662,7 +662,7 @@ export function renderVodSubscriptionsChecklist(country) {
       const fallbackBadge = `<span class="m3-vod-badge-fallback" style="background-color: ${item.color || 'var(--md-sys-color-primary)'}; color: #fff; font-size: 0.62rem; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 4px;">${monogram}</span>`;
 
       const logoHtml = item.logo 
-        ? `<img src="${item.logo}" alt="${item.label}" class="m3-vod-item-logo" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-flex';"><span style="display: none;">${fallbackBadge}</span>`
+        ? `<img src="${item.logo}" alt="${item.label}" class="m3-vod-item-logo" data-fallback-display="inline-flex"><span style="display: none;">${fallbackBadge}</span>`
         : fallbackBadge;
 
       label.innerHTML = `
@@ -895,7 +895,7 @@ export function renderTopVodFilterBar(country, onFilterChange) {
     const fallbackBadge = `<span class="m3-vod-badge-fallback" style="background-color: ${item.color || 'var(--md-sys-color-primary)'}; color: #fff; font-size: 0.62rem; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px;">${monogram}</span>`;
 
     const logoHtml = item.logo
-      ? `<img src="${item.logo}" alt="${item.label}" class="m3-vod-chip-logo" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-flex';"><span style="display: none;">${fallbackBadge}</span>`
+      ? `<img src="${item.logo}" alt="${item.label}" class="m3-vod-chip-logo" data-fallback-display="inline-flex"><span style="display: none;">${fallbackBadge}</span>`
       : fallbackBadge;
 
     btn.innerHTML = logoHtml;

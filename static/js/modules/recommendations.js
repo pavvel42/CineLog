@@ -1,4 +1,4 @@
-import { state, isItemInLibrary, saveLocalDatabase, getGradientForTitle, escapeHtml } from './state.js';
+import { state, isItemInLibrary, saveLocalDatabase, getGradientForTitle, escapeHtml, getKeyHeaders } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, getUserLanguage, TMDB_GLOBAL_VOD_MAP, getCountryDisplayName } from './vod.js';
@@ -96,14 +96,13 @@ export async function spinRoulette() {
     }
   } else if (rouletteSource === "myvod") {
     try {
-      const tmdbParam = localStorage.getItem("cinelog_tmdb_key") ? `&tmdb_key=${encodeURIComponent(localStorage.getItem("cinelog_tmdb_key"))}` : "";
       const activePids = (state.userVodSubscriptions || []).map(s => TMDB_GLOBAL_VOD_MAP[s]).filter(Boolean).join("|");
-      let url = `/api/recommendations/discover?media_type=movie&min_vote_avg=6.8&min_vote_count=100${tmdbParam}`;
+      let url = `/api/recommendations/discover?media_type=movie&min_vote_avg=6.8&min_vote_count=100`;
       if (genreParam) url += `&genres=${genreParam}`;
       if (activePids) {
         url += `&with_watch_providers=${encodeURIComponent(activePids)}&watch_region=${state.userVodCountry}`;
       }
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: getKeyHeaders() });
       const data = await res.json();
       const raw = data.results || [];
       candidates = raw.filter(it => !isItemInLibrary(it));
@@ -112,10 +111,9 @@ export async function spinRoulette() {
     }
   } else {
     try {
-      const tmdbParam = localStorage.getItem("cinelog_tmdb_key") ? `&tmdb_key=${encodeURIComponent(localStorage.getItem("cinelog_tmdb_key"))}` : "";
-      let url = `/api/recommendations/discover?media_type=movie&min_vote_avg=7.2&min_vote_count=150${tmdbParam}`;
+      let url = `/api/recommendations/discover?media_type=movie&min_vote_avg=7.2&min_vote_count=150`;
       if (genreParam) url += `&genres=${genreParam}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: getKeyHeaders() });
       const data = await res.json();
       const raw = data.results || [];
       candidates = raw.filter(it => !isItemInLibrary(it));
@@ -1040,17 +1038,15 @@ export async function loadRecommendationsHub(forceRefresh = false) {
     const seedShow1 = activeShows[0] || fiveStarShows[0] || state.shows[0] || null;
     const seedShow2 = activeShows.length > 1 ? activeShows[1] : (fiveStarShows.length > 1 ? fiveStarShows[1] : null);
 
-    const tmdbParam = localStorage.getItem("cinelog_tmdb_key") ? `&tmdb_key=${encodeURIComponent(localStorage.getItem("cinelog_tmdb_key"))}` : "";
     const promises = [];
 
     // Helper for robust dual-mode fetching (Flask API -> Direct TMDb Client Fetch Fallback)
     const fetchRecSection = async (key, apiPath, tmdbPath, tmdbParams = {}) => {
       const localKey = localStorage.getItem("cinelog_tmdb_key");
-      const tmdbParam = localKey ? `&tmdb_key=${encodeURIComponent(localKey)}` : "";
 
       // 1. Try Flask endpoint
       try {
-        const res = await fetch(`${apiPath}${tmdbParam}`);
+        const res = await fetch(apiPath, { headers: getKeyHeaders() });
         if (res.ok) {
           const data = await res.json();
           if (data && data.results && data.results.length > 0) {

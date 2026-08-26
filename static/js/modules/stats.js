@@ -68,22 +68,134 @@ export function updateStats() {
   }
 }
 
-export function initCharts(scope = currentAnalyticsScope) {
-  currentAnalyticsScope = scope;
-  const ctxRatings = document.getElementById("m3RatingsChart");
-  const ctxYearly = document.getElementById("m3YearlyChart");
-  const ctxGenres = document.getElementById("m3GenresChart");
-  if (!ctxRatings || !ctxYearly) return;
+function pushGenreCounts(item, genreCountMap) {
+  const gList = item.genres || (item.genre ? item.genre.split(",") : []);
+  gList.forEach(g => {
+    const cleanG = (typeof g === "string" ? g : (g.name || "")).trim();
+    if (cleanG) genreCountMap[cleanG] = (genreCountMap[cleanG] || 0) + 1;
+  });
+}
 
+function pushYearFromDate(dateValue, yearlyMap) {
+  if (!dateValue) return;
+  const y = dateValue.split("-")[0].substring(0, 4);
+  if (y && y.length === 4 && parseInt(y) >= 1970 && parseInt(y) <= 2030) {
+    yearlyMap[y] = (yearlyMap[y] || 0) + 1;
+  }
+}
+
+function showEpisodeCount(s) {
+  return s.episodes_watched ? s.episodes_watched.length : (s.watched_count || 0);
+}
+
+function showEpisodeDuration(s) {
+  return parseInt(s.runtime) || parseInt(s.episode_runtime) || 45;
+}
+
+function collectMovieStats() {
+  const stats = {
+    totalCount: state.movies.length,
+    watchedCount: state.movies.filter(m => m.status === "watched").length,
+    favCount: state.movies.filter(m => m.is_favorite).length,
+    watchlistCount: state.movies.filter(m => m.status === "watchlist").length,
+    totalMinutes: state.movies.filter(m => m.status === "watched").reduce((sum, m) => sum + (parseInt(m.runtime) || 105), 0),
+    allRatings: [],
+    genreCountMap: {},
+    yearlyMap: {}
+  };
+  state.movies.forEach(m => {
+    if (m.rating && m.rating >= 1 && m.rating <= 5) stats.allRatings.push(m.rating);
+    pushGenreCounts(m, stats.genreCountMap);
+    pushYearFromDate(m.watch_date || m.created_at || m.release_date || (m.year ? `${m.year}-01-01` : null), stats.yearlyMap);
+  });
+  return stats;
+}
+
+function collectShowStats() {
+  const stats = {
+    totalCount: state.shows.length,
+    watchedCount: 0,
+    favCount: state.shows.filter(s => s.is_favorite).length,
+    watchlistCount: state.shows.filter(s => s.status === "watchlist").length,
+    totalMinutes: 0,
+    allRatings: [],
+    genreCountMap: {},
+    yearlyMap: {}
+  };
+  state.shows.forEach(s => {
+    const epCount = showEpisodeCount(s);
+    stats.watchedCount += epCount;
+    stats.totalMinutes += epCount * showEpisodeDuration(s);
+
+    if (s.rating && s.rating >= 1 && s.rating <= 5) stats.allRatings.push(s.rating);
+    pushGenreCounts(s, stats.genreCountMap);
+
+    if (s.episodes_watched && s.episodes_watched.length > 0) {
+      s.episodes_watched.forEach(ep => pushYearFromDate(ep.created_at || ep.date, stats.yearlyMap));
+    } else if (s.created_at || s.year) {
+      pushYearFromDate(s.created_at || `${s.year}-01-01`, stats.yearlyMap);
+    }
+  });
+  return stats;
+}
+
+function collectAllStats() {
+  const movieMins = state.movies.filter(m => m.status === "watched").reduce((sum, m) => sum + (parseInt(m.runtime) || 105), 0);
+  const showMins = state.shows.reduce((sum, s) => sum + showEpisodeCount(s) * showEpisodeDuration(s), 0);
+
+  const stats = {
+    totalCount: state.movies.length + state.shows.length,
+    watchedCount: state.movies.filter(m => m.status === "watched").length + state.shows.reduce((sum, s) => sum + showEpisodeCount(s), 0),
+    favCount: state.movies.filter(m => m.is_favorite).length + state.shows.filter(s => s.is_favorite).length,
+    watchlistCount: state.movies.filter(m => m.status === "watchlist").length + state.shows.filter(s => s.status === "watchlist").length,
+    totalMinutes: movieMins + showMins,
+    allRatings: [],
+    genreCountMap: {},
+    yearlyMap: {}
+  };
+
+  [...state.movies, ...state.shows].forEach(it => {
+    if (it.rating && it.rating >= 1 && it.rating <= 5) stats.allRatings.push(it.rating);
+    pushGenreCounts(it, stats.genreCountMap);
+  });
+
+  state.movies.forEach(m => {
+    pushYearFromDate(m.watch_date || m.created_at || m.release_date || (m.year ? `${m.year}-01-01` : null), stats.yearlyMap);
+  });
+  state.shows.forEach(s => {
+    if (s.episodes_watched && s.episodes_watched.length > 0) {
+      s.episodes_watched.forEach(ep => pushYearFromDate(ep.created_at || ep.date, stats.yearlyMap));
+    }
+  });
+  return stats;
+}
+
+function updateAnalyticsScopeButtons(scope) {
   const btnMovies = document.getElementById("m3-analytics-mode-movies");
   const btnShows = document.getElementById("m3-analytics-mode-shows");
   const btnAll = document.getElementById("m3-analytics-mode-all");
   if (btnMovies) btnMovies.classList.toggle("active", scope === "movies");
   if (btnShows) btnShows.classList.toggle("active", scope === "shows");
   if (btnAll) btnAll.classList.toggle("active", scope === "all");
+}
 
+function setAnalyticsScopeLabels(scope) {
   const totalLabel = document.getElementById("m3-analytics-total-label");
   const watchedLabel = document.getElementById("m3-analytics-watched-label");
+
+  if (scope === "movies") {
+    if (totalLabel) totalLabel.innerText = "Filmy w kolekcji";
+    if (watchedLabel) watchedLabel.innerText = "Obejrzane filmy";
+  } else if (scope === "shows") {
+    if (totalLabel) totalLabel.innerText = "Seriale ogółem";
+    if (watchedLabel) watchedLabel.innerText = "Obejrzane odcinki";
+  } else {
+    if (totalLabel) totalLabel.innerText = "Łączna kolekcja";
+    if (watchedLabel) watchedLabel.innerText = "Wszystkie seanse";
+  }
+}
+
+function renderAnalyticsSummaryCards(stats) {
   const elTotal = document.getElementById("m3-analytics-total-count");
   const elWatched = document.getElementById("m3-analytics-watched-count");
   const elTime = document.getElementById("m3-analytics-time-count");
@@ -91,155 +203,27 @@ export function initCharts(scope = currentAnalyticsScope) {
   const elFav = document.getElementById("m3-analytics-fav-count");
   const elWatchlist = document.getElementById("m3-analytics-watchlist-count");
 
-  let totalCount = 0;
-  let watchedCount = 0;
-  let favCount = 0;
-  let watchlistCount = 0;
-  let totalMinutes = 0;
-  let allRatings = [];
-  const genreCountMap = {};
-  const yearlyMap = {};
+  const avgRating = stats.allRatings.length > 0 ? (stats.allRatings.reduce((acc, r) => acc + r, 0) / stats.allRatings.length).toFixed(1) + "★" : "0.0★";
 
-  if (scope === "movies") {
-    if (totalLabel) totalLabel.innerText = "Filmy w kolekcji";
-    if (watchedLabel) watchedLabel.innerText = "Obejrzane filmy";
-
-    totalCount = state.movies.length;
-    watchedCount = state.movies.filter(m => m.status === "watched").length;
-    favCount = state.movies.filter(m => m.is_favorite).length;
-    watchlistCount = state.movies.filter(m => m.status === "watchlist").length;
-
-    totalMinutes = state.movies.filter(m => m.status === "watched").reduce((sum, m) => sum + (parseInt(m.runtime) || 105), 0);
-
-    state.movies.forEach(m => {
-      if (m.rating && m.rating >= 1 && m.rating <= 5) allRatings.push(m.rating);
-
-      const gList = m.genres || (m.genre ? m.genre.split(",") : []);
-      gList.forEach(g => {
-        const cleanG = (typeof g === "string" ? g : (g.name || "")).trim();
-        if (cleanG) genreCountMap[cleanG] = (genreCountMap[cleanG] || 0) + 1;
-      });
-
-      const d = m.watch_date || m.created_at || m.release_date || (m.year ? `${m.year}-01-01` : null);
-      if (d) {
-        const y = d.split("-")[0].substring(0, 4);
-        if (y && y.length === 4 && parseInt(y) >= 1970 && parseInt(y) <= 2030) {
-          yearlyMap[y] = (yearlyMap[y] || 0) + 1;
-        }
-      }
-    });
-
-  } else if (scope === "shows") {
-    if (totalLabel) totalLabel.innerText = "Seriale ogółem";
-    if (watchedLabel) watchedLabel.innerText = "Obejrzane odcinki";
-
-    totalCount = state.shows.length;
-    favCount = state.shows.filter(s => s.is_favorite).length;
-    watchlistCount = state.shows.filter(s => s.status === "watchlist").length;
-
-    state.shows.forEach(s => {
-      const epCount = s.episodes_watched ? s.episodes_watched.length : (s.watched_count || 0);
-      watchedCount += epCount;
-
-      const epDuration = parseInt(s.runtime) || parseInt(s.episode_runtime) || 45;
-      totalMinutes += epCount * epDuration;
-
-      if (s.rating && s.rating >= 1 && s.rating <= 5) allRatings.push(s.rating);
-
-      const gList = s.genres || (s.genre ? s.genre.split(",") : []);
-      gList.forEach(g => {
-        const cleanG = (typeof g === "string" ? g : (g.name || "")).trim();
-        if (cleanG) genreCountMap[cleanG] = (genreCountMap[cleanG] || 0) + 1;
-      });
-
-      if (s.episodes_watched && s.episodes_watched.length > 0) {
-        s.episodes_watched.forEach(ep => {
-          const d = ep.created_at || ep.date;
-          if (d) {
-            const y = d.split("-")[0].substring(0, 4);
-            if (y && y.length === 4 && parseInt(y) >= 1970 && parseInt(y) <= 2030) {
-              yearlyMap[y] = (yearlyMap[y] || 0) + 1;
-            }
-          }
-        });
-      } else if (s.created_at || s.year) {
-        const d = s.created_at || `${s.year}-01-01`;
-        const y = d.split("-")[0].substring(0, 4);
-        if (y && y.length === 4 && parseInt(y) >= 1970 && parseInt(y) <= 2030) {
-          yearlyMap[y] = (yearlyMap[y] || 0) + 1;
-        }
-      }
-    });
-
-  } else {
-    if (totalLabel) totalLabel.innerText = "Łączna kolekcja";
-    if (watchedLabel) watchedLabel.innerText = "Wszystkie seanse";
-
-    totalCount = state.movies.length + state.shows.length;
-    const watchedMoviesCount = state.movies.filter(m => m.status === "watched").length;
-    const totalEps = state.shows.reduce((sum, s) => sum + (s.episodes_watched ? s.episodes_watched.length : (s.watched_count || 0)), 0);
-    watchedCount = watchedMoviesCount + totalEps;
-
-    favCount = state.movies.filter(m => m.is_favorite).length + state.shows.filter(s => s.is_favorite).length;
-    watchlistCount = state.movies.filter(m => m.status === "watchlist").length + state.shows.filter(s => s.status === "watchlist").length;
-
-    const movieMins = state.movies.filter(m => m.status === "watched").reduce((sum, m) => sum + (parseInt(m.runtime) || 105), 0);
-    const showMins = state.shows.reduce((sum, s) => {
-      const epCount = s.episodes_watched ? s.episodes_watched.length : (s.watched_count || 0);
-      const epDuration = parseInt(s.runtime) || parseInt(s.episode_runtime) || 45;
-      return sum + (epCount * epDuration);
-    }, 0);
-    totalMinutes = movieMins + showMins;
-
-    [...state.movies, ...state.shows].forEach(it => {
-      if (it.rating && it.rating >= 1 && it.rating <= 5) allRatings.push(it.rating);
-
-      const gList = it.genres || (it.genre ? it.genre.split(",") : []);
-      gList.forEach(g => {
-        const cleanG = (typeof g === "string" ? g : (g.name || "")).trim();
-        if (cleanG) genreCountMap[cleanG] = (genreCountMap[cleanG] || 0) + 1;
-      });
-    });
-
-    state.movies.forEach(m => {
-      const d = m.watch_date || m.created_at || m.release_date || (m.year ? `${m.year}-01-01` : null);
-      if (d) {
-        const y = d.split("-")[0].substring(0, 4);
-        if (y && y.length === 4 && parseInt(y) >= 1970 && parseInt(y) <= 2030) {
-          yearlyMap[y] = (yearlyMap[y] || 0) + 1;
-        }
-      }
-    });
-    state.shows.forEach(s => {
-      if (s.episodes_watched && s.episodes_watched.length > 0) {
-        s.episodes_watched.forEach(ep => {
-          const d = ep.created_at || ep.date;
-          if (d) {
-            const y = d.split("-")[0].substring(0, 4);
-            if (y && y.length === 4 && parseInt(y) >= 1970 && parseInt(y) <= 2030) {
-              yearlyMap[y] = (yearlyMap[y] || 0) + 1;
-            }
-          }
-        });
-      }
-    });
-  }
-
-  const avgRating = allRatings.length > 0 ? (allRatings.reduce((acc, r) => acc + r, 0) / allRatings.length).toFixed(1) + "★" : "0.0★";
-
-  if (elTotal) elTotal.innerText = totalCount;
-  if (elWatched) elWatched.innerText = watchedCount;
-  if (elTime) elTime.innerText = formatWatchTimeMinutes(totalMinutes);
+  if (elTotal) elTotal.innerText = stats.totalCount;
+  if (elWatched) elWatched.innerText = stats.watchedCount;
+  if (elTime) elTime.innerText = formatWatchTimeMinutes(stats.totalMinutes);
   if (elAvg) elAvg.innerText = avgRating;
-  if (elFav) elFav.innerText = favCount;
-  if (elWatchlist) elWatchlist.innerText = watchlistCount;
+  if (elFav) elFav.innerText = stats.favCount;
+  if (elWatchlist) elWatchlist.innerText = stats.watchlistCount;
+}
 
+function getChartThemeColors() {
   const isDark = document.documentElement.getAttribute("data-theme") !== "light";
-  const textColor = isDark ? "rgba(255, 255, 255, 0.88)" : "rgba(28, 27, 31, 0.88)";
-  const textMutedColor = isDark ? "rgba(255, 255, 255, 0.60)" : "rgba(28, 27, 31, 0.60)";
-  const gridColor = isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.08)";
+  return {
+    isDark,
+    textColor: isDark ? "rgba(255, 255, 255, 0.88)" : "rgba(28, 27, 31, 0.88)",
+    textMutedColor: isDark ? "rgba(255, 255, 255, 0.60)" : "rgba(28, 27, 31, 0.60)",
+    gridColor: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.08)"
+  };
+}
 
-  // 1. Ratings Histogram Bar Chart
+function renderRatingsChart(ctxRatings, allRatings, { textColor, textMutedColor, gridColor }) {
   const counts = [0, 0, 0, 0, 0];
   allRatings.forEach(r => {
     if (r >= 1 && r <= 5) counts[r - 1]++;
@@ -263,12 +247,12 @@ export function initCharts(scope = currentAnalyticsScope) {
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          y: { 
-            beginAtZero: true, 
+          y: {
+            beginAtZero: true,
             grid: { color: gridColor },
             ticks: { color: textMutedColor, font: { size: 11 } }
           },
-          x: { 
+          x: {
             grid: { display: false },
             ticks: { color: textColor, font: { size: 12, weight: '600' } }
           }
@@ -276,79 +260,86 @@ export function initCharts(scope = currentAnalyticsScope) {
       }
     });
   }
+}
 
-  // 2. Top Genres Doughnut Chart
-  if (ctxGenres) {
-    const sortedGenres = Object.entries(genreCountMap)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6);
+function renderGenresChartEmptyState(chartCard) {
+  let emptyState = chartCard.querySelector(".m3-genres-empty-state");
+  if (!emptyState) {
+    emptyState = document.createElement("div");
+    emptyState.className = "m3-genres-empty-state";
+    emptyState.style.cssText = "display: flex; flex-direction: column; align-items: center; justify-content: center; height: 180px; text-align: center; color: var(--md-sys-color-on-surface-variant); padding: 12px;";
+    emptyState.innerHTML = `
+      <span class="material-symbols-rounded" style="font-size: 38px; opacity: 0.35; margin-bottom: 6px;">category</span>
+      <div style="font-size: 0.88rem; font-weight: 700; color: var(--md-sys-color-on-surface);">Brak danych o gatunkach</div>
+      <div style="font-size: 0.76rem; opacity: 0.7; margin-top: 4px; max-width: 220px; line-height: 1.3;">Gatunki zostaną uzupełnione automatycznie przy dodawaniu i synchronizacji z TMDb.</div>
+    `;
+    chartCard.appendChild(emptyState);
+  }
+  emptyState.style.display = "flex";
+}
 
-    const genreLabels = sortedGenres.map(g => g[0]);
-    const genreValues = sortedGenres.map(g => g[1]);
-    const hasGenres = genreLabels.length > 0;
+function renderGenresChart(ctxGenres, genreCountMap, { isDark, textColor }) {
+  if (!ctxGenres) return;
 
-    const chartCard = ctxGenres.closest("div") || ctxGenres.parentElement;
-    let emptyState = chartCard ? chartCard.querySelector(".m3-genres-empty-state") : null;
+  const sortedGenres = Object.entries(genreCountMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6);
 
-    if (m3GenresChart) {
-      m3GenresChart.destroy();
-      m3GenresChart = null;
-    }
+  const genreLabels = sortedGenres.map(g => g[0]);
+  const genreValues = sortedGenres.map(g => g[1]);
+  const hasGenres = genreLabels.length > 0;
 
-    if (!hasGenres) {
-      ctxGenres.style.display = "none";
-      if (!emptyState && chartCard) {
-        emptyState = document.createElement("div");
-        emptyState.className = "m3-genres-empty-state";
-        emptyState.style.cssText = "display: flex; flex-direction: column; align-items: center; justify-content: center; height: 180px; text-align: center; color: var(--md-sys-color-on-surface-variant); padding: 12px;";
-        emptyState.innerHTML = `
-          <span class="material-symbols-rounded" style="font-size: 38px; opacity: 0.35; margin-bottom: 6px;">category</span>
-          <div style="font-size: 0.88rem; font-weight: 700; color: var(--md-sys-color-on-surface);">Brak danych o gatunkach</div>
-          <div style="font-size: 0.76rem; opacity: 0.7; margin-top: 4px; max-width: 220px; line-height: 1.3;">Gatunki zostaną uzupełnione automatycznie przy dodawaniu i synchronizacji z TMDb.</div>
-        `;
-        chartCard.appendChild(emptyState);
-      } else if (emptyState) {
-        emptyState.style.display = "flex";
-      }
-    } else {
-      ctxGenres.style.display = "block";
-      if (emptyState) emptyState.style.display = "none";
+  const chartCard = ctxGenres.closest("div") || ctxGenres.parentElement;
 
-      if (window.Chart) {
-        m3GenresChart = new Chart(ctxGenres, {
-          type: "doughnut",
-          data: {
-            labels: genreLabels,
-            datasets: [{
-              data: genreValues,
-              backgroundColor: ["#d0bcff", "#38bdf8", "#34d399", "#f59e0b", "#f43f5e", "#a78bfa"],
-              borderWidth: 2,
-              borderColor: isDark ? "#1e1b24" : "#ffffff"
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                position: "bottom",
-                labels: {
-                  boxWidth: 12,
-                  font: { size: 11, weight: '600' },
-                  color: textColor,
-                  padding: 8,
-                  usePointStyle: true
-                }
-              }
-            },
-            cutout: "65%"
-          }
-        });
-      }
-    }
+  if (m3GenresChart) {
+    m3GenresChart.destroy();
+    m3GenresChart = null;
   }
 
-  // 3. Yearly Timeline Line Chart
+  if (!hasGenres) {
+    ctxGenres.style.display = "none";
+    if (chartCard) renderGenresChartEmptyState(chartCard);
+    return;
+  }
+
+  const emptyState = chartCard ? chartCard.querySelector(".m3-genres-empty-state") : null;
+  ctxGenres.style.display = "block";
+  if (emptyState) emptyState.style.display = "none";
+
+  if (window.Chart) {
+    m3GenresChart = new Chart(ctxGenres, {
+      type: "doughnut",
+      data: {
+        labels: genreLabels,
+        datasets: [{
+          data: genreValues,
+          backgroundColor: ["#d0bcff", "#38bdf8", "#34d399", "#f59e0b", "#f43f5e", "#a78bfa"],
+          borderWidth: 2,
+          borderColor: isDark ? "#1e1b24" : "#ffffff"
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: {
+              boxWidth: 12,
+              font: { size: 11, weight: '600' },
+              color: textColor,
+              padding: 8,
+              usePointStyle: true
+            }
+          }
+        },
+        cutout: "65%"
+      }
+    });
+  }
+}
+
+function renderYearlyChart(ctxYearly, yearlyMap, { textColor, textMutedColor, gridColor }) {
   const years = Object.keys(yearlyMap).sort();
   const yearlyCounts = years.map(y => yearlyMap[y]);
 
@@ -374,12 +365,12 @@ export function initCharts(scope = currentAnalyticsScope) {
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          y: { 
-            beginAtZero: true, 
+          y: {
+            beginAtZero: true,
             grid: { color: gridColor },
             ticks: { color: textMutedColor, font: { size: 11 } }
           },
-          x: { 
+          x: {
             grid: { display: false },
             ticks: { color: textColor, font: { size: 11 } }
           }
@@ -387,8 +378,28 @@ export function initCharts(scope = currentAnalyticsScope) {
       }
     });
   }
+}
 
-  // 4. Render Yearly Goal Challenge and Director Badges
+export function initCharts(scope = currentAnalyticsScope) {
+  currentAnalyticsScope = scope;
+  const ctxRatings = document.getElementById("m3RatingsChart");
+  const ctxYearly = document.getElementById("m3YearlyChart");
+  const ctxGenres = document.getElementById("m3GenresChart");
+  if (!ctxRatings || !ctxYearly) return;
+
+  updateAnalyticsScopeButtons(scope);
+  setAnalyticsScopeLabels(scope);
+
+  const collector = scope === "movies" ? collectMovieStats : scope === "shows" ? collectShowStats : collectAllStats;
+  const stats = collector();
+
+  renderAnalyticsSummaryCards(stats);
+
+  const themeColors = getChartThemeColors();
+  renderRatingsChart(ctxRatings, stats.allRatings, themeColors);
+  renderGenresChart(ctxGenres, stats.genreCountMap, themeColors);
+  renderYearlyChart(ctxYearly, stats.yearlyMap, themeColors);
+
   renderYearlyGoalCard();
   renderDirectorMasteryBadges();
 }
@@ -582,7 +593,7 @@ export function renderDirectorMasteryBadges() {
 
     card.innerHTML = `
       <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
-        <img src="${dir.avatar}" alt="${dir.name}" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid ${dir.badgeColor}; flex-shrink: 0; background: var(--md-sys-color-surface-container-highest);" onerror="this.onerror=null; this.src='static/icons/favicon.png';">
+        <img src="${dir.avatar}" alt="${dir.name}" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid ${dir.badgeColor}; flex-shrink: 0; background: var(--md-sys-color-surface-container-highest);" data-fallback-src="static/icons/favicon.png">
         <div style="min-width: 0;">
           <div style="font-weight: 700; font-size: 0.86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${dir.name}</div>
           <div style="font-size: 0.72rem; color: ${dir.badgeColor}; font-weight: 600;">${dir.badgeRank}</div>
@@ -711,7 +722,7 @@ export function openDirectorDetailModal(dir, activeTab = "watched") {
         if (item.poster_url) {
           posterHtml = `
             <div style="position: relative; width: 100%; aspect-ratio: 2/3; background: var(--md-sys-color-surface-container-highest);">
-              <img src="${item.poster_url}" alt="${item.title}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <img src="${item.poster_url}" alt="${item.title}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover;" data-fallback-display="flex">
               <div class="m3-card-cover-fallback" style="background: ${getGradientForTitle(item.title)}; display: none; width: 100%; height: 100%; align-items: center; justify-content: center; text-align: center; font-size: 0.75rem; font-weight: 700; padding: 6px;">${item.title}</div>
             </div>
           `;

@@ -104,6 +104,20 @@ export function safeUrl(value) {
   return "";
 }
 
+/**
+ * Nagłówki z lokalnymi kluczami API (BYOK) dla wywołań własnego backendu —
+ * klucze nie trafiają wtedy do query stringów i logów serwera.
+ * @returns {Record<string, string>}
+ */
+export function getKeyHeaders() {
+  const headers = {};
+  const tmdbKey = localStorage.getItem("cinelog_tmdb_key");
+  if (tmdbKey) headers["X-TMDB-Key"] = tmdbKey;
+  const omdbKey = localStorage.getItem("cinelog_omdb_key") || localStorage.getItem("cinelog_imdb_key");
+  if (omdbKey) headers["X-OMDb-Key"] = omdbKey;
+  return headers;
+}
+
 // Progressive rendering: append cards in chunks so large libraries don't freeze the UI.
 // A generation counter cancels pending chunks when a newer render starts.
 /**

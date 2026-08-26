@@ -273,227 +273,246 @@ function initSheetAccessibility() {
 }
 
 // Setup DOM Events
-function initApp() {
+function initImageErrorFallbacks() {
+  const applyFallback = (img) => {
+    const fbSrc = img.dataset.fallbackSrc;
+    if (fbSrc) {
+      if (img.dataset.fallbackApplied) return;
+      img.dataset.fallbackApplied = "1";
+      img.src = fbSrc;
+      return;
+    }
+    const sib = img.nextElementSibling;
+    if (sib) {
+      img.style.display = "none";
+      sib.style.display = img.dataset.fallbackDisplay || "";
+    }
+  };
+  document.addEventListener(
+    "error",
+    (e) => {
+      if (e.target instanceof HTMLImageElement) applyFallback(e.target);
+    },
+    true
+  );
+  document.querySelectorAll("img").forEach((img) => {
+    if (img.complete && img.naturalWidth === 0 && img.naturalHeight === 0) applyFallback(img);
+  });
+}
+
+function applyInitialUrlState() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const qMode = urlParams.get("mode");
+  if (qMode === "movies" || qMode === "shows") {
+    state.mode = qMode;
+  }
+  const qTab = urlParams.get("tab");
+  if (qTab) {
+    if (state.mode === "shows") state.activeShowTab = qTab;
+    else state.activeMovieTab = qTab;
+  }
+}
+
+function initModeSwitcherListeners() {
+  const btnMovies = document.getElementById("m3-mode-movies");
+  const btnShows = document.getElementById("m3-mode-shows");
+  const mobileBtnMovies = document.getElementById("m3-mobile-btn-movies");
+  const mobileBtnShows = document.getElementById("m3-mobile-btn-shows");
+
+  if (btnMovies) btnMovies.addEventListener("click", () => setMode("movies"));
+  if (btnShows) btnShows.addEventListener("click", () => setMode("shows"));
+  if (mobileBtnMovies) mobileBtnMovies.addEventListener("click", () => setMode("movies"));
+  if (mobileBtnShows) mobileBtnShows.addEventListener("click", () => setMode("shows"));
+}
+
+function initNavTabListeners() {
+  document.querySelectorAll(".m3-nav-item, .m3-bottom-nav-item").forEach(item => {
+    item.addEventListener("click", (e) => {
+      const tab = e.currentTarget.getAttribute("data-tab");
+      if (tab) switchTab(tab);
+    });
+  });
+}
+
+function renderCurrentMode() {
+  if (state.mode === "movies") renderMovies();
+  else renderShows();
+}
+
+function initHeaderSearchHandlers() {
+  const searchInput = document.getElementById("m3-search-input");
+  const searchClear = document.getElementById("m3-search-clear");
+  if (searchInput) {
+    let searchRenderTimer = null;
+    searchInput.addEventListener("input", () => {
+      if (searchClear) searchClear.style.display = searchInput.value ? "inline-block" : "none";
+      clearTimeout(searchRenderTimer);
+      searchRenderTimer = setTimeout(renderCurrentMode, 180);
+    });
+  }
+  if (searchClear && searchInput) {
+    searchClear.addEventListener("click", () => {
+      searchInput.value = "";
+      searchClear.style.display = "none";
+      renderCurrentMode();
+    });
+  }
+}
+
+function initSortSelectorHandler() {
+  const sortSelect = document.getElementById("m3-sort-select");
+  if (!sortSelect) return;
+  sortSelect.value = state.sortMode;
+  sortSelect.addEventListener("change", (e) => {
+    state.sortMode = e.target.value;
+    localStorage.setItem("cinelog_sort_mode", state.sortMode);
+    renderCurrentMode();
+  });
+}
+
+function initScrollTopButton() {
+  const scrollTopBtn = document.getElementById("m3-scroll-top");
+  if (!scrollTopBtn) return;
+  window.addEventListener("scroll", () => {
+    const currentScrollY = window.scrollY;
+    if (currentScrollY > 280) scrollTopBtn.classList.add("show");
+    else scrollTopBtn.classList.remove("show");
+  }, { passive: true });
+
+  scrollTopBtn.addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+}
+
+function bindSheetCloseButton(buttonId, sheetId) {
+  const closeBtn = document.getElementById(buttonId);
+  if (!closeBtn) return;
+  closeBtn.addEventListener("click", () => {
+    const modal = document.getElementById(sheetId);
+    if (modal) modal.classList.remove("active");
+  });
+}
+
+function initModalCloseHandlers() {
+  bindSheetCloseButton("m3-sheet-detail-close", "m3-sheet-movie-detail");
+  bindSheetCloseButton("m3-sheet-actor-close", "m3-sheet-actor");
+  bindSheetCloseButton("m3-sheet-ep-close", "m3-sheet-episodes");
+}
+
+function initHorizontalWheelScrolling() {
+  document.querySelectorAll(".m3-season-tabs, .m3-vod-filter-bar, .m3-mode-switcher").forEach(el => {
+    el.addEventListener("wheel", (evt) => {
+      if (evt.deltaY !== 0 && !evt.shiftKey) {
+        evt.preventDefault();
+        el.scrollLeft += evt.deltaY * 0.85;
+      }
+    }, { passive: false });
+  });
+}
+
+async function switchToFlaskEnvironment() {
+  if (!state.backendAvailable) {
+    showToastNotification("Serwer Flask nie odpowiada. Uruchom 'python app.py' w terminalu.", "warning");
+    return;
+  }
+  setActiveEnvMode("flask");
+  showToastNotification("Ładowanie bazy z serwera Flask...", "info");
   try {
-    const urlParams = new URLSearchParams(window.location.search);
-    const qMode = urlParams.get("mode");
-    if (qMode === "movies" || qMode === "shows") {
-      state.mode = qMode;
-    }
-    const qTab = urlParams.get("tab");
-    if (qTab) {
-      if (state.mode === "shows") state.activeShowTab = qTab;
-      else state.activeMovieTab = qTab;
-    }
+    await loadData("flask");
+    detectBackendEnvironment(false);
+    closeEnvStatusModal();
+    showToastNotification("🟢 Pomyślnie wczytano bazę z serwera Flask!", "success");
+  } catch (e) {
+    showToastNotification("Błąd wczytywania danych z serwera Flask.", "error");
+  }
+}
 
-    // 1. Mode switcher listeners
-    const btnMovies = document.getElementById("m3-mode-movies");
-    const btnShows = document.getElementById("m3-mode-shows");
-    const mobileBtnMovies = document.getElementById("m3-mobile-btn-movies");
-    const mobileBtnShows = document.getElementById("m3-mobile-btn-shows");
+async function switchToDemoEnvironment() {
+  const isDriveAuth = window.googleDriveSync && window.googleDriveSync.isAuthorized();
+  const confirmMsg = isDriveAuth
+    ? "Twoje lokalne dane zostaną zastąpione przykładową kolekcją filmów i seriali.<br><br><div style='background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 10px; padding: 10px 12px; font-size: 0.8rem; color: var(--md-sys-color-on-surface);'>🛡️ <b>Twoja kopia na Dysku Google jest bezpieczna</b> (synchronizacja w chmurze została wstrzymana dla bazy demonstracyjnej).</div>"
+    : "Twoje lokalne dane w pamięci przeglądarki zostaną zresetowane do bazy demonstracyjnej.";
 
-    if (btnMovies) btnMovies.addEventListener("click", () => setMode("movies"));
-    if (btnShows) btnShows.addEventListener("click", () => setMode("shows"));
-    if (mobileBtnMovies) mobileBtnMovies.addEventListener("click", () => setMode("movies"));
-    if (mobileBtnShows) mobileBtnShows.addEventListener("click", () => setMode("shows"));
+  const confirmed = await showM3ConfirmDialog({
+    title: "Załadować bazę demonstracyjną?",
+    message: confirmMsg,
+    confirmText: "Załaduj Demo",
+    cancelText: "Anuluj",
+    icon: "science",
+    isDestructive: false
+  });
+  if (!confirmed) return;
 
-    // 2. Navigation tab listeners
-    document.querySelectorAll(".m3-nav-item, .m3-bottom-nav-item").forEach(item => {
-      item.addEventListener("click", (e) => {
-        const tab = e.currentTarget.getAttribute("data-tab");
-        if (tab) switchTab(tab);
-      });
-    });
-
-    // 3. Search Input in Header (single binding + debounce to avoid re-render storms)
-    const searchInput = document.getElementById("m3-search-input");
-    const searchClear = document.getElementById("m3-search-clear");
-    if (searchInput) {
-      let searchRenderTimer = null;
-      searchInput.addEventListener("input", () => {
-        if (searchClear) searchClear.style.display = searchInput.value ? "inline-block" : "none";
-        clearTimeout(searchRenderTimer);
-        searchRenderTimer = setTimeout(() => {
-          if (state.mode === "movies") renderMovies();
-          else renderShows();
-        }, 180);
-      });
-    }
-    if (searchClear && searchInput) {
-      searchClear.addEventListener("click", () => {
-        searchInput.value = "";
-        searchClear.style.display = "none";
-        if (state.mode === "movies") renderMovies();
-        else renderShows();
-      });
-    }
-
-    // 4. Sort Selector Handler
-    const sortSelect = document.getElementById("m3-sort-select");
-    if (sortSelect) {
-      sortSelect.value = state.sortMode;
-      sortSelect.addEventListener("change", (e) => {
-        state.sortMode = e.target.value;
-        localStorage.setItem("cinelog_sort_mode", state.sortMode);
-        if (state.mode === "movies") renderMovies();
-        else renderShows();
-      });
-    }
-
-    // 5. Scroll To Top button handler
-    const scrollTopBtn = document.getElementById("m3-scroll-top");
-    if (scrollTopBtn) {
-      window.addEventListener("scroll", () => {
-        const currentScrollY = window.scrollY;
-        if (currentScrollY > 280) scrollTopBtn.classList.add("show");
-        else scrollTopBtn.classList.remove("show");
-      }, { passive: true });
-
-      scrollTopBtn.addEventListener("click", () => {
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      });
-    }
-
-    // 6. Modal Close Handlers
-    const sheetDetailClose = document.getElementById("m3-sheet-detail-close");
-    if (sheetDetailClose) {
-      sheetDetailClose.addEventListener("click", () => {
-        const modal = document.getElementById("m3-sheet-movie-detail");
-        if (modal) modal.classList.remove("active");
-      });
-    }
-
-    const sheetActorClose = document.getElementById("m3-sheet-actor-close");
-    if (sheetActorClose) {
-      sheetActorClose.addEventListener("click", () => {
-        const modal = document.getElementById("m3-sheet-actor");
-        if (modal) modal.classList.remove("active");
-      });
-    }
-
-    const sheetEpClose = document.getElementById("m3-sheet-ep-close");
-    if (sheetEpClose) {
-      sheetEpClose.addEventListener("click", () => {
-        const modal = document.getElementById("m3-sheet-episodes");
-        if (modal) modal.classList.remove("active");
-      });
-    }
-
-    // 7. Smooth mouse-wheel horizontal scrolling
-    document.querySelectorAll(".m3-season-tabs, .m3-vod-filter-bar, .m3-mode-switcher").forEach(el => {
-      el.addEventListener("wheel", (evt) => {
-        if (evt.deltaY !== 0 && !evt.shiftKey) {
-          evt.preventDefault();
-          el.scrollLeft += evt.deltaY * 0.85;
-        }
-      }, { passive: false });
-    });
-
-    // 8. Environment & Mode Switchers
-    const btnSwitchFlask = document.getElementById("m3-btn-switch-flask");
-    if (btnSwitchFlask) {
-      btnSwitchFlask.addEventListener("click", async () => {
-        if (!state.backendAvailable) {
-          showToastNotification("Serwer Flask nie odpowiada. Uruchom 'python app.py' w terminalu.", "warning");
-          return;
-        }
-        setActiveEnvMode("flask");
-        showToastNotification("Ładowanie bazy z serwera Flask...", "info");
-        try {
-          await loadData("flask");
-          detectBackendEnvironment(false);
-          closeEnvStatusModal();
-          showToastNotification("🟢 Pomyślnie wczytano bazę z serwera Flask!", "success");
-        } catch (e) {
-          showToastNotification("Błąd wczytywania danych z serwera Flask.", "error");
-        }
-      });
-    }
-
-    const btnSwitchDemo = document.getElementById("m3-btn-switch-demo");
-    if (btnSwitchDemo) {
-      btnSwitchDemo.addEventListener("click", async () => {
-        const isDriveAuth = window.googleDriveSync && window.googleDriveSync.isAuthorized();
-        const confirmMsg = isDriveAuth
-          ? "Twoje lokalne dane zostaną zastąpione przykładową kolekcją filmów i seriali.<br><br><div style='background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 10px; padding: 10px 12px; font-size: 0.8rem; color: var(--md-sys-color-on-surface);'>🛡️ <b>Twoja kopia na Dysku Google jest bezpieczna</b> (synchronizacja w chmurze została wstrzymana dla bazy demonstracyjnej).</div>"
-          : "Twoje lokalne dane w pamięci przeglądarki zostaną zresetowane do bazy demonstracyjnej.";
-
-        const confirmed = await showM3ConfirmDialog({
-          title: "Załadować bazę demonstracyjną?",
-          message: confirmMsg,
-          confirmText: "Załaduj Demo",
-          cancelText: "Anuluj",
-          icon: "science",
-          isDestructive: false
-        });
-        if (!confirmed) return;
-
-        try {
-          setActiveEnvMode("demo");
-          showToastNotification("Ładowanie bazy demonstracyjnej...", "info");
-          await loadData("demo");
-          detectBackendEnvironment(false);
-          closeEnvStatusModal();
-          showToastNotification("🎉 Załadowano bazę demonstracyjną (Demo)!", "success");
-        } catch (err) {
-          console.error("Błąd podczas resetowania bazy:", err);
-          showToastNotification("Wystąpił błąd podczas ładowania bazy demo.", "error");
-        }
-      });
-    }
-
-    const btnSwitchClient = document.getElementById("m3-btn-switch-client");
-    if (btnSwitchClient) {
-      btnSwitchClient.addEventListener("click", async () => {
-        setActiveEnvMode("client");
-        markUserDatabaseCustom();
-        showToastNotification("Wczytywanie lokalnej bazy...", "info");
-        await loadData("client");
-        detectBackendEnvironment(false);
-        closeEnvStatusModal();
-        showToastNotification("🌐 Przełączono na lokalną bazę przeglądarki (LocalStorage)!", "info");
-      });
-    }
-
-    // 9. Environment Toggle & Status Modal Handlers
-    const btnEnvToggle = document.getElementById("m3-btn-env-toggle");
-    if (btnEnvToggle) {
-      btnEnvToggle.addEventListener("click", openEnvStatusModal);
-    }
-
-    const btnEnvClose = document.getElementById("m3-env-status-close");
-    if (btnEnvClose) {
-      btnEnvClose.addEventListener("click", closeEnvStatusModal);
-    }
-
-    const btnRecheckEnv = document.getElementById("m3-btn-recheck-env");
-    if (btnRecheckEnv) {
-      btnRecheckEnv.addEventListener("click", () => detectBackendEnvironment(true));
-    }
-
-    // Accessibility: Escape closes sheets, focus moves in/out
-    initSheetAccessibility();
+  try {
+    setActiveEnvMode("demo");
+    showToastNotification("Ładowanie bazy demonstracyjnej...", "info");
+    await loadData("demo");
+    detectBackendEnvironment(false);
+    closeEnvStatusModal();
+    showToastNotification("🎉 Załadowano bazę demonstracyjną (Demo)!", "success");
   } catch (err) {
-    console.error("Error setting up core DOM events:", err);
+    console.error("Błąd podczas resetowania bazy:", err);
+    showToastNotification("Wystąpił błąd podczas ładowania bazy demo.", "error");
+  }
+}
+
+async function switchToClientEnvironment() {
+  setActiveEnvMode("client");
+  markUserDatabaseCustom();
+  showToastNotification("Wczytywanie lokalnej bazy...", "info");
+  await loadData("client");
+  detectBackendEnvironment(false);
+  closeEnvStatusModal();
+  showToastNotification("🌐 Przełączono na lokalną bazę przeglądarki (LocalStorage)!", "info");
+}
+
+function initEnvSwitcherHandlers() {
+  const btnSwitchFlask = document.getElementById("m3-btn-switch-flask");
+  if (btnSwitchFlask) {
+    btnSwitchFlask.addEventListener("click", switchToFlaskEnvironment);
   }
 
-  // 10. Initialize Submodules safely
+  const btnSwitchDemo = document.getElementById("m3-btn-switch-demo");
+  if (btnSwitchDemo) {
+    btnSwitchDemo.addEventListener("click", switchToDemoEnvironment);
+  }
+
+  const btnSwitchClient = document.getElementById("m3-btn-switch-client");
+  if (btnSwitchClient) {
+    btnSwitchClient.addEventListener("click", switchToClientEnvironment);
+  }
+}
+
+function initEnvModalHandlers() {
+  const btnEnvToggle = document.getElementById("m3-btn-env-toggle");
+  if (btnEnvToggle) {
+    btnEnvToggle.addEventListener("click", openEnvStatusModal);
+  }
+
+  const btnEnvClose = document.getElementById("m3-env-status-close");
+  if (btnEnvClose) {
+    btnEnvClose.addEventListener("click", closeEnvStatusModal);
+  }
+
+  const btnRecheckEnv = document.getElementById("m3-btn-recheck-env");
+  if (btnRecheckEnv) {
+    btnRecheckEnv.addEventListener("click", () => detectBackendEnvironment(true));
+  }
+}
+
+function initSubmodules() {
   try { initSearchAndAddModal(); } catch (e) { console.error("Search module error:", e); }
   try { initCloudSyncHandlers(); } catch (e) { console.error("Cloud sync module error:", e); }
   try { initImporterHandlers(); } catch (e) { console.error("Importer module error:", e); }
-  try { 
-    initVodSettingsHandlers(() => {
-      if (state.mode === "movies") renderMovies();
-      else renderShows();
-    });
-  } catch (e) { console.error("VOD module error:", e); }
+  try { initVodSettingsHandlers(renderCurrentMode); } catch (e) { console.error("VOD module error:", e); }
   try { initThemeControls(); } catch (e) { console.error("Theme module error:", e); }
   try { initAnalyticsEvents(); } catch (e) { console.error("Analytics module error:", e); }
   try { initUpcomingFilters(); } catch (e) { console.error("Upcoming module error:", e); }
   try { initBackdropDismiss(); } catch (e) { console.error("Backdrop module error:", e); }
   try { initDemoBannerHandlers(openImporterModal); } catch (e) { console.error("Demo banner module error:", e); }
+}
 
-  // PWA share_target: tytuł/URL udostępniony do aplikacji -> prefill wyszukiwania
+function handlePwaShareTarget() {
   try {
     const sp = new URLSearchParams(window.location.search);
     const sharedText = (sp.get("text") || "").trim();
@@ -510,18 +529,40 @@ function initApp() {
       }
     }
   } catch (e) {}
+}
+
+function initApp() {
+  try {
+    applyInitialUrlState();
+    initModeSwitcherListeners();
+    initNavTabListeners();
+    initHeaderSearchHandlers();
+    initSortSelectorHandler();
+    initScrollTopButton();
+    initModalCloseHandlers();
+    initHorizontalWheelScrolling();
+    initEnvSwitcherHandlers();
+    initEnvModalHandlers();
+
+    // Accessibility: Escape closes sheets, focus moves in/out
+    initSheetAccessibility();
+  } catch (err) {
+    console.error("Error setting up core DOM events:", err);
+  }
+
+  initSubmodules();
+
+  // PWA share_target: tytuł/URL udostępniony do aplikacji -> prefill wyszukiwania
+  handlePwaShareTarget();
 
   if (window.googleDriveSync) {
     try { window.googleDriveSync.init(); } catch (e) {}
   }
 
-  // 11. Detect Backend vs Static Client Environment
   detectBackendEnvironment(false);
 
-  // 12. Synchronize initial UI mode and navigation
   setMode(state.mode);
 
-  // 13. Load Initial Library Data
   loadData();
 }
 
@@ -565,6 +606,8 @@ if (window.googleDriveSync) {
     shows: state.shows
   });
 }
+
+initImageErrorFallbacks();
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", initApp);

@@ -2,7 +2,7 @@
 // CineLog - Movies Management & Details Modal Module
 // ==========================================================================
 
-import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks } from './state.js';
+import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, getKeyHeaders } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
@@ -229,18 +229,15 @@ export async function renderMovies() {
  */
 async function resolveMovieDetailOnline(movie) {
     const localTmdbKey = localStorage.getItem("cinelog_tmdb_key") || "";
-    const localOmdbKey = localStorage.getItem("cinelog_omdb_key") || localStorage.getItem("cinelog_imdb_key") || "";
-    const tmdbKeyParam = localTmdbKey ? `&tmdb_key=${encodeURIComponent(localTmdbKey)}` : "";
-    const omdbKeyParam = localOmdbKey ? `&omdb_key=${encodeURIComponent(localOmdbKey)}&imdb_key=${encodeURIComponent(localOmdbKey)}` : "";
     const movieYear = movie.release_year || (movie.release_date ? movie.release_date.split("-")[0] : "");
     const tmdbParam = movie.tmdb_id ? `&tmdb_id=${movie.tmdb_id}` : "";
     const yearParam = movieYear ? `&year=${movieYear}` : "";
     const posterParam = movie.poster_url ? `&poster_url=${encodeURIComponent(movie.poster_url)}` : "";
-    const detailFetchUrl = `/api/search_detail?title=${encodeURIComponent(movie.title)}&type=movie&lang=${getUserLanguage()}${tmdbParam}${yearParam}${posterParam}${tmdbKeyParam}${omdbKeyParam}`;
+    const detailFetchUrl = `/api/search_detail?title=${encodeURIComponent(movie.title)}&type=movie&lang=${getUserLanguage()}${tmdbParam}${yearParam}${posterParam}`;
 
 
     let detail = null;
-    const detailRes = await fetch(detailFetchUrl).catch(() => ({ ok: false }));
+    const detailRes = await fetch(detailFetchUrl, { headers: getKeyHeaders() }).catch(() => ({ ok: false }));
     if (detailRes && detailRes.ok) {
       detail = await detailRes.json();
     }
@@ -363,7 +360,7 @@ async function resolveMovieDetailOnline(movie) {
   return detail;
 }
 
-export async function openMovieDetail(movie) {
+function renderMovieDetailHeader(movie) {
   document.getElementById("m3-detail-title").innerText = movie.title;
   document.getElementById("m3-detail-meta").innerText = `${movie.release_date ? movie.release_date.split("-")[0] : 'Film'} • Film kinowy`;
   document.getElementById("m3-detail-plot").innerText = "Wczytywanie szczegółów filmu...";
@@ -378,7 +375,10 @@ export async function openMovieDetail(movie) {
       badgesRow.innerHTML += `<span class="m3-meta-badge highlight" title="Data oznaczenia jako obejrzany: ${movie.watch_date}"><span class="material-symbols-rounded" style="font-size: 13px;">visibility</span> Obejrzano: ${formattedDate}</span>`;
     }
   }
+  return badgesRow;
+}
 
+function renderMovieDetailPoster(movie) {
   const imgEl = document.getElementById("m3-detail-img");
   if (movie.poster_url) {
     imgEl.src = movie.poster_url;
@@ -386,27 +386,26 @@ export async function openMovieDetail(movie) {
   } else {
     imgEl.style.display = "none";
   }
+}
 
+function initMovieFavoriteButton(movie) {
   const favBtn = document.getElementById("m3-detail-fav-btn");
-  if (favBtn) {
-    const updateFavBtnUI = () => {
-      const isFav = Boolean(movie.is_favorite);
-      favBtn.className = `m3-card-fav-btn ${isFav ? 'is-fav active' : ''}`;
-      favBtn.innerHTML = `<span class="material-symbols-rounded" style="${isFav ? 'font-variation-settings: \'FILL\' 1; color: var(--md-sys-color-favorite);' : ''}">favorite</span>`;
-      favBtn.title = isFav ? "Usuń z ulubionych" : "Dodaj do ulubionych";
-    };
+  if (!favBtn) return;
+  const updateFavBtnUI = () => {
+    const isFav = Boolean(movie.is_favorite);
+    favBtn.className = `m3-card-fav-btn ${isFav ? 'is-fav active' : ''}`;
+    favBtn.innerHTML = `<span class="material-symbols-rounded" style="${isFav ? 'font-variation-settings: \'FILL\' 1; color: var(--md-sys-color-favorite);' : ''}">favorite</span>`;
+    favBtn.title = isFav ? "Usuń z ulubionych" : "Dodaj do ulubionych";
+  };
+  updateFavBtnUI();
+  favBtn.onclick = () => {
+    toggleMovieFavorite(movie.uuid, Boolean(movie.is_favorite));
+    movie.is_favorite = !movie.is_favorite;
     updateFavBtnUI();
-    favBtn.onclick = () => {
-      toggleMovieFavorite(movie.uuid, Boolean(movie.is_favorite));
-      movie.is_favorite = !movie.is_favorite;
-      updateFavBtnUI();
-    };
-  }
+  };
+}
 
-  const btnWatched = document.getElementById("m3-detail-btn-watched");
-  const btnWatchlist = document.getElementById("m3-detail-btn-watchlist");
-  const starsContainer = document.getElementById("m3-detail-stars");
-
+function initMovieStatusButtons(movie, btnWatched, btnWatchlist, starsContainer) {
   const updateStatusUI = () => {
     if (movie.status === "watched") {
       btnWatched.classList.add("active");
@@ -448,23 +447,26 @@ export async function openMovieDetail(movie) {
   };
 
   updateStatusUI();
+}
 
+function initMovieDeleteButton(movie) {
   const deleteBtn = document.getElementById("m3-detail-delete-btn");
-  if (deleteBtn) {
-    deleteBtn.onclick = async () => {
-      const confirmed = await showM3ConfirmDialog({
-        title: "Usunąć film z biblioteki?",
-        message: `Czy na pewno chcesz usunąć film <b>"${movie.title}"</b>? Ta operacja usunie go z Twojej kolekcji.`,
-        confirmText: "Usuń film",
-        cancelText: "Anuluj",
-        icon: "delete_forever",
-        isDestructive: true
-      });
-      if (!confirmed) return;
-      await deleteMovie(movie);
-    };
-  }
+  if (!deleteBtn) return;
+  deleteBtn.onclick = async () => {
+    const confirmed = await showM3ConfirmDialog({
+      title: "Usunąć film z biblioteki?",
+      message: `Czy na pewno chcesz usunąć film <b>"${movie.title}"</b>? Ta operacja usunie go z Twojej kolekcji.`,
+      confirmText: "Usuń film",
+      cancelText: "Anuluj",
+      icon: "delete_forever",
+      isDestructive: true
+    });
+    if (!confirmed) return;
+    await deleteMovie(movie);
+  };
+}
 
+function renderMovieRatingStars(movie, starsContainer) {
   starsContainer.innerHTML = "";
   for (let i = 1; i <= 5; i++) {
     const active = (movie.status === "watched" && movie.rating && i <= movie.rating) ? "active" : "";
@@ -481,21 +483,25 @@ export async function openMovieDetail(movie) {
     });
     starsContainer.appendChild(star);
   }
+}
 
+function showMovieDetailVodChrome(movie) {
   const regionEl = document.getElementById("m3-detail-vod-region");
   if (regionEl) regionEl.innerText = getCountryDisplayName(state.userVodCountry);
-  
-  const vodLoading = document.getElementById("m3-detail-vod-loading");
-  const vodResults = document.getElementById("m3-detail-vod-results");
-  const boxFlat = document.getElementById("m3-vod-box-flatrate");
-  const boxRent = document.getElementById("m3-vod-box-rent");
-  const boxFree = document.getElementById("m3-vod-box-free");
-  const boxEmpty = document.getElementById("m3-vod-box-empty");
 
-  vodLoading.style.display = "flex";
-  vodResults.style.display = "none";
-  boxFlat.style.display = "none";
-  boxRent.style.display = "none";
+  const refs = {
+    vodLoading: document.getElementById("m3-detail-vod-loading"),
+    vodResults: document.getElementById("m3-detail-vod-results"),
+    boxFlat: document.getElementById("m3-vod-box-flatrate"),
+    boxRent: document.getElementById("m3-vod-box-rent"),
+    boxFree: document.getElementById("m3-vod-box-free"),
+    boxEmpty: document.getElementById("m3-vod-box-empty")
+  };
+
+  refs.vodLoading.style.display = "flex";
+  refs.vodResults.style.display = "none";
+  refs.boxFlat.style.display = "none";
+  refs.boxRent.style.display = "none";
   document.getElementById("m3-sheet-movie-detail").classList.add("active");
 
   const rematchBtn = document.getElementById("m3-detail-rematch-btn");
@@ -505,6 +511,133 @@ export async function openMovieDetail(movie) {
     };
   }
 
+  return refs;
+}
+
+function renderMovieDetailEnrichment(detail, movie, badgesRow) {
+  if (detail.plot) document.getElementById("m3-detail-plot").innerText = detail.plot;
+  else if (movie.plot) document.getElementById("m3-detail-plot").innerText = movie.plot;
+  else document.getElementById("m3-detail-plot").innerText = "Brak szczegółowego opisu filmu.";
+
+  if (detail.genre) document.getElementById("m3-detail-meta").innerText = `${detail.year || ''} • ${detail.genre}`;
+
+  if (badgesRow) {
+    badgesRow.innerHTML = "";
+    const y = detail.year || movie.release_year || (movie.release_date ? movie.release_date.split("-")[0] : null);
+    if (y) badgesRow.innerHTML += `<span class="m3-meta-badge"><span class="material-symbols-rounded" style="font-size: 13px;">calendar_today</span> ${y}</span>`;
+    if (detail.runtime) {
+      const hrs = Math.floor(detail.runtime / 60);
+      const mins = detail.runtime % 60;
+      const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins} min`;
+      badgesRow.innerHTML += `<span class="m3-meta-badge"><span class="material-symbols-rounded" style="font-size: 13px;">schedule</span> ${timeStr}</span>`;
+    }
+    if (detail.vote_average && detail.vote_average > 0) {
+      badgesRow.innerHTML += `<span class="m3-meta-badge tmdb-score"><span class="material-symbols-rounded" style="font-size: 13px;">star</span> ${detail.vote_average.toFixed(1)}</span>`;
+    }
+    if (detail.genre) {
+      const firstGenre = detail.genre.split(",")[0].trim();
+      badgesRow.innerHTML += `<span class="m3-meta-badge highlight">${firstGenre}</span>`;
+    }
+  }
+
+  const castSection = document.getElementById("m3-detail-cast-section");
+  if (castSection) {
+    if (detail.cast && detail.cast.length > 0) {
+      renderCastRail("m3-detail-cast-rail", detail.cast, detail.directors);
+      castSection.style.display = "block";
+    } else {
+      castSection.style.display = "none";
+    }
+  }
+}
+
+function renderMoviePlotFallback(movie) {
+  if (movie.plot) document.getElementById("m3-detail-plot").innerText = movie.plot;
+  else document.getElementById("m3-detail-plot").innerText = "Brak szczegółowego opisu.";
+}
+
+function renderMovieVodResults(vodData, refs) {
+  const { vodLoading, vodResults, boxFlat, boxRent, boxFree, boxEmpty } = refs;
+
+  vodLoading.style.display = "none";
+  vodResults.style.display = "flex";
+
+  const flatrates = vodData.flatrate || [];
+  const rents = [...(vodData.rent || []), ...(vodData.buy || [])];
+  const uniqueRents = [];
+  const seen = new Set();
+  rents.forEach(r => {
+    if (!seen.has(r.name)) {
+      seen.add(r.name);
+      uniqueRents.push(r);
+    }
+  });
+  const frees = vodData.free || [];
+
+  const renderLogos = (containerId, list) => {
+    const cont = document.getElementById(containerId);
+    cont.innerHTML = "";
+    list.forEach(p => {
+      const badge = document.createElement("div");
+      badge.className = "m3-vod-logo-badge";
+      badge.title = p.name;
+      badge.innerHTML = `
+        ${p.logo_url ? `<img src="${p.logo_url}" alt="${p.name}">` : `<span class="material-symbols-rounded" style="font-size: 18px;">movie</span>`}
+        <span>${p.name}</span>
+      `;
+      cont.appendChild(badge);
+    });
+  };
+
+  let hasAny = false;
+  if (flatrates.length > 0) {
+    boxFlat.style.display = "block";
+    renderLogos("m3-vod-logos-flatrate", flatrates);
+    hasAny = true;
+  }
+  if (uniqueRents.length > 0) {
+    boxRent.style.display = "block";
+    renderLogos("m3-vod-logos-rent", uniqueRents);
+    hasAny = true;
+  }
+  if (frees.length > 0) {
+    boxFree.style.display = "block";
+    renderLogos("m3-vod-logos-free", frees);
+    hasAny = true;
+  }
+
+  if (!hasAny) {
+    boxEmpty.style.display = "block";
+  } else {
+    boxEmpty.style.display = "none";
+  }
+
+  const jwBtn = document.getElementById("m3-btn-justwatch-link");
+  if (jwBtn) {
+    if (vodData && vodData.link) {
+      jwBtn.href = vodData.link;
+      jwBtn.style.display = "inline-flex";
+    } else {
+      jwBtn.style.display = "none";
+    }
+  }
+}
+
+export async function openMovieDetail(movie) {
+  const badgesRow = renderMovieDetailHeader(movie);
+  renderMovieDetailPoster(movie);
+  initMovieFavoriteButton(movie);
+
+  const btnWatched = document.getElementById("m3-detail-btn-watched");
+  const btnWatchlist = document.getElementById("m3-detail-btn-watchlist");
+  const starsContainer = document.getElementById("m3-detail-stars");
+
+  initMovieStatusButtons(movie, btnWatched, btnWatchlist, starsContainer);
+  initMovieDeleteButton(movie);
+  renderMovieRatingStars(movie, starsContainer);
+
+  const vodRefs = showMovieDetailVodChrome(movie);
+
   try {
     const [detail, vodData] = await Promise.all([
       resolveMovieDetailOnline(movie),
@@ -512,112 +645,17 @@ export async function openMovieDetail(movie) {
     ]);
 
     if (detail) {
-      if (detail.plot) document.getElementById("m3-detail-plot").innerText = detail.plot;
-      else if (movie.plot) document.getElementById("m3-detail-plot").innerText = movie.plot;
-      else document.getElementById("m3-detail-plot").innerText = "Brak szczegółowego opisu filmu.";
-
-      if (detail.genre) document.getElementById("m3-detail-meta").innerText = `${detail.year || ''} • ${detail.genre}`;
-
-      if (badgesRow) {
-        badgesRow.innerHTML = "";
-        const y = detail.year || movie.release_year || (movie.release_date ? movie.release_date.split("-")[0] : null);
-        if (y) badgesRow.innerHTML += `<span class="m3-meta-badge"><span class="material-symbols-rounded" style="font-size: 13px;">calendar_today</span> ${y}</span>`;
-        if (detail.runtime) {
-          const hrs = Math.floor(detail.runtime / 60);
-          const mins = detail.runtime % 60;
-          const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins} min`;
-          badgesRow.innerHTML += `<span class="m3-meta-badge"><span class="material-symbols-rounded" style="font-size: 13px;">schedule</span> ${timeStr}</span>`;
-        }
-        if (detail.vote_average && detail.vote_average > 0) {
-          badgesRow.innerHTML += `<span class="m3-meta-badge tmdb-score"><span class="material-symbols-rounded" style="font-size: 13px;">star</span> ${detail.vote_average.toFixed(1)}</span>`;
-        }
-        if (detail.genre) {
-          const firstGenre = detail.genre.split(",")[0].trim();
-          badgesRow.innerHTML += `<span class="m3-meta-badge highlight">${firstGenre}</span>`;
-        }
-      }
-
-      const castSection = document.getElementById("m3-detail-cast-section");
-      if (castSection) {
-        if (detail.cast && detail.cast.length > 0) {
-          renderCastRail("m3-detail-cast-rail", detail.cast, detail.directors);
-          castSection.style.display = "block";
-        } else {
-          castSection.style.display = "none";
-        }
-      }
+      renderMovieDetailEnrichment(detail, movie, badgesRow);
     } else {
-      if (movie.plot) document.getElementById("m3-detail-plot").innerText = movie.plot;
-      else document.getElementById("m3-detail-plot").innerText = "Brak szczegółowego opisu.";
+      renderMoviePlotFallback(movie);
     }
 
-    vodLoading.style.display = "none";
-    vodResults.style.display = "flex";
-
-    const flatrates = vodData.flatrate || [];
-    const rents = [...(vodData.rent || []), ...(vodData.buy || [])];
-    const uniqueRents = [];
-    const seen = new Set();
-    rents.forEach(r => {
-      if (!seen.has(r.name)) {
-        seen.add(r.name);
-        uniqueRents.push(r);
-      }
-    });
-    const frees = vodData.free || [];
-
-    const renderLogos = (containerId, list) => {
-      const cont = document.getElementById(containerId);
-      cont.innerHTML = "";
-      list.forEach(p => {
-        const badge = document.createElement("div");
-        badge.className = "m3-vod-logo-badge";
-        badge.title = p.name;
-        badge.innerHTML = `
-          ${p.logo_url ? `<img src="${p.logo_url}" alt="${p.name}">` : `<span class="material-symbols-rounded" style="font-size: 18px;">movie</span>`}
-          <span>${p.name}</span>
-        `;
-        cont.appendChild(badge);
-      });
-    };
-
-    let hasAny = false;
-    if (flatrates.length > 0) {
-      boxFlat.style.display = "block";
-      renderLogos("m3-vod-logos-flatrate", flatrates);
-      hasAny = true;
-    }
-    if (uniqueRents.length > 0) {
-      boxRent.style.display = "block";
-      renderLogos("m3-vod-logos-rent", uniqueRents);
-      hasAny = true;
-    }
-    if (frees.length > 0) {
-      boxFree.style.display = "block";
-      renderLogos("m3-vod-logos-free", frees);
-      hasAny = true;
-    }
-
-    if (!hasAny) {
-      boxEmpty.style.display = "block";
-    } else {
-      boxEmpty.style.display = "none";
-    }
-
-    const jwBtn = document.getElementById("m3-btn-justwatch-link");
-    if (jwBtn) {
-      if (vodData && vodData.link) {
-        jwBtn.href = vodData.link;
-        jwBtn.style.display = "inline-flex";
-      } else {
-        jwBtn.style.display = "none";
-      }
-    }
+    renderMovieVodResults(vodData, vodRefs);
 
   } catch (err) {
     console.warn("Error rendering VOD detail:", err);
-    vodLoading.style.display = "none";
-    vodResults.style.display = "flex";
+    vodRefs.vodLoading.style.display = "none";
+    vodRefs.vodResults.style.display = "flex";
   }
 }
 

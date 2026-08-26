@@ -2,7 +2,7 @@
 // CineLog - Universal Importer Module (Filmweb, Letterboxd, IMDb, JSON)
 // ==========================================================================
 
-import { state, saveLocalDatabase, isItemInLibrary, generateUUID, markUserDatabaseCustom, escapeHtml } from './state.js';
+import { state, saveLocalDatabase, isItemInLibrary, generateUUID, markUserDatabaseCustom, escapeHtml, getKeyHeaders } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { renderMovies } from './movies.js';
@@ -475,16 +475,11 @@ export async function executeBatchImport() {
       if (item.tmdb_id) params.append("tmdb_id", item.tmdb_id);
       const localTmdb = localStorage.getItem("cinelog_tmdb_key");
       const localOmdb = localStorage.getItem("cinelog_omdb_key") || localStorage.getItem("cinelog_imdb_key");
-      if (localTmdb) params.append("tmdb_key", localTmdb);
-      if (localOmdb) {
-        params.append("omdb_key", localOmdb);
-        params.append("imdb_key", localOmdb);
-      }
 
       let detail = null;
       if (window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
         try {
-          const res = await fetch(`/api/search_detail?${params.toString()}`);
+          const res = await fetch(`/api/search_detail?${params.toString()}`, { headers: getKeyHeaders() });
           if (res.ok) detail = await res.json();
         } catch (e) {
           console.warn("Failed detail fetch for", item.title, e);

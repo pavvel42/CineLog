@@ -1,4 +1,4 @@
-import { state, saveLocalDatabase, getGradientForTitle, findDuplicateInLibrary, normalizeTitleForLibrary, escapeHtml, safeUrl } from './state.js';
+import { state, saveLocalDatabase, getGradientForTitle, findDuplicateInLibrary, normalizeTitleForLibrary, escapeHtml, safeUrl, getKeyHeaders } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { getUserLanguage } from './vod.js';
@@ -565,11 +565,9 @@ if (addSearchForm) {
     let data = null;
 
     // 1. If backend server might be available, try it
-    if (!isStaticEnv) {
+      if (!isStaticEnv) {
       try {
-        const tmdbKeyParam = rawTmdbKey ? `&tmdb_key=${encodeURIComponent(rawTmdbKey)}` : "";
-        const omdbKeyParam = rawOmdbKey ? `&omdb_key=${encodeURIComponent(rawOmdbKey)}&imdb_key=${encodeURIComponent(rawOmdbKey)}` : "";
-        const res = await fetch(`/api/search_preview?q=${encodeURIComponent(query)}&type=${searchType}&lang=${getUserLanguage()}${tmdbKeyParam}${omdbKeyParam}`);
+        const res = await fetch(`/api/search_preview?q=${encodeURIComponent(query)}&type=${searchType}&lang=${getUserLanguage()}`, { headers: getKeyHeaders() });
         if (res.ok) {
           data = await res.json();
         }

@@ -2,7 +2,7 @@
 // CineLog - TV Shows Management & Episode Tracker Module
 // ==========================================================================
 
-import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks } from './state.js';
+import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, getKeyHeaders } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
@@ -375,19 +375,16 @@ async function fetchTrackerData(show) {
   // Dane trackera online: backend (/episodes_meta + /search_detail) -> fallbacki klienta TMDb/OMDb.
   // Ustawia modułowe currentShowMeta i dogrzewa metadane bieżącego sezonu.
   const localTmdbKey = localStorage.getItem("cinelog_tmdb_key") || "";
-  const localOmdbKey = localStorage.getItem("cinelog_omdb_key") || localStorage.getItem("cinelog_imdb_key") || "";
-  const tmdbKeyParam = localTmdbKey ? `&tmdb_key=${encodeURIComponent(localTmdbKey)}` : "";
-  const omdbKeyParam = localOmdbKey ? `&omdb_key=${encodeURIComponent(localOmdbKey)}` : "";
   const showYear = show.release_year || (show.release_date ? show.release_date.split("-")[0] : "");
   const tmdbParam = show.tmdb_id ? `&tmdb_id=${show.tmdb_id}` : "";
   const yearParam = showYear ? `&year=${showYear}` : "";
   const posterParam = show.poster_url ? `&poster_url=${encodeURIComponent(show.poster_url)}` : "";
-  const detailFetchUrl = `/api/search_detail?title=${encodeURIComponent(show.title)}&type=series&lang=${getUserLanguage()}${tmdbParam}${yearParam}${posterParam}${tmdbKeyParam}${omdbKeyParam}`;
-  const metaFetchUrl = `/api/shows/${show.uuid}/episodes_meta?lang=${getUserLanguage()}${tmdbParam}${tmdbKeyParam}`;
+  const detailFetchUrl = `/api/search_detail?title=${encodeURIComponent(show.title)}&type=series&lang=${getUserLanguage()}${tmdbParam}${yearParam}${posterParam}`;
+  const metaFetchUrl = `/api/shows/${show.uuid}/episodes_meta?lang=${getUserLanguage()}${tmdbParam}`;
 
   const [metaRes, detailRes] = await Promise.all([
-    fetch(metaFetchUrl).catch(() => ({ ok: false })),
-    fetch(detailFetchUrl).catch(() => ({ ok: false }))
+    fetch(metaFetchUrl, { headers: getKeyHeaders() }).catch(() => ({ ok: false })),
+    fetch(detailFetchUrl, { headers: getKeyHeaders() }).catch(() => ({ ok: false }))
   ]);
 
   if (metaRes && metaRes.ok) {
