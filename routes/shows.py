@@ -14,6 +14,8 @@ from flask import Blueprint, jsonify, request
 
 import app as _app
 
+from services import client_keys
+
 log = logging.getLogger("cinelog")
 
 bp = Blueprint("shows", __name__)
@@ -44,7 +46,7 @@ def get_show_episodes_meta(show_uuid):
     if not target_show:
         return jsonify({"error": "Show not found"}), 404
 
-    effective_tmdb_key = request.args.get("tmdb_key", "").strip() or _app.TMDB_API_KEY
+    effective_tmdb_key = client_keys.tmdb_key() or _app.TMDB_API_KEY
     show_id = req_tmdb_id or target_show.get("tmdb_id")
     title = target_show.get("title", "")
     cache_key = f"{show_uuid}_{show_id}_{lang}"

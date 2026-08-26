@@ -19,6 +19,8 @@ from flask import Blueprint, jsonify, request
 
 import app as _app
 
+from services import client_keys
+
 log = logging.getLogger("cinelog")
 
 bp = Blueprint("upcoming", __name__)
@@ -26,7 +28,7 @@ bp = Blueprint("upcoming", __name__)
 @bp.route("/api/upcoming", methods=["GET"])
 def get_upcoming_schedule():
     force_refresh = request.args.get("refresh") == "1"
-    effective_tmdb_key = request.args.get("tmdb_key", "").strip() or _app.TMDB_API_KEY
+    effective_tmdb_key = client_keys.tmdb_key() or _app.TMDB_API_KEY
     movies = _app.load_movies()
     shows = _app.load_shows()
     

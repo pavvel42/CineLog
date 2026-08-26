@@ -14,6 +14,8 @@ from flask import Blueprint, jsonify, request
 
 import app as _app
 
+from services import client_keys
+
 log = logging.getLogger("cinelog")
 
 bp = Blueprint("recommendations", __name__)
@@ -25,7 +27,7 @@ def get_recommendations_for_item():
     tmdb_id = request.args.get("tmdb_id", "").strip()
     title = request.args.get("title", "").strip()
     lang = request.args.get("lang", "pl-PL").strip()
-    tmdb_key = request.args.get("tmdb_key", "").strip() or _app.TMDB_API_KEY
+    tmdb_key = client_keys.tmdb_key() or _app.TMDB_API_KEY
 
     cache_key = f"rec_item_{tmdb_type}_{tmdb_id}_{title}_{lang}_{tmdb_key}"
     if cache_key in _app.RECOMMENDATIONS_CACHE:
@@ -97,7 +99,7 @@ def discover_recommendations():
     with_watch_providers = request.args.get("with_watch_providers", "").strip()
     with_watch_monetization_types = request.args.get("with_watch_monetization_types", "flatrate|free|ads").strip()
     lang = request.args.get("lang", "pl-PL").strip()
-    tmdb_key = request.args.get("tmdb_key", "").strip() or _app.TMDB_API_KEY
+    tmdb_key = client_keys.tmdb_key() or _app.TMDB_API_KEY
 
     cache_key = f"rec_discover_{tmdb_type}_{genres}_{sort_by}_{min_vote_avg}_{min_vote_count}_{max_vote_count}_{with_crew}_{year_gte}_{year_lte}_{date_gte}_{date_lte}_{with_release_type}_{with_watch_providers}_{watch_region}_{lang}_{tmdb_key}"
     if cache_key in _app.RECOMMENDATIONS_CACHE:
@@ -149,7 +151,7 @@ def get_trending_recommendations():
     media_type = request.args.get("media_type", "all").strip().lower()
     time_window = request.args.get("time_window", "week").strip().lower()
     lang = request.args.get("lang", "pl-PL").strip()
-    tmdb_key = request.args.get("tmdb_key", "").strip() or _app.TMDB_API_KEY
+    tmdb_key = client_keys.tmdb_key() or _app.TMDB_API_KEY
 
     cache_key = f"rec_trending_{media_type}_{time_window}_{lang}_{tmdb_key}"
     if cache_key in _app.RECOMMENDATIONS_CACHE:
@@ -181,7 +183,7 @@ def get_trending_recommendations():
 def get_person_recommendations():
     name = request.args.get("name", "").strip()
     lang = request.args.get("lang", "pl-PL").strip()
-    tmdb_key = request.args.get("tmdb_key", "").strip() or _app.TMDB_API_KEY
+    tmdb_key = client_keys.tmdb_key() or _app.TMDB_API_KEY
     if not name:
         return jsonify({"status": "error", "message": "Missing name", "results": []})
 
@@ -253,7 +255,7 @@ def get_actor_details():
     person_id = request.args.get("id", "").strip()
     name = request.args.get("name", "").strip()
     lang = request.args.get("lang", "pl-PL").strip()
-    tmdb_key = request.args.get("tmdb_key", "").strip() or _app.TMDB_API_KEY
+    tmdb_key = client_keys.tmdb_key() or _app.TMDB_API_KEY
 
     if not person_id and not name:
         return jsonify({"status": "error", "message": "Missing actor ID or name"}), 400

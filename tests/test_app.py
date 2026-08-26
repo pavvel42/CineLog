@@ -208,6 +208,33 @@ def test_search_preview_needs_key_without_any_key(client, monkeypatch):
     assert body["needs_key"] is True
 
 
+def test_client_keys_header_takes_precedence():
+    from services import client_keys
+
+    with app_module.app.test_request_context(
+        headers={"X-TMDB-Key": "hdr-key", "X-OMDb-Key": "hdr-omdb"},
+        query_string={"tmdb_key": "qs-key", "omdb_key": "qs-omdb", "imdb_key": "qs-imdb"},
+    ):
+        assert client_keys.tmdb_key() == "hdr-key"
+        assert client_keys.omdb_key() == "hdr-omdb"
+
+
+def test_client_keys_fallback_to_query():
+    from services import client_keys
+
+    with app_module.app.test_request_context(query_string={"tmdb_key": " qs-key ", "imdb_key": "qs-imdb"}):
+        assert client_keys.tmdb_key() == "qs-key"
+        assert client_keys.omdb_key() == "qs-imdb"
+
+
+def test_client_keys_empty_when_missing():
+    from services import client_keys
+
+    with app_module.app.test_request_context():
+        assert client_keys.tmdb_key() == ""
+        assert client_keys.omdb_key() == ""
+
+
 def test_vod_precache_limit_enforced(client):
     items = [{"title": f"x{i}", "type": "movie"} for i in range(51)]
     r = client.post("/api/vod_precache", json={"items": items})

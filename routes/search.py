@@ -17,6 +17,8 @@ from flask import Blueprint, jsonify, request
 
 import app as _app
 
+from services import client_keys
+
 log = logging.getLogger("cinelog")
 
 bp = Blueprint("search", __name__)
@@ -32,8 +34,8 @@ def search_preview():
 
     clean_title = re.sub(r"\s*\([^)]*\)", "", title).strip()
     tmdb_type = "tv" if media_type == "series" else "movie"
-    tmdb_key = request.args.get("tmdb_key", "").strip() or _app.TMDB_API_KEY
-    omdb_key = request.args.get("omdb_key", "").strip() or os.environ.get("OMDB_API_KEY", "").strip()
+    tmdb_key = client_keys.tmdb_key() or _app.TMDB_API_KEY
+    omdb_key = client_keys.omdb_key() or os.environ.get("OMDB_API_KEY", "").strip()
     results_list = []
 
     # Without any API key, online search is impossible - guide the user instead of returning a dead end
@@ -137,7 +139,7 @@ def search_detail():
     year = request.args.get("year", "").strip()
     media_type = request.args.get("type", "movie").strip()
     lang = request.args.get("lang", "pl-PL").strip()
-    effective_tmdb_key = request.args.get("tmdb_key", "").strip() or _app.TMDB_API_KEY
+    effective_tmdb_key = client_keys.tmdb_key() or _app.TMDB_API_KEY
 
     poster_url_param = request.args.get("poster_url", "").strip()
 
@@ -305,7 +307,7 @@ def search_detail():
             log.warning("TMDb detail fetch error: %s", e)
 
     # 2. Fallback to OMDb / TVmaze
-    effective_omdb_key = request.args.get("omdb_key", "").strip() or request.args.get("imdb_key", "").strip() or os.environ.get("OMDB_API_KEY", "").strip() or os.environ.get("IMDB_API_KEY", "").strip()
+    effective_omdb_key = client_keys.omdb_key() or os.environ.get("OMDB_API_KEY", "").strip() or os.environ.get("IMDB_API_KEY", "").strip()
     if effective_omdb_key:
         try:
             if imdb_id:
