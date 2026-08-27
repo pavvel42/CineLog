@@ -151,4 +151,72 @@ test.describe("Wyszukiwanie i dodawanie (tryb statyczny, jak PWA na telefonie)",
     await expect(page.locator("#m3-preview-title")).toContainText("The Voyeurs");
     expect(expectedErrors(errors), `Błędy JS:\n${expectedErrors(errors).join("\n")}`).toEqual([]);
   });
+
+  test("GH Pages: ten sam przepływ pod originem github.io (regresja null.detail)", async ({ page }) => {
+    // Przekierowujemy wszystkie requesty github.io na lokalny serwer, dzięki czemu
+    // window.location.hostname zawiera "github.io" — dokładnie jak w produkcji PWA.
+    const upstream = process.env.PW_UPSTREAM || "http://localhost:5599";
+    const upstreamHost = new URL(upstream).host;
+    const json = (body) => ({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(body),
+    });
+
+    // Catch-all PIERWSZY (Playwright dopasowuje trasy LIFO)
+    await page.route("https://api.themoviedb.org/**", (r) => r.fulfill(json({})));
+    await page.route("https://api.themoviedb.org/3/authentication?*", (r) =>
+      r.fulfill(json({ status_code: 1, status_message: "Success." })));
+    await page.route("https://api.themoviedb.org/3/search/movie?**", (route) => {
+      if (!route.request().url().includes(encodeURIComponent("Kiedy nikt nie patrzy"))) {
+        return route.fulfill(json({ results: [] }));
+      }
+      return route.fulfill(json({
+        results: [{
+          id: 9001,
+          title: "Kiedy nikt nie patrzy",
+          original_title: "Nobody Watches Me",
+          release_date: "2025-09-12",
+          overview: "Polski thriller.",
+          poster_path: "/pl1.jpg",
+          vote_average: 6.4,
+        }],
+      }));
+    });
+    await page.route("https://api.themoviedb.org/3/movie/9001?*", (r) =>
+      r.fulfill(json(MOVIE_DETAIL(9001, "Kiedy nikt nie patrzy"))));
+
+    await page.route("https://pavvel42.github.io/**", async (route) => {
+      const req = route.request();
+      const url = new URL(req.url());
+      if (url.pathname.startsWith("/api/")) {
+        return route.abort(); // jak prawdziwy tryb statyczny
+      }
+      if (!["GET", "HEAD"].includes(req.method())) {
+        return route.abort();
+      }
+      try {
+        const path = url.pathname.replace(/^\/CineLog/, "") || "/";
+        const response = await fetch(`${upstream}${path}${url.search}`);
+        const body = Buffer.from(await response.arrayBuffer());
+        return route.fulfill({
+          status: response.status,
+          contentType: response.headers.get("content-type") || "application/octet-stream",
+          body,
+        });
+      } catch (e) {
+        return route.abort();
+      }
+    });
+
+    await page.goto("https://pavvel42.github.io/CineLog/");
+    await page.evaluate(() => localStorage.setItem("cinelog_tmdb_key", "test-key"));
+    await page.reload();
+    await page.locator("#m3-fab-add").click();
+    await expect(page.locator("#m3-sheet-add")).toHaveClass(/active/, { timeout: 10_000 });
+    await page.fill("#m3-search-preview-input", "Kiedy nikt nie patrzy");
+    await page.click("#m3-btn-search-trigger");
+    await expect(page.locator("#m3-add-step-preview")).toBeVisible({ timeout: 12_000 });
+    await expect(page.locator("#m3-preview-title")).toContainText("Kiedy nikt nie patrzy");
+  });
 });

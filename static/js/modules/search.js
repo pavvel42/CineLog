@@ -190,7 +190,9 @@ function updatePreAddSummary() {
 }
 
 async function fetchBackendProductionDetail(item) {
-  if (window.location.protocol === "file:" || window.location.hostname.includes("github.io")) return null;
+  if (window.location.protocol === "file:" || window.location.hostname.includes("github.io")) {
+    return { detail: null, backendSuccess: false };
+  }
   try {
     const params = new URLSearchParams({
       tmdb_id: item.tmdb_id || "",
