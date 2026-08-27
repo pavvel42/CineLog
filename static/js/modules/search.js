@@ -455,14 +455,26 @@ export async function diagnoseSearchFlow(query = "Kiedy nikt nie patrzy") {
   }
 
   const target = data.results.length === 1 ? data.results[0] : data.results[0];
+
+  const capturedErrors = [];
+  const origConsoleError = console.error;
+  console.error = (...args) => {
+    capturedErrors.push(args.map((a) => (a && a.message ? a.message : String(a))).join(" ").slice(0, 220));
+    origConsoleError(...args);
+  };
+
   try {
     step(11, `selectProductionDetail("${target.title}") — start`);
     await selectProductionDetail(target);
-    step(12, "selectProductionDetail zakończony bez wyjątku");
+    step(12, capturedErrors.length
+      ? `zakończony, ale POŁKNIĘTO BŁĄD: ${capturedErrors.join(" | ")}`
+      : "selectProductionDetail zakończony bez wyjątku");
   } catch (e) {
     step(12, `selectProductionDetail WYJĄTEK: ${e.message}`);
+    console.error = origConsoleError;
     return steps;
   }
+  console.error = origConsoleError;
 
   const preview = document.getElementById("m3-add-step-preview");
   const sheet = document.getElementById("m3-sheet-add");

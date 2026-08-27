@@ -30,6 +30,7 @@ bp = Blueprint("system", __name__)
 
 INDEX_HTML = Path(__file__).resolve().parent.parent / "index.html"
 SW_JS = Path(__file__).resolve().parent.parent / "sw.js"
+MANIFEST_JSON = Path(__file__).resolve().parent.parent / "manifest.json"
 
 @bp.route("/")
 @bp.route("/m3")
@@ -39,6 +40,10 @@ def index():
 @bp.route("/sw.js")
 def service_worker():
     return send_file(SW_JS, mimetype="application/javascript")
+
+@bp.route("/manifest.json")
+def web_manifest():
+    return send_file(MANIFEST_JSON, mimetype="application/manifest+json")
 
 # --- MULTI-RESULT LIVE SEARCH API ---
 @bp.route("/api/data", methods=["GET"])

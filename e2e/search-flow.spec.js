@@ -100,7 +100,9 @@ async function submitSearch(page, query) {
 }
 
 function expectedErrors(errors) {
-  return errors.filter((e) => !e.includes("net::ERR_FAILED"));
+  // 404 zasobów środowiskowych (config.js git-ignored, manifest na starszych deployach)
+  // jest oczekiwane; reszta (500, pageerror, CSP) — nie.
+  return errors.filter((e) => !e.includes("net::ERR_FAILED") && !e.includes("status of 404"));
 }
 
 test.describe("Service Worker", () => {
