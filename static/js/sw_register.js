@@ -2,7 +2,7 @@
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", function () {
       navigator.serviceWorker
-        .register("sw.js?v=10.30")
+        .register("sw.js?v=10.31")
         .then(function (reg) {
           reg.update();
         })

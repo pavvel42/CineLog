@@ -435,6 +435,43 @@ export async function selectProductionDetail(item) {
   }
 }
 
+export async function diagnoseSearchFlow(query = "Kiedy nikt nie patrzy") {
+  const steps = [];
+  const step = (n, text) => { steps.push(`${n}. ${text}`); try { document.getElementById("m3-diag-output")?.append(Object.assign(document.createElement("div"), { textContent: `${n}. ${text}` })); } catch (e) {} };
+
+  let data = null;
+  try {
+    step(9, `fetch search: start "${query}"`);
+    data = await fetchAddSearchResults(query);
+    step(10, `fetch search: ${data ? (data.found ? `found, wyników=${data.results.length}` : JSON.stringify(data).slice(0, 80)) : "NULL"}`);
+  } catch (e) {
+    step(10, `fetch search: WYJĄTEK ${e.message}`);
+    return steps;
+  }
+
+  if (!data || !data.found || !(data.results || []).length) {
+    step(11, "brak wyników do przetestowania podglądu");
+    return steps;
+  }
+
+  const target = data.results.length === 1 ? data.results[0] : data.results[0];
+  try {
+    step(11, `selectProductionDetail("${target.title}") — start`);
+    await selectProductionDetail(target);
+    step(12, "selectProductionDetail zakończony bez wyjątku");
+  } catch (e) {
+    step(12, `selectProductionDetail WYJĄTEK: ${e.message}`);
+    return steps;
+  }
+
+  const preview = document.getElementById("m3-add-step-preview");
+  const sheet = document.getElementById("m3-sheet-add");
+  step(13, `step-preview display=${preview ? getComputedStyle(preview).display : "?"}, sheet-add class="${sheet ? sheet.className : "?"}"`);
+  step(14, `preview title="${document.getElementById("m3-preview-title")?.innerText}"`);
+  return steps;
+}
+window.__cinelogDiagnoseSearchFlow = diagnoseSearchFlow;
+
 export function initSearchAndAddModal() {
   initHeaderSearchClear();
   initAddModalShell();

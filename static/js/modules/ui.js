@@ -509,6 +509,11 @@ export async function runSearchDiagnostics() {
   } else {
     diagLine(output, "8. Złapane błędy JS: brak");
   }
+
+  if (typeof window.__cinelogDiagnoseSearchFlow === "function") {
+    diagLine(output, "--- Symulacja pełnego przepływu ---");
+    await window.__cinelogDiagnoseSearchFlow("Kiedy nikt nie patrzy");
+  }
 }
 
 
