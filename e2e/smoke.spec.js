@@ -128,6 +128,78 @@ test.describe("CineLog - smoke e2e", () => {
     expect(stored.movies[0].rating).toBe(4);
   });
 
+  test("tryb klienta: przekroczenie kwoty localStorage pokazuje toast i nie wywala aplikacji", async ({ page }) => {
+    await page.route("**/api/**", route => route.fulfill({ status: 404, body: "no backend" }));
+    // UWAGA na kolejność addInitScript: seed bazy MUSI być pierwszy — wrapper
+    // setItem rzuca wyjątkiem dla cinelog_database i zablokowałby własny seed.
+    const testShow = {
+      uuid: "e2e-client-show-quota",
+      title: "Test Series Quota",
+      status: "watching",
+      watched_count: 3,
+      latest_progress: "S01E03",
+      latest_season: 1,
+      latest_episode: 3,
+      episodes_watched: [
+        { episode_id: "q1", season: 1, episode: 1, created_at: "2026-01-01 10:00:00" },
+        { episode_id: "q2", season: 1, episode: 2, created_at: "2026-01-02 10:00:00" },
+        { episode_id: "q3", season: 1, episode: 3, created_at: "2026-01-03 10:00:00" }
+      ]
+    };
+    await page.addInitScript((db) => {
+      localStorage.setItem("cinelog_database", JSON.stringify(db));
+      localStorage.setItem("cinelog_active_mode", "client");
+      localStorage.setItem("cinelog_user_imported", "true");
+    }, { movies: [], shows: [testShow], updated_at: "2026-01-01T00:00:00Z" });
+    await page.addInitScript(() => {
+      const originalSetItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (key === "cinelog_database") {
+          const err = new Error("mock: Exceeded storage quota");
+          err.name = "QuotaExceededError";
+          throw err;
+        }
+        return originalSetItem.call(this, key, value);
+      };
+    });
+
+    await page.goto("/?mode=shows");
+    await expect(page.locator("#m3-shows-grid article.m3-card").first()).toBeVisible();
+    await page.locator("#m3-shows-grid article.m3-card").first().click();
+    const sheet = page.locator("#m3-sheet-episodes");
+    await expect(sheet).toHaveClass(/active/, { timeout: 10_000 });
+
+    // zaznaczenie odcinka: zapis lokalny rzuca QuotaExceeded -> toast, brak crashu
+    await sheet.locator(".m3-ep-item").nth(3).click();
+    await page.locator("#m3-btn-batch-only").click();
+
+    const toast = page.locator("#m3-toast-notification");
+    await expect(toast).toContainText("Brak miejsca", { timeout: 5_000 });
+    await expect(toast).toHaveClass(/show/);
+
+    // stan w pamięci nadal zaktualizowany (UI działa mimo nieudanego zapisu)
+    await expect(sheet.locator(".m3-ep-item").nth(3)).toHaveClass(/watched/);
+    await expect(page.locator("#m3-ep-show-meta")).toContainText("S01E04");
+  });
+
+  test("modal Tryb i Środowisko pokazuje raport rozmiaru bazy", async ({ page }) => {
+    await page.route("**/api/**", route => route.fulfill({ status: 404, body: "no backend" }));
+    await page.addInitScript((db) => {
+      localStorage.setItem("cinelog_database", JSON.stringify(db));
+      localStorage.setItem("cinelog_active_mode", "client");
+      localStorage.setItem("cinelog_user_imported", "true");
+    }, { movies: [], shows: [], updated_at: "2026-01-01T00:00:00Z" });
+
+    await page.goto("/");
+    await expect(page.locator("#m3-btn-env-toggle")).toBeVisible();
+    await page.locator("#m3-btn-env-toggle").click();
+    const sizeEl = page.locator("#m3-env-db-size");
+    await expect(sizeEl).toBeVisible();
+    await expect(sizeEl).toContainText("localStorage");
+    await expect(sizeEl).toContainText("~5 MB");
+    await expect(sizeEl).toContainText("%");
+  });
+
   test("tryb klienta: rematch filmu działa przez bezpośrednie TMDb (mock)", async ({ page }) => {
     await page.route("**/api/**", route => route.fulfill({ status: 404, body: "no backend" }));
     // mock bezpośredniego API TMDb (BYOK), jak w przeglądarce pod originem github.io

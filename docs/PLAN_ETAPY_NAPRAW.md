@@ -52,7 +52,7 @@ odcinków; brak duplikatów po dopasowaniu po `tmdb_id`; wszystkie testy zielone
 
 ---
 
-## Etap 2 — Odporność na limit localStorage (~5 MB)
+## Etap 2 — Odporność na limit localStorage (~5 MB) ✅
 
 **Problem.** `saveLocalDatabase` (state.js) przy `QuotaExceededError` robi tylko
 `console.warn` — wszystkie zmiany przestają się zapisywać bez informacji dla
@@ -67,9 +67,20 @@ kwoty.
 3. Rozważone odchudzanie rekordów (np. skracanie `summary` odcinków w
    `episodes_watched`) — decyzja po zmierzeniu realnych rozmiarów.
 
+**Rozstrzygnięcia (po wykonaniu).**
+- Toast błędu jest throttlowany do 1/60 s (seria zapisów nie spamuje), komunikat
+  kieruje do kopii na Drive / eksportu JSON.
+- Raport rozmiaru liczy `length * 2` bajtów (localStorage alokuje UTF-16) i
+  pokazuje procent ~5 MB limitu originu; kolory ostrzegawcze przy 50%/80%.
+  Modal odświeża pomiar przy każdym otwarciu.
+- **Pomiar:** demo (25 seriali + 50 filmów) ≈ 0,16 MB; przeskalowana pełna
+  biblioteka TV Time (200 seriali) ≈ 0,7–1 MB. Do limitu jest bezpieczny zapas,
+  więc **odchudzanie rekordów jest odroczone** — realny punkt wzrostu to
+  future'owe pola per-odcinek, wracamy do tego tylko jeśli raport pokaże >50%.
+
 **Weryfikacja.** e2e: mock `localStorage.setItem` rzucający `QuotaExceededError`
 → toast widoczny, aplikacja nie wywala się; klik w odcinek nadal mutuje stan
-w pamięci.
+w pamięci. Test raportu rozmiaru w modalu środowiska.
 
 ---
 

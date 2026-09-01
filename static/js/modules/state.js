@@ -372,6 +372,30 @@ export function buildLocalLibraryEntry(previewData, type, status = "watchlist", 
   return entry;
 }
 
+// Ostatni czas pokazania toastu o przekroczeniu kwoty localStorage —
+// throttling, żeby seria zapisów nie spamowała użytkownika powiadomieniami.
+let lastQuotaToastAt = 0;
+
+function isQuotaError(err) {
+  if (!err) return false;
+  return err.name === "QuotaExceededError"
+    || err.code === 22
+    || (typeof err.message === "string" && /quota|exceed/i.test(err.message));
+}
+
+function showStorageQuotaWarning() {
+  const now = Date.now();
+  if (now - lastQuotaToastAt < 60_000) return;
+  lastQuotaToastAt = now;
+  console.error("🛑 localStorage quota exceeded — baza nie została zapisana w przeglądarce.");
+  if (typeof window !== "undefined" && typeof window.showToastNotification === "function") {
+    window.showToastNotification(
+      "🛑 Brak miejsca w pamięci przeglądarki — zmiany NIE zostały zapisane! Zrób kopię (Chmura → Drive / eksport JSON) i usuń część pozycji.",
+      "error"
+    );
+  }
+}
+
 /**
  * Zapisuje stan biblioteki do localStorage i ewentualnie triggeruje autosave Drive.
  * @param {boolean} [skipCloudSync=false] true = nigdy nie dotykaj Drive (np. zapis demo)
@@ -384,10 +408,14 @@ export function saveLocalDatabase(skipCloudSync = false) {
       updated_at: new Date().toISOString()
     }));
   } catch (e) {
-    console.warn("Nie udało się zapisać bazy do localStorage:", e);
+    if (isQuotaError(e)) {
+      showStorageQuotaWarning();
+    } else {
+      console.warn("Nie udało się zapisać bazy do localStorage:", e);
+    }
   }
   syncWindowAliases();
-  
+
   // 🛡️ CRITICAL GUARD: Never auto-sync to Google Drive if explicitly skipped or database is marked as demo
   if (!skipCloudSync && !isUserDatabaseDemo() && window.googleDriveSync && window.googleDriveSync.isAuthorized()) {
     window.googleDriveSync.triggerAutoSave(state.movies, state.shows);
