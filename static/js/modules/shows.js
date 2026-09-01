@@ -388,6 +388,7 @@ async function fetchTrackerData(show) {
   // Dane trackera online: backend (/episodes_meta + /search_detail) -> fallbacki klienta TMDb/OMDb.
   // Ustawia modułowe currentShowMeta i dogrzewa metadane bieżącego sezonu.
   const localTmdbKey = localStorage.getItem("cinelog_tmdb_key") || "";
+  const localOmdbKey = localStorage.getItem("cinelog_omdb_key") || localStorage.getItem("cinelog_imdb_key") || "";
   const showYear = show.release_year || (show.release_date ? show.release_date.split("-")[0] : "");
   const tmdbParam = show.tmdb_id ? `&tmdb_id=${show.tmdb_id}` : "";
   const yearParam = showYear ? `&year=${showYear}` : "";

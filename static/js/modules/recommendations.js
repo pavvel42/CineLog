@@ -1,4 +1,4 @@
-import { state, isItemInLibrary, saveLocalDatabase, getGradientForTitle, escapeHtml, getKeyHeaders } from './state.js';
+import { state, isItemInLibrary, saveLocalDatabase, getGradientForTitle, escapeHtml, getKeyHeaders, buildLocalLibraryEntry } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, getUserLanguage, TMDB_GLOBAL_VOD_MAP, getCountryDisplayName } from './vod.js';
@@ -250,6 +250,25 @@ export async function quickAddToWatchlist(item, btnElement) {
     is_favorite: false
   };
 
+  const finishAdd = (addedItem) => {
+    if (isShow) {
+      state.shows.unshift(addedItem);
+      renderShows();
+    } else {
+      state.movies.unshift(addedItem);
+      renderMovies();
+    }
+    updateStats();
+    saveLocalDatabase();
+
+    if (btnElement) {
+      btnElement.classList.add("added");
+      btnElement.innerHTML = `<span class="material-symbols-rounded" style="font-size: 18px;">check</span>`;
+      btnElement.title = "Dodano do listy Do obejrzenia!";
+    }
+    showToastNotification(`Dodano "${item.title}" do listy Do obejrzenia! 🔖`);
+  };
+
   try {
     const res = await fetch(endpoint, {
       method: "POST",
@@ -259,35 +278,14 @@ export async function quickAddToWatchlist(item, btnElement) {
 
     if (res.ok) {
       const addedItem = await res.json();
-      if (isShow) {
-        state.shows.unshift(addedItem);
-        renderShows();
-      } else {
-        state.movies.unshift(addedItem);
-        renderMovies();
-      }
-      updateStats();
-      saveLocalDatabase();
-
-      if (btnElement) {
-        btnElement.classList.add("added");
-        btnElement.innerHTML = `<span class="material-symbols-rounded" style="font-size: 18px;">check</span>`;
-        btnElement.title = "Dodano do listy Do obejrzenia!";
-      }
-      showToastNotification(`Dodano "${item.title}" do listy Do obejrzenia! 🔖`);
+      finishAdd(addedItem);
     } else {
-      if (btnElement) {
-        btnElement.disabled = false;
-        btnElement.innerHTML = `<span class="material-symbols-rounded" style="font-size: 18px;">bookmark_add</span>`;
-      }
-      showToastNotification("Nie udało się dodać pozycji do listy Do obejrzenia.", "error");
+      // Tryb klienta (GitHub Pages / offline): zapis lokalny zamiast błędu.
+      finishAdd(buildLocalLibraryEntry(item, isShow ? "series" : "movie", "watchlist"));
     }
   } catch (err) {
     console.error("Error adding rec item:", err);
-    if (btnElement) {
-      btnElement.disabled = false;
-      btnElement.innerHTML = `<span class="material-symbols-rounded" style="font-size: 18px;">bookmark_add</span>`;
-    }
+    finishAdd(buildLocalLibraryEntry(item, isShow ? "series" : "movie", "watchlist"));
   }
 }
 

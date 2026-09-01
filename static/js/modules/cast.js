@@ -2,7 +2,7 @@
 // CineLog - Cast, Crew & Actor Profile Explorer Module
 // ==========================================================================
 
-import { state, getGradientForTitle, isItemInLibrary, saveLocalDatabase } from './state.js';
+import { state, getGradientForTitle, isItemInLibrary, saveLocalDatabase, buildLocalLibraryEntry } from './state.js';
 import { showToastNotification } from './ui.js';
 import { getUserLanguage } from './vod.js';
 
@@ -464,6 +464,16 @@ export async function quickAddToWatchlist(item) {
     release_date: item.release_date || (item.year ? `${item.year}-01-01` : "")
   };
 
+  const finishAdd = (added) => {
+    if (isShow) {
+      state.shows.unshift(added);
+    } else {
+      state.movies.unshift(added);
+    }
+    saveLocalDatabase();
+    showToastNotification(`Dodano "${item.title}" do listy Do obejrzenia! 🎬`);
+  };
+
   try {
     const endpoint = isShow ? "/api/shows" : "/api/movies";
     const res = await fetch(endpoint, {
@@ -473,16 +483,13 @@ export async function quickAddToWatchlist(item) {
     });
 
     if (res.ok) {
-      const added = await res.json();
-      if (isShow) {
-        state.shows.unshift(added);
-      } else {
-        state.movies.unshift(added);
-      }
-      saveLocalDatabase();
-      showToastNotification(`Dodano "${item.title}" do listy Do obejrzenia! 🎬`);
+      finishAdd(await res.json());
+    } else {
+      // Tryb klienta (GitHub Pages / offline): zapis lokalny zamiast cichej porażki.
+      finishAdd(buildLocalLibraryEntry(item, isShow ? "series" : "movie", "watchlist"));
     }
   } catch (err) {
     console.error("Error quick adding to watchlist:", err);
+    finishAdd(buildLocalLibraryEntry(item, isShow ? "series" : "movie", "watchlist"));
   }
 }

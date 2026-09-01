@@ -801,28 +801,56 @@ export async function openRematchPicker(item, itemType = "movie") {
     loadingEl.style.display = "flex";
     resultsContainer.innerHTML = "";
 
+    let results = [];
+    let searched = false;
+
     try {
       const typeParam = itemType === "series" ? "series" : "movie";
       const res = await fetch(`/api/search_preview?q=${encodeURIComponent(query)}&type=${typeParam}&lang=${getUserLanguage()}`);
-      loadingEl.style.display = "none";
 
-      if (!res.ok) {
-        resultsContainer.innerHTML = `<div style="padding: 16px; text-align: center; color: var(--md-sys-color-on-surface-variant); font-size: 0.85rem;">Nie znaleziono pozycji w TMDb.</div>`;
-        return;
+      if (res.ok) {
+        const data = await res.json();
+        results = data.results || (data.item ? [data.item] : []);
+        searched = true;
       }
+    } catch (e) {}
 
-      const data = await res.json();
-      const results = data.results || (data.item ? [data.item] : []);
-      if (results.length === 0) {
-        resultsContainer.innerHTML = `<div style="padding: 16px; text-align: center; color: var(--md-sys-color-on-surface-variant); font-size: 0.85rem;">Brak innych wersji pasujących do "${query}".</div>`;
-        return;
+    if (!searched) {
+      // Tryb klienta (GitHub Pages / offline): bezpośrednie wyszukiwanie TMDb (BYOK).
+      const rawTmdbKey = localStorage.getItem("cinelog_tmdb_key") || (window.CINELOG_CONFIG && window.CINELOG_CONFIG.TMDB_API_KEY) || "";
+      if (rawTmdbKey) {
+        const tmdbType = itemType === "series" ? "tv" : "movie";
+        try {
+          const sRes = await fetch(`https://api.themoviedb.org/3/search/${tmdbType}?api_key=${encodeURIComponent(rawTmdbKey)}&query=${encodeURIComponent(query)}&language=${getUserLanguage()}&include_adult=false`);
+          if (sRes.ok) {
+            const sData = await sRes.json();
+            results = (sData.results || []).map(r => ({
+              title: r.title || r.name,
+              original_title: r.original_title || r.original_name || "",
+              poster_url: r.poster_path ? `https://image.tmdb.org/t/p/w500${r.poster_path}` : "",
+              year: (r.release_date || r.first_air_date || "").substring(0, 4),
+              release_date: r.release_date || r.first_air_date || "",
+              tmdb_id: r.id,
+              overview: r.overview || "",
+              vote_average: r.vote_average
+            }));
+          }
+        } catch (e) {}
       }
+    }
 
-      results.forEach(it => {
-        const card = document.createElement("div");
-        const pUrl = it.poster_url || "";
-        const yearStr = it.year || (it.release_date ? it.release_date.split("-")[0] : "");
-        const isCurrentMatch = (it.tmdb_id && item.tmdb_id && String(it.tmdb_id) === String(item.tmdb_id)) || (it.poster_url && item.poster_url && it.poster_url === item.poster_url);
+    loadingEl.style.display = "none";
+
+    if (results.length === 0) {
+      resultsContainer.innerHTML = `<div style="padding: 16px; text-align: center; color: var(--md-sys-color-on-surface-variant); font-size: 0.85rem;">Brak innych wersji pasujących do "${query}".</div>`;
+      return;
+    }
+
+    results.forEach(it => {
+      const card = document.createElement("div");
+      const pUrl = it.poster_url || "";
+      const yearStr = it.year || (it.release_date ? it.release_date.split("-")[0] : "");
+      const isCurrentMatch = (it.tmdb_id && item.tmdb_id && String(it.tmdb_id) === String(item.tmdb_id)) || (it.poster_url && item.poster_url && it.poster_url === item.poster_url);
         card.className = `m3-rematch-card ${isCurrentMatch ? 'is-active-match' : ''}`;
 
         card.innerHTML = `
@@ -855,6 +883,24 @@ export async function openRematchPicker(item, itemType = "movie") {
             tmdb_id: it.tmdb_id || it.id
           };
 
+          const applyRematch = (updated) => {
+            Object.assign(item, updated);
+            sheetRematch.classList.remove("active");
+
+            if (itemType === "series") {
+              if (window.renderShows) window.renderShows();
+              updateStats();
+              if (window.openEpisodeTracker) window.openEpisodeTracker(item);
+            } else {
+              renderMovies();
+              updateStats();
+              openMovieDetail(item);
+            }
+            showToastNotification(`Zaktualizowano wersję ${itemType === "series" ? "serialu" : "filmu"}: "${item.title}" (${yearStr})! ✨`);
+            saveLocalDatabase();
+          };
+
+          let saved = false;
           try {
             const endpoint = itemType === "series" ? `/api/shows/${item.uuid}` : `/api/movies/${item.uuid}`;
             const updateRes = await fetch(endpoint, {
@@ -864,35 +910,21 @@ export async function openRematchPicker(item, itemType = "movie") {
             });
 
             if (updateRes.ok) {
-              const updated = await updateRes.json();
-              Object.assign(item, updated);
-
-              sheetRematch.classList.remove("active");
-
-              if (itemType === "series") {
-                if (window.renderShows) window.renderShows();
-                updateStats();
-                if (window.openEpisodeTracker) window.openEpisodeTracker(item);
-                showToastNotification(`Zaktualizowano wersję serialu: "${item.title}" (${yearStr})! ✨`);
-              } else {
-                renderMovies();
-                updateStats();
-                openMovieDetail(item);
-                showToastNotification(`Zaktualizowano wersję filmu: "${item.title}" (${yearStr})! ✨`);
-              }
-              saveLocalDatabase();
+              applyRematch(await updateRes.json());
+              saved = true;
             }
           } catch (err) {
             console.error("Error saving rematch:", err);
+          }
+
+          if (!saved) {
+            // Tryb klienta (GitHub Pages / offline): aktualizacja lokalna.
+            applyRematch(payload);
           }
         });
 
         resultsContainer.appendChild(card);
       });
-    } catch (e) {
-      console.error("Error executing rematch search:", e);
-      loadingEl.style.display = "none";
-    }
   };
 
   searchBtn.onclick = () => doSearch(inputEl.value.trim());

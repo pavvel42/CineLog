@@ -306,6 +306,47 @@ export function generateUUID() {
 }
 
 /**
+ * Buduje lokalny wpis biblioteki (film/serial) z danych podglądu TMDb —
+ * używany jako fallback zapisu w trybie klienta / GitHub Pages (bez backendu).
+ * Kształt pól jest spójny z buildLocalMovie / buildLocalShow z search.js.
+ * @param {object} previewData dane podglądu (title, tmdb_id/id, poster_url, ...)
+ * @param {"movie"|"series"} type
+ * @param {string} [status]
+ * @param {number|null} [rating]
+ * @param {Array} [episodesList] lista {season, episode} dla seriali
+ * @returns {object}
+ */
+export function buildLocalLibraryEntry(previewData, type, status = "watchlist", rating = null, episodesList = []) {
+  const entry = {
+    uuid: `${type}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    title: previewData.title,
+    original_title: previewData.original_title || previewData.title,
+    year: previewData.year || "",
+    genre: previewData.genre || "",
+    plot: previewData.plot || "",
+    poster_url: previewData.poster_url || "",
+    status: status || "watchlist",
+    rating: rating ?? null,
+    tmdb_id: previewData.tmdb_id || previewData.id,
+    imdb_id: previewData.imdb_id || "",
+    is_favorite: false,
+    user_date: new Date().toISOString().split("T")[0]
+  };
+  if (type === "series" || type === "tv") {
+    entry.total_seasons = previewData.total_seasons || 1;
+    entry.total_episodes = previewData.total_episodes || 0;
+    entry.season_ep_counts = previewData.season_ep_counts || {};
+    entry.episodes_watched = episodesList;
+  } else {
+    entry.director = previewData.director || "";
+    entry.cast = previewData.cast || "";
+    entry.runtime = previewData.runtime || "";
+    entry.release_date = previewData.release_date || (previewData.year ? `${previewData.year}-01-01` : null);
+  }
+  return entry;
+}
+
+/**
  * Zapisuje stan biblioteki do localStorage i ewentualnie triggeruje autosave Drive.
  * @param {boolean} [skipCloudSync=false] true = nigdy nie dotykaj Drive (np. zapis demo)
  */

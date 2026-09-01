@@ -39,7 +39,12 @@ test.describe("CineLog - smoke e2e", () => {
     await expect(sheet).not.toHaveClass(/active/);
   });
 
-  test("tryb klienta (PWA bez backendu): zaznaczenie odcinka zapisuje się lokalnie", async ({ page }) => {
+  // Testy trybu klienta symulują origin github.io: /api/** -> 404, baza w localStorage.
+  // serviceWorkers: "block" — SW omija page.route dla żądań zewnętrznych (mocki TMDb nie trafiały).
+  test.describe("tryb klienta", () => {
+    test.use({ serviceWorkers: "block" });
+
+    test("tryb klienta (PWA bez backendu): zaznaczenie odcinka zapisuje się lokalnie", async ({ page }) => {
     // Symulacja originu github.io: wszystkie /api/** zwracają 404, baza w localStorage.
     await page.route("**/api/**", route => route.fulfill({ status: 404, body: "no backend" }));
     const testShow = {
@@ -82,6 +87,105 @@ test.describe("CineLog - smoke e2e", () => {
     expect(stored.shows[0].episodes_watched.some(e => e.season === 1 && e.episode === 4)).toBe(true);
     expect(stored.shows[0].watched_count).toBe(4);
     expect(stored.shows[0].latest_progress).toBe("S01E04");
+  });
+
+  test("tryb klienta: zmiana statusu filmu i ocena zapisują się lokalnie", async ({ page }) => {
+    await page.route("**/api/**", route => route.fulfill({ status: 404, body: "no backend" }));
+    const testMovie = {
+      uuid: "e2e-client-movie-1",
+      title: "Test Movie Client",
+      status: "watchlist",
+      rating: null,
+      is_favorite: false
+    };
+    await page.addInitScript((db) => {
+      localStorage.setItem("cinelog_database", JSON.stringify(db));
+      localStorage.setItem("cinelog_active_mode", "client");
+      localStorage.setItem("cinelog_user_imported", "true");
+    }, { movies: [testMovie], shows: [], updated_at: "2026-01-01T00:00:00Z" });
+
+    await page.goto("/?mode=movies");
+    await expect(page.locator("#m3-movies-grid article.m3-card").first()).toBeVisible();
+
+    // otwórz szczegóły i oznacz jako obejrzane
+    await page.locator("#m3-movies-grid article.m3-card").first().click();
+    const sheet = page.locator("#m3-sheet-movie-detail");
+    await expect(sheet).toHaveClass(/active/, { timeout: 10_000 });
+    await page.locator("#m3-detail-btn-watched").click();
+    await page.waitForTimeout(400);
+
+    let stored = await page.evaluate(() => JSON.parse(localStorage.getItem("cinelog_database")));
+    expect(stored.movies[0].status).toBe("watched");
+    expect(stored.movies[0].watch_date).toBeTruthy();
+
+    // ocena przez gwiazdki (karta siatki)
+    await page.keyboard.press("Escape");
+    await expect(sheet).not.toHaveClass(/active/);
+    await page.locator("#m3-movies-grid article.m3-card").first().locator(".m3-star").nth(3).click();
+    await page.waitForTimeout(400);
+
+    stored = await page.evaluate(() => JSON.parse(localStorage.getItem("cinelog_database")));
+    expect(stored.movies[0].rating).toBe(4);
+  });
+
+  test("tryb klienta: rematch filmu działa przez bezpośrednie TMDb (mock)", async ({ page }) => {
+    await page.route("**/api/**", route => route.fulfill({ status: 404, body: "no backend" }));
+    // mock bezpośredniego API TMDb (BYOK), jak w przeglądarce pod originem github.io
+    // UWAGA: Playwright dopasowuje trasy od ostatniej zarejestrowanej, więc
+    // specyficzna trasa search/movie musi być zarejestrowana JAKO OSTATNIA.
+    await page.route("**/api.themoviedb.org/**", route => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({})
+    }));
+    await page.route("**/api.themoviedb.org/3/search/movie*", route => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        results: [{
+          id: 999,
+          title: "Test Movie Client (Alternatywna wersja)",
+          original_title: "Test Movie Client",
+          poster_path: "/alt.jpg",
+          release_date: "1999-01-01",
+          overview: "Alternatywne dopasowanie.",
+          vote_average: 7.5
+        }]
+      })
+    }));
+
+    const testMovie = {
+      uuid: "e2e-client-movie-1",
+      title: "Test Movie Client",
+      status: "watchlist",
+      rating: null,
+      is_favorite: false
+    };
+    await page.addInitScript((db) => {
+      localStorage.setItem("cinelog_database", JSON.stringify(db));
+      localStorage.setItem("cinelog_active_mode", "client");
+      localStorage.setItem("cinelog_user_imported", "true");
+      localStorage.setItem("cinelog_tmdb_key", "e2e-fake-key");
+    }, { movies: [testMovie], shows: [], updated_at: "2026-01-01T00:00:00Z" });
+
+    await page.goto("/?mode=movies");
+    await expect(page.locator("#m3-movies-grid article.m3-card").first()).toBeVisible();
+    await page.locator("#m3-movies-grid article.m3-card").first().click();
+    await expect(page.locator("#m3-sheet-movie-detail")).toHaveClass(/active/, { timeout: 10_000 });
+
+    await page.locator("#m3-detail-rematch-btn").click();
+    const rematchSheet = page.locator("#m3-sheet-rematch");
+    await expect(rematchSheet).toHaveClass(/active/);
+    await expect(rematchSheet.locator(".m3-rematch-card").first()).toBeVisible({ timeout: 10_000 });
+
+    // wybierz alternatywną wersję -> zapis lokalny mimo braku backendu
+    await rematchSheet.locator(".m3-rematch-card").first().click();
+    await expect(rematchSheet).not.toHaveClass(/active/, { timeout: 5_000 });
+
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("cinelog_database")));
+    expect(String(stored.movies[0].tmdb_id)).toBe("999");
+    expect(stored.movies[0].title).toContain("Alternatywna wersja");
+  });
   });
 
   test("zakładka rekomendacji renderuje hub bez błędów JS", async ({ page }) => {
