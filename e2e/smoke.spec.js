@@ -182,6 +182,56 @@ test.describe("CineLog - smoke e2e", () => {
     await expect(page.locator("#m3-ep-show-meta")).toContainText("S01E04");
   });
 
+  test("tryb klienta: opóźnione metadane serialu A nie nadpisują trackera serialu B (wyścig)", async ({ page }) => {
+    await page.route("**/api/**", route => route.fulfill({ status: 404, body: "no backend" }));
+    // meta serialu A wraca z opóźnieniem 2,5 s, serialu B natychmiast
+    await page.route("**/api/shows/e2e-race-show-a/episodes_meta*", async route => {
+      await new Promise(r => setTimeout(r, 2500));
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ "1_1": { season: 1, episode: 1, name: "WYSCIG-A-EP1", airdate: "2026-01-01" } })
+      });
+    });
+    await page.route("**/api/shows/e2e-race-show-b/episodes_meta*", route => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ "1_1": { season: 1, episode: 1, name: "WYSCIG-B-EP1", airdate: "2026-01-01" } })
+    }));
+
+    const makeShow = (uuid, title) => ({
+      uuid, title, status: "watching", watched_count: 0,
+      latest_season: 1, latest_episode: 0, episodes_watched: []
+    });
+    await page.addInitScript((db) => {
+      localStorage.setItem("cinelog_database", JSON.stringify(db));
+      localStorage.setItem("cinelog_active_mode", "client");
+      localStorage.setItem("cinelog_user_imported", "true");
+    }, { movies: [], shows: [makeShow("e2e-race-show-a", "Race Show A"), makeShow("e2e-race-show-b", "Race Show B")], updated_at: "2026-01-01T00:00:00Z" });
+
+    await page.goto("/?mode=shows");
+
+    // otwórz tracker serialu A (jego meta leci w sieć z opóźnieniem)
+    await page.locator("#m3-shows-grid article.m3-card", { hasText: "Race Show A" }).first().click();
+    const sheet = page.locator("#m3-sheet-episodes");
+    await expect(sheet).toHaveClass(/active/, { timeout: 10_000 });
+    await expect(page.locator("#m3-ep-show-title")).toHaveText("Race Show A");
+
+    // zamknij i natychmiast otwórz serial B (meta B wraca od razu)
+    await page.keyboard.press("Escape");
+    await expect(sheet).not.toHaveClass(/active/);
+    await page.locator("#m3-shows-grid article.m3-card", { hasText: "Race Show B" }).first().click();
+    await expect(sheet).toHaveClass(/active/, { timeout: 10_000 });
+    await expect(page.locator("#m3-ep-show-title")).toHaveText("Race Show B");
+    await expect(sheet.locator(".m3-ep-item").first()).toContainText("WYSCIG-B-EP1", { timeout: 5_000 });
+
+    // czekamy aż przestarzała odpowiedź A dotrze — nie może nadpisać trackera B
+    await page.waitForTimeout(3000);
+    await expect(page.locator("#m3-ep-show-title")).toHaveText("Race Show B");
+    await expect(sheet.locator(".m3-ep-item").first()).toContainText("WYSCIG-B-EP1");
+    await expect(page.locator("body")).not.toContainText("WYSCIG-A-EP1");
+  });
+
   test("modal Tryb i Środowisko pokazuje raport rozmiaru bazy", async ({ page }) => {
     await page.route("**/api/**", route => route.fulfill({ status: 404, body: "no backend" }));
     await page.addInitScript((db) => {

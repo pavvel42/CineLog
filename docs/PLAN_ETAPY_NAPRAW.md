@@ -84,7 +84,7 @@ w pamięci. Test raportu rozmiaru w modalu środowiska.
 
 ---
 
-## Etap 3 — Wyścigi w trackerze odcinków
+## Etap 3 — Wyścigi w trackerze odcinków ✅
 
 **Problem.** `selectedShow` i `currentShowMeta` to zmienne modułowe w
 `shows.js`, a `fetchTrackerData` / `ensureSeasonMeta` są asynchroniczne bez
@@ -96,9 +96,19 @@ każde `openEpisodeTracker` inkrementuje `trackerGen`; asynchroniczne
 kontynuacje (ustawienie `currentShowMeta`, re-render) ignorują wynik, gdy
 generacja przestarzała.
 
+**Rozstrzygnięcia (po wykonaniu).**
+- `trackerGen` sprawdzany w: `openEpisodeTracker` (po `fetchTrackerData`),
+  `fetchTrackerData` (po `Promise.all`, przed zapisem `currentShowMeta`,
+  przed końcowym renderem), `ensureSeasonMeta` (przed zapisem metadanych),
+  handlerze zakładki sezonu oraz w kontynuacji VOD (`.then`) — stare
+  odpowiedzi stają się no-op zamiast nadpisywać stan/HTML.
+- Test e2e zweryfikowany negatywnie: na kodzie sprzed poprawki fails
+  (meta A nadpisuje tracker B), po poprawce przechodzi — test naprawdę
+  łapie tę klasę regresji.
+
 **Weryfikacja.** e2e: mock `/api/shows/*/episodes_meta` z kontrolowanym
-opóźnieniem (serial A 2 s, serial B 0 ms) → otwórz A, zamknij, otwórz B →
-po 3 s tytuły odcinków w trackerze należą do B.
+opóźnieniem (serial A 2,5 s, serial B 0 ms) → otwórz A, zamknij, otwórz B →
+po 3 s tracker B pokazuje wyłącznie metadane B.
 
 ---
 

@@ -15,6 +15,11 @@ import { openCloudSyncModal } from './cloud.js';
 let selectedShow = null;
 let selectedSeason = 1;
 let currentShowMeta = {};
+// Licznik generacji trackera (wzorzec z renderListInChunks): każde otwarcie
+// trackera unieważnia wciąż lecące asynchroniczne odpowiedzi poprzedniego —
+// bez tego opóźnione metadane serialu A nadpisują tracker aktualnie
+// otwartego serialu B (wyścig przy szybkim przełączaniu).
+let trackerGen = 0;
 
 export async function renderShows() {
   const grid = document.getElementById("m3-shows-grid");
@@ -169,6 +174,7 @@ export async function renderShows() {
 }
 
 export async function openEpisodeTracker(show) {
+  const gen = ++trackerGen;
   selectedShow = show;
   selectedSeason = Math.max(show.latest_season || 1, 1);
   currentShowMeta = {};
@@ -187,6 +193,7 @@ export async function openEpisodeTracker(show) {
   document.getElementById("m3-sheet-episodes").classList.add("active");
 
   getWatchProvidersForTitle(show.title, "tv", show.tmdb_id).then(data => {
+    if (gen !== trackerGen) return; // otwarty już inny serial — nie dotykaj jego VOD
     vodLogosContainer.innerHTML = "";
     const flat = data.flatrate || [];
     const free = data.free || [];
@@ -226,7 +233,8 @@ export async function openEpisodeTracker(show) {
   });
 
   try {
-    const detail = await fetchTrackerData(show);
+    const detail = await fetchTrackerData(show, gen);
+    if (gen !== trackerGen) return;
     renderSeasonTabs();
     renderSeasonEpisodes(false);
     applyShowDetailToTracker(show, detail);
@@ -384,9 +392,12 @@ if (deleteShowBtn) {
 }
 }
 
-async function fetchTrackerData(show) {
+async function fetchTrackerData(show, gen = trackerGen) {
   // Dane trackera online: backend (/episodes_meta + /search_detail) -> fallbacki klienta TMDb/OMDb.
   // Ustawia modułowe currentShowMeta i dogrzewa metadane bieżącego sezonu.
+  // gen: po każdym await sprawdzamy, czy tracker nie został przełączony na
+  // inny serial — przestarzała odpowiedź nie może nadpisać currentShowMeta
+  // ani przerenderować listy odcinków.
   const localTmdbKey = localStorage.getItem("cinelog_tmdb_key") || "";
   const localOmdbKey = localStorage.getItem("cinelog_omdb_key") || localStorage.getItem("cinelog_imdb_key") || "";
   const showYear = show.release_year || (show.release_date ? show.release_date.split("-")[0] : "");
@@ -401,8 +412,12 @@ async function fetchTrackerData(show) {
     fetch(detailFetchUrl, { headers: getKeyHeaders() }).catch(() => ({ ok: false }))
   ]);
 
+  if (gen !== trackerGen) return null;
+
   if (metaRes && metaRes.ok) {
-    currentShowMeta = await metaRes.json();
+    const meta = await metaRes.json();
+    if (gen !== trackerGen) return null;
+    currentShowMeta = meta;
   }
 
   let detail = null;
@@ -537,10 +552,12 @@ async function fetchTrackerData(show) {
   }
 
   // Direct client fallback for episode metadata if empty
+  if (gen !== trackerGen) return null;
   if (Object.keys(currentShowMeta).length === 0 && localTmdbKey && show.tmdb_id) {
-    await ensureSeasonMeta(show.tmdb_id, selectedSeason);
+    await ensureSeasonMeta(show.tmdb_id, selectedSeason, gen);
   }
 
+  if (gen !== trackerGen) return null;
   renderSeasonTabs();
   renderSeasonEpisodes(false);
 
@@ -617,15 +634,17 @@ const showBadgesRow = document.getElementById("m3-ep-show-badges-row");
   }
 }
 
-async function ensureSeasonMeta(tmdbId, seasonNum) {
+async function ensureSeasonMeta(tmdbId, seasonNum, gen = trackerGen) {
   if (!tmdbId || !seasonNum) return;
   const localKey = localStorage.getItem("cinelog_tmdb_key");
   if (!localKey) return;
   try {
     const url = `https://api.themoviedb.org/3/tv/${tmdbId}/season/${seasonNum}?api_key=${localKey}&language=${getUserLanguage()}`;
     const res = await fetch(url);
+    if (gen !== trackerGen) return; // tracker przełączony na inny serial
     if (!res.ok) return;
     const data = await res.json();
+    if (gen !== trackerGen) return;
     (data.episodes || []).forEach(ep => {
       const eNum = ep.episode_number;
       if (eNum !== undefined) {
@@ -696,6 +715,7 @@ export function renderSeasonTabs() {
     `;
 
     tabBtn.addEventListener("click", async () => {
+      const gen = trackerGen;
       selectedSeason = s;
       document.querySelectorAll(".m3-season-tab").forEach(t => t.classList.remove("active"));
       tabBtn.classList.add("active");
@@ -704,6 +724,7 @@ export function renderSeasonTabs() {
       const tid = selectedShow.tmdb_id;
       if (tid && !currentShowMeta[`${s}_1`]) {
         await ensureSeasonMeta(tid, s);
+        if (gen !== trackerGen) return; // w międzyczasie otwarto inny serial
         renderSeasonEpisodes(false);
       }
     });
