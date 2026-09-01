@@ -73,7 +73,7 @@ SHOWS_FILE = os.path.join(DATA_DIR, "shows_parsed.json")
 SHOWS_BACKUP_FILE = os.path.join(DATA_DIR, "shows_backup.json")
 UPCOMING_CACHE_FILE = os.path.join(DATA_DIR, "upcoming_cache.json")
 
-EPISODES_CACHE: dict[str, dict] = {}
+EPISODES_CACHE: dict[str, tuple[float, dict]] = {}
 
 def load_movies() -> list:
     movies = load_json(MOVIES_FILE)
