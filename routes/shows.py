@@ -8,6 +8,7 @@ dzięki czemu testy mogą je podmieniać przez monkeypatch na module `app`.
 from __future__ import annotations
 
 import re
+import time
 import uuid
 import logging
 from datetime import datetime
@@ -25,6 +26,49 @@ from services import client_keys
 log = logging.getLogger("cinelog")
 
 bp = Blueprint("shows", __name__)
+
+# Cache metadanych odcinków: wpisy (timestamp_monotonic, meta) z TTL i limitem —
+# wcześniej rosły bez ograniczenia i serwowały stare dane do restartu procesu.
+_EPISODES_CACHE_TTL_SECONDS = 24 * 60 * 60
+_EPISODES_CACHE_MAX_ENTRIES = 200
+
+def _now() -> float:
+    return time.monotonic()
+
+def _episodes_cache_get(cache_key: str):
+    cached = _app.EPISODES_CACHE.get(cache_key)
+    if not cached:
+        return None
+    ts, meta = cached
+    if _now() - ts > _EPISODES_CACHE_TTL_SECONDS:
+        _app.EPISODES_CACHE.pop(cache_key, None)
+        return None
+    return meta
+
+def _episodes_cache_set(cache_key: str, meta: dict) -> None:
+    _app.EPISODES_CACHE[cache_key] = (_now(), meta)
+    while len(_app.EPISODES_CACHE) > _EPISODES_CACHE_MAX_ENTRIES:
+        _app.EPISODES_CACHE.pop(next(iter(_app.EPISODES_CACHE)))
+
+def _recalculate_show_progress(show: dict) -> dict:
+    """Jedyne miejsce w backendzie przeliczające postęp serialu z episodes_watched.
+    Reguła 1:1 z frontendowym recalculateShowProgress (modules/state.js) —
+    używane przez /episodes i /batch_episodes zamiast dwóch kopii logiki."""
+    eps = show.get("episodes_watched") or []
+    eps.sort(key=lambda x: (x.get("season", 0) or 0, x.get("episode", 0) or 0))
+    show["episodes_watched"] = eps
+    show["watched_count"] = len(eps)
+    if eps:
+        highest_s = max(e.get("season", 0) or 0 for e in eps)
+        highest_e = max(e.get("episode", 0) or 0 for e in eps if (e.get("season", 0) or 0) == highest_s)
+        show["latest_progress"] = f"S{highest_s:02d}E{highest_e:02d}"
+        show["latest_season"] = highest_s
+        show["latest_episode"] = highest_e
+    else:
+        show["latest_progress"] = None
+        show["latest_season"] = 0
+        show["latest_episode"] = 0
+    return show
 
 @bp.route("/api/shows", methods=["GET"])
 def get_shows() -> ResponseReturnValue:
@@ -56,14 +100,15 @@ def get_show_episodes_meta(show_uuid: str) -> ResponseReturnValue:
     show_id = req_tmdb_id or target_show.get("tmdb_id")
     title = target_show.get("title", "")
     cache_key = f"{show_uuid}_{show_id}_{lang}"
-    if cache_key in _app.EPISODES_CACHE:
-        return jsonify(_app.EPISODES_CACHE[cache_key])
+    cached_meta = _episodes_cache_get(cache_key)
+    if cached_meta is not None:
+        return jsonify(cached_meta)
 
     clean_t = re.sub(r"\s*\([^)]*\)", "", title).strip()
     meta = _app.fetch_episodes_meta(clean_t, show_id, lang, effective_tmdb_key)
 
     if meta:
-        _app.EPISODES_CACHE[cache_key] = meta
+        _episodes_cache_set(cache_key, meta)
         return jsonify(meta)
     return jsonify({})
 
@@ -143,18 +188,7 @@ def toggle_episode(show_uuid: str) -> ResponseReturnValue:
 
         eps.sort(key=lambda x: (x.get("season", 0), x.get("episode", 0)))
         show_to_update["episodes_watched"] = eps
-        show_to_update["watched_count"] = len(eps)
-
-        if eps:
-            highest_s = max(e["season"] for e in eps)
-            highest_e = max(e["episode"] for e in eps if e["season"] == highest_s)
-            show_to_update["latest_progress"] = f"S{highest_s:02d}E{highest_e:02d}"
-            show_to_update["latest_season"] = highest_s
-            show_to_update["latest_episode"] = highest_e
-        else:
-            show_to_update["latest_progress"] = None
-            show_to_update["latest_season"] = 0
-            show_to_update["latest_episode"] = 0
+        _recalculate_show_progress(show_to_update)
 
         if _app.save_shows(shows):
             return jsonify(show_to_update)
@@ -196,14 +230,7 @@ def batch_episodes(show_uuid: str) -> ResponseReturnValue:
 
         eps.sort(key=lambda x: (x.get("season", 0), x.get("episode", 0)))
         show_to_update["episodes_watched"] = eps
-        show_to_update["watched_count"] = len(eps)
-
-        if eps:
-            highest_s = max(e["season"] for e in eps)
-            highest_e = max(e["episode"] for e in eps if e["season"] == highest_s)
-            show_to_update["latest_progress"] = f"S{highest_s:02d}E{highest_e:02d}"
-            show_to_update["latest_season"] = highest_s
-            show_to_update["latest_episode"] = highest_e
+        _recalculate_show_progress(show_to_update)
 
         if _app.save_shows(shows):
             return jsonify(show_to_update)

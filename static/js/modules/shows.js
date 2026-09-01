@@ -664,19 +664,47 @@ async function ensureSeasonMeta(tmdbId, seasonNum, gen = trackerGen) {
   } catch (e) {}
 }
 
+/**
+ * Jedno źródło prawdy dla wyświetlania sezonu: licznik badge'u "(x/y)"
+ * i zakres renderowanych wierszy muszą się zgadzać (wcześniej dwie kopie
+ * logiki z różnym traktowaniem ep0 i rozszerzenia klienta +3).
+ */
+function getSeasonDisplayInfo(seasonNum) {
+  const watchedSet = new Set();
+  (selectedShow.episodes_watched || []).forEach(ep => {
+    if (ep.season === seasonNum) watchedSet.add(ep.episode);
+  });
+
+  const hasEp0 = watchedSet.has(0) || Boolean(currentShowMeta[`${seasonNum}_0`]);
+
+  let maxEpInSeason = 0;
+  Object.keys(currentShowMeta).forEach(key => {
+    const parts = key.split("_");
+    if (parseInt(parts[0], 10) === seasonNum) {
+      const epN = parseInt(parts[1], 10);
+      if (epN > maxEpInSeason) maxEpInSeason = epN;
+    }
+  });
+
+  const maxWatchedEp = watchedSet.size > 0 ? Math.max(...watchedSet) : 0;
+  let epCountToRender = Math.max(maxEpInSeason, maxWatchedEp, 1);
+  if (!maxEpInSeason && !state.backendAvailable) {
+    // Tryb klienta bez metadanych TMDb: pokaż kilka kolejnych odcinków,
+    // żeby dało się klikać w przód poza ostatnio obejrzany odcinek.
+    epCountToRender = Math.max(maxWatchedEp + 3, 1);
+  }
+
+  // mianownik badge'u = liczba renderowanych wierszy (0..N przy ep0, inaczej 1..N)
+  const totalEps = Math.max(epCountToRender + (hasEp0 ? 1 : 0), watchedSet.size);
+  return { watchedSet, hasEp0, epCountToRender, watchedInSeason: watchedSet.size, totalEps };
+}
+
 export function renderSeasonTabs() {
   const tabsContainer = document.getElementById("m3-season-tabs");
   if (!tabsContainer || !selectedShow) return;
   tabsContainer.innerHTML = "";
 
-  const watched = selectedShow.episodes_watched || [];
   const latestSeason = selectedShow.latest_season || 1;
-
-  const seasonMap = {};
-  watched.forEach(ep => {
-    if (!seasonMap[ep.season]) seasonMap[ep.season] = new Set();
-    seasonMap[ep.season].add(ep.episode);
-  });
 
   let totalSeasons = Math.max(latestSeason, 1);
   Object.keys(currentShowMeta).forEach(key => {
@@ -685,33 +713,14 @@ export function renderSeasonTabs() {
   });
 
   for (let s = 1; s <= totalSeasons; s++) {
-    const watchedSet = seasonMap[s] || new Set();
-    const hasEp0 = watchedSet.has(0) || Boolean(currentShowMeta[`${s}_0`]);
-    const watchedInSeason = watchedSet.size;
-
-    let maxEpInSeason = 0;
-    Object.keys(currentShowMeta).forEach(key => {
-      const parts = key.split("_");
-      if (parseInt(parts[0]) === s) {
-        const epNum = parseInt(parts[1]);
-        if (epNum > maxEpInSeason) maxEpInSeason = epNum;
-      }
-    });
-
-    const maxWatchedInSeason = watchedSet.size > 0 ? Math.max(...watchedSet) : 0;
-    const finalMaxEp = Math.max(maxEpInSeason, maxWatchedInSeason, 1);
-    let totalEps = finalMaxEp;
-    if (hasEp0 && (watchedSet.has(0) || currentShowMeta[`${s}_0`])) {
-      totalEps = finalMaxEp + 1;
-    }
-    totalEps = Math.max(totalEps, watchedInSeason);
+    const info = getSeasonDisplayInfo(s);
 
     const tabBtn = document.createElement("button");
     tabBtn.className = `m3-season-tab ${s === selectedSeason ? 'active' : ''}`;
     tabBtn.id = `tab-season-${s}`;
     tabBtn.innerHTML = `
       <span>Sezon ${s}</span>
-      <span class="m3-season-tab-badge">(${watchedInSeason}/${totalEps})</span>
+      <span class="m3-season-tab-badge">(${info.watchedInSeason}/${info.totalEps})</span>
     `;
 
     tabBtn.addEventListener("click", async () => {
@@ -745,34 +754,13 @@ export function renderSeasonEpisodes(shouldScroll = true) {
   if (!container || !selectedShow) return;
   container.innerHTML = "";
 
-  const watched = selectedShow.episodes_watched || [];
   const latestSeason = selectedShow.latest_season || 1;
   const latestEpisode = selectedShow.latest_episode || 0;
 
-  const watchedInThisSeason = new Set();
-  watched.forEach(ep => {
-    if (ep.season === selectedSeason) {
-      watchedInThisSeason.add(ep.episode);
-    }
-  });
-
-  const hasEp0 = watchedInThisSeason.has(0) || Boolean(currentShowMeta[`${selectedSeason}_0`]);
-  let maxEpInSeason = 0;
-  Object.keys(currentShowMeta).forEach(key => {
-    const parts = key.split("_");
-    if (parseInt(parts[0]) === selectedSeason) {
-      const epNum = parseInt(parts[1]);
-      if (epNum > maxEpInSeason) maxEpInSeason = epNum;
-    }
-  });
-
-  const maxWatchedEp = watchedInThisSeason.size > 0 ? Math.max(...watchedInThisSeason) : 0;
-  let epCountToRender = Math.max(maxEpInSeason, maxWatchedEp, 1);
-  if (!maxEpInSeason && !state.backendAvailable) {
-    // Tryb klienta bez metadanych TMDb: pokaż kilka kolejnych odcinków,
-    // żeby dało się klikać w przód poza ostatnio obejrzany odcinek.
-    epCountToRender = Math.max(maxWatchedEp + 3, 1);
-  }
+  const info = getSeasonDisplayInfo(selectedSeason);
+  const watchedInThisSeason = info.watchedSet;
+  const hasEp0 = info.hasEp0;
+  const epCountToRender = info.epCountToRender;
   const startEp = hasEp0 ? 0 : 1;
 
   let targetElementId = null;
@@ -992,8 +980,10 @@ export async function toggleEpisodeWatch(season, episode) {
     if (res.ok) {
       const updated = await res.json();
       refreshTrackerAfterEpisodeUpdate(updated);
+    } else {
+      console.warn(`Zapis odcinka nieudany (HTTP ${res.status}) dla ${selectedShow.uuid}`);
     }
-  } catch(e){}
+  } catch(e){ console.warn("Zapis odcinka nieudany (sieć):", e); }
 }
 
 export async function batchMarkEpisodes(showUuid, episodesList) {
@@ -1030,8 +1020,10 @@ export async function batchMarkEpisodes(showUuid, episodesList) {
     if (res.ok) {
       const updated = await res.json();
       refreshTrackerAfterEpisodeUpdate(updated);
+    } else {
+      console.warn(`Zapis wsadowy nieudany (HTTP ${res.status}) dla ${showUuid}`);
     }
-  } catch(e){}
+  } catch(e){ console.warn("Zapis wsadowy nieudany (sieć):", e); }
 }
 
 export function askBatchConfirmation({ message, season, episode, onAllSeasons, onThisSeason, onSingle }) {

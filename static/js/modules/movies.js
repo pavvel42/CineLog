@@ -674,7 +674,7 @@ export async function toggleMovieFavorite(uuid, currentFav) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_favorite: nextFav })
       });
-    } catch (e) {}
+    } catch (e) { console.warn("Zapis ulubionych filmu nieudany (sieć):", e); }
   }
 }
 
@@ -702,7 +702,7 @@ export async function updateMovieStatus(uuid, status) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-    } catch (e) {}
+    } catch (e) { console.warn("Zapis statusu filmu nieudany (sieć):", e); }
   }
 }
 
@@ -721,7 +721,7 @@ export async function updateMovieRating(uuid, rating) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rating })
       });
-    } catch (e) {}
+    } catch (e) { console.warn("Zapis oceny filmu nieudany (sieć):", e); }
   }
 }
 

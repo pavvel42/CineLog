@@ -2,7 +2,7 @@
 // CineLog - Universal Importer Module (Filmweb, Letterboxd, IMDb, JSON)
 // ==========================================================================
 
-import { state, saveLocalDatabase, isItemInLibrary, generateUUID, markUserDatabaseCustom, escapeHtml, getKeyHeaders } from './state.js';
+import { state, saveLocalDatabase, isItemInLibrary, generateUUID, markUserDatabaseCustom, escapeHtml, getKeyHeaders, localTimestamp, recalculateShowProgress } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { renderMovies } from './movies.js';
@@ -558,6 +558,16 @@ function addImportedItemToLibrary(detail, item) {
   const finalDirector = (detail && detail.director) || "";
 
   if (item.type === "series") {
+    // Import CineLog JSON (backup / Drive) musi przenosić postęp odcinków —
+    // wcześniej episodes_watched zawsze startowało puste i historia oglądania ginęła.
+    const importedEps = (item.raw && Array.isArray(item.raw.episodes_watched))
+      ? item.raw.episodes_watched.map(e => ({
+          episode_id: e.episode_id || generateUUID(),
+          season: parseInt(e.season, 10) || 0,
+          episode: parseInt(e.episode, 10) || 0,
+          created_at: e.created_at || null
+        }))
+      : [];
     const newShow = {
       uuid: generateUUID(),
       title: finalTitle,
@@ -567,16 +577,17 @@ function addImportedItemToLibrary(detail, item) {
       poster_url: finalPoster,
       rating: item.rating || null,
       status: item.status || "watching",
-      created_at: item.watch_date || new Date().toISOString().split("T")[0],
-      updated_at: new Date().toISOString().split("T")[0],
+      created_at: item.watch_date || localTimestamp().slice(0, 10),
+      updated_at: localTimestamp().slice(0, 10),
       tmdb_id: finalTmdbId,
       imdb_id: finalImdbId,
       plot: finalOverview,
       cast: finalCast,
       total_seasons: (detail && detail.total_seasons) || 1,
-      season_ep_counts: (detail && detail.season_ep_counts) || {},
-      episodes_watched: []
+      season_ep_counts: (item.raw && item.raw.season_ep_counts) || (detail && detail.season_ep_counts) || {},
+      episodes_watched: importedEps
     };
+    if (importedEps.length > 0) recalculateShowProgress(newShow);
     state.shows.unshift(newShow);
     return;
   }
@@ -590,8 +601,8 @@ function addImportedItemToLibrary(detail, item) {
     poster_url: finalPoster,
     rating: item.rating || null,
     status: item.status || "watched",
-    watch_date: item.watch_date || (item.status === "watched" ? new Date().toISOString().split("T")[0] : ""),
-    created_at: item.watch_date || new Date().toISOString().split("T")[0],
+    watch_date: item.watch_date || (item.status === "watched" ? localTimestamp().slice(0, 10) : ""),
+    created_at: item.watch_date || localTimestamp().slice(0, 10),
     tmdb_id: finalTmdbId,
     imdb_id: finalImdbId,
     plot: finalOverview,

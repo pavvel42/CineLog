@@ -276,6 +276,39 @@ test.describe("CineLog - smoke e2e", () => {
     expect(stored.shows[0].latest_progress).toBe("S03E04");
   });
 
+  test("tryb klienta: badge '(x/y)' sezonu zgodny z liczbą renderowanych wierszy", async ({ page }) => {
+    await page.route("**/api/**", route => route.fulfill({ status: 404, body: "no backend" }));
+    const testShow = {
+      uuid: "e2e-badge-show",
+      title: "Badge Show",
+      status: "watching",
+      watched_count: 3,
+      latest_progress: "S01E03",
+      latest_season: 1,
+      latest_episode: 3,
+      episodes_watched: [
+        { episode_id: "b1", season: 1, episode: 1, created_at: "2026-01-01 10:00:00" },
+        { episode_id: "b2", season: 1, episode: 2, created_at: "2026-01-02 10:00:00" },
+        { episode_id: "b3", season: 1, episode: 3, created_at: "2026-01-03 10:00:00" }
+      ]
+    };
+    await page.addInitScript((db) => {
+      localStorage.setItem("cinelog_database", JSON.stringify(db));
+      localStorage.setItem("cinelog_active_mode", "client");
+      localStorage.setItem("cinelog_user_imported", "true");
+    }, { movies: [], shows: [testShow], updated_at: "2026-01-01T00:00:00Z" });
+
+    await page.goto("/?mode=shows");
+    await page.locator("#m3-shows-grid article.m3-card", { hasText: "Badge Show" }).first().click();
+    const sheet = page.locator("#m3-sheet-episodes");
+    await expect(sheet).toHaveClass(/active/, { timeout: 10_000 });
+
+    // tryb klienta bez metadanych: 3 obejrzane + 3 do przodu = 6 wierszy;
+    // badge musi liczyć to samo (dawniej 3/3 przy 6 wierszach)
+    await expect(page.locator("#tab-season-1 .m3-season-tab-badge")).toHaveText("(3/6)", { timeout: 5_000 });
+    await expect(sheet.locator(".m3-ep-item")).toHaveCount(6);
+  });
+
   test("modal Tryb i Środowisko pokazuje raport rozmiaru bazy", async ({ page }) => {
     await page.route("**/api/**", route => route.fulfill({ status: 404, body: "no backend" }));
     await page.addInitScript((db) => {

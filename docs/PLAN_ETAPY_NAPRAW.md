@@ -143,7 +143,7 @@ przeglądarki, nie UTC.
 
 ---
 
-## Etap 5 — Konsolidacja i przegląd niskiego ryzyka
+## Etap 5 — Konsolidacja i przegląd niskiego ryzyka ✅
 
 **Zakres.**
 1. Backend: wyciągnięcie przeliczania postępu do jednej funkcji w Pythonie
@@ -156,8 +156,32 @@ przeglądarki, nie UTC.
 6. Decyzja projektowa: tombstones (`updated_at`/`deleted_at` per pozycja) dla
    propagacji usunięć i rozstrzygania konfliktów ocen w sync Drive.
 
-**Weryfikacja.** pytest (backend), e2e (UI), ręczny audyt importerem na
-załączonych eksportach z `export data/`.
+**Rozstrzygnięcia (po wykonaniu).**
+1. Backend: `_recalculate_show_progress()` w routes/shows.py — jedna funkcja
+   dla /episodes i /batch_episodes (wcześniej dwie kopie); reguła 1:1 z
+   frontendowym `recalculateShowProgress`. 5 nowych testów pytest.
+2. `EPISODES_CACHE`: wpis = (timestamp_monotonic, meta), TTL 24 h, limit 200
+   wpisów z ewikcją najstarszych (wcześniej bez TTL i bez limitu).
+3. Frontend: `getSeasonDisplayInfo()` — badge „(x/y)” i zakres renderowanych
+   wierszy z jednego źródła (naprawia niespójność 3/3 przy 6 wierszach w
+   trybie klienta); `console.warn` w krytycznych ścieżkach zapisu odcinków
+   i mutacji filmów.
+4. Audyt importer.js — znaleziony i naprawiony realny błąd: import CineLog
+   JSON (backup/Drive) **gubił episodes_watched** — serial zawsze wjeżdżał
+   z pustą listą odcinków. Teraz kandydat serialu przenosi odcinki
+   (+ season_ep_counts), a postęp przeliczany `recalculateShowProgress`;
+   daty `created_at`/`updated_at`/`watch_date` w czasie lokalnym.
+6. **Tombstones — decyzja: NIE wdrażamy teraz.** Propagacja usunięć i
+   rozstrzyganie konfliktów ocen wymaga pól `updated_at`/`deleted_at`
+   per pozycja zapisywanych przez WSZYSTKICH autorów (backend Flask,
+   fallbacki klienta, importer, merge Drive) i spójnego wdrożenia na
+   wszystkich urządzeniach — koszt przewyższa obecny problem (merge i tak
+   gwarantuje, że nic nie zginie; skutkiem ubocznym jest odradzanie się
+   usuniętych pozycji). Rejestr ryzyka: wrócić, gdy zgłoszysz realną
+   utratę danych z synchronizacji między urządzeniami.
+
+**Weryfikacja.** pytest 30/30 (w tym 5 nowych: helper, TTL, limit cache),
+e2e 19/19 (w tym badge „(3/6)” zgodny z 6 wierszami w trybie klienta).
 
 ---
 

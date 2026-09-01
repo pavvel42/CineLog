@@ -284,3 +284,96 @@ def test_concurrent_mutations_do_not_lose_updates(client):
     assert not errors
     movies = client.get("/api/movies").get_json()
     assert len(movies) == 20
+
+
+# ---------- etap 5: wspólne przeliczanie postępu + TTL cache metadanych ----------
+
+def test_recalculate_show_progress_counts_and_latest():
+    from routes.shows import _recalculate_show_progress
+    show = {
+        "episodes_watched": [
+            {"season": 3, "episode": 2},
+            {"season": 1, "episode": 8},
+            {"season": 3, "episode": 1},
+            {"season": 2, "episode": 1},
+        ]
+    }
+    _recalculate_show_progress(show)
+    assert show["watched_count"] == 4
+    assert show["latest_progress"] == "S03E02"
+    assert show["latest_season"] == 3
+    assert show["latest_episode"] == 2
+    # lista posortowana po (season, episode)
+    assert [(e["season"], e["episode"]) for e in show["episodes_watched"]] == [
+        (1, 8), (2, 1), (3, 1), (3, 2)
+    ]
+
+
+def test_recalculate_show_progress_empty_resets():
+    from routes.shows import _recalculate_show_progress
+    show = {
+        "episodes_watched": [],
+        "watched_count": 5,
+        "latest_progress": "S01E01",
+        "latest_season": 1,
+        "latest_episode": 1,
+    }
+    _recalculate_show_progress(show)
+    assert show["watched_count"] == 0
+    assert show["latest_progress"] is None
+    assert show["latest_season"] == 0
+    assert show["latest_episode"] == 0
+
+
+def test_recalculate_show_progress_tolerates_missing_fields():
+    from routes.shows import _recalculate_show_progress
+    show = {"episodes_watched": [{"season": 2}, {"episode": 5}, {}]}
+    _recalculate_show_progress(show)
+    assert show["watched_count"] == 3
+    assert show["latest_progress"] == "S02E00"
+    assert show["latest_season"] == 2
+
+
+def test_episodes_cache_respects_ttl(client, monkeypatch):
+    import routes.shows as shows_routes
+    show = _add_show(client)
+    uid = show["uuid"]
+
+    # symuluj metadane w cache i przeterminowany wpis
+    calls = {"n": 0}
+
+    def fake_fetch(title, show_id, lang, key):
+        calls["n"] += 1
+        return {"1_1": {"season": 1, "episode": 1, "name": f"Meta v{calls['n']}"}}
+
+    monkeypatch.setattr(shows_routes._app, "fetch_episodes_meta", fake_fetch)
+
+    r1 = client.get(f"/api/shows/{uid}/episodes_meta?lang=pl-PL").get_json()
+    assert r1["1_1"]["name"] == "Meta v1"
+    # świeży wpis -> trafienie w cache, bez wywołania fetch
+    r2 = client.get(f"/api/shows/{uid}/episodes_meta?lang=pl-PL").get_json()
+    assert r2["1_1"]["name"] == "Meta v1"
+    assert calls["n"] == 1
+
+    # przesuń czas poza TTL -> cache przeterminowany, fetch ponowny
+    real_now = shows_routes._now
+    monkeypatch.setattr(shows_routes, "_now", lambda: real_now() + shows_routes._EPISODES_CACHE_TTL_SECONDS + 1)
+    r3 = client.get(f"/api/shows/{uid}/episodes_meta?lang=pl-PL").get_json()
+    assert r3["1_1"]["name"] == "Meta v2"
+    assert calls["n"] == 2
+
+
+def test_episodes_cache_limit_enforced(client, monkeypatch):
+    import routes.shows as shows_routes
+    show = _add_show(client)
+    uid = show["uuid"]
+
+    def fake_fetch(title, show_id, lang, key):
+        return {"1_1": {"season": 1, "episode": 1, "name": "Meta"}}
+
+    monkeypatch.setattr(shows_routes._app, "fetch_episodes_meta", fake_fetch)
+
+    # wypełnij cache ponad limit różnymi kluczami (różne tmdb_id w query)
+    for i in range(shows_routes._EPISODES_CACHE_MAX_ENTRIES + 10):
+        client.get(f"/api/shows/{uid}/episodes_meta?lang=pl-PL&tmdb_id={i}")
+    assert len(shows_routes._app.EPISODES_CACHE) <= shows_routes._EPISODES_CACHE_MAX_ENTRIES
