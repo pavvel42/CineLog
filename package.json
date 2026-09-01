@@ -10,7 +10,7 @@
   "scripts": {
     "build": "npm run build:app && npm run build:drive",
     "build:app": "esbuild static/js/main.js --bundle --minify --sourcemap --outfile=static/dist/app.min.js",
-    "build:drive": "esbuild static/js/drive_sync.js --minify --sourcemap --outfile=static/dist/drive_sync.min.js",
+    "build:drive": "esbuild static/js/drive_sync.js --bundle --format=iife --minify --sourcemap --outfile=static/dist/drive_sync.min.js",
     "watch": "esbuild static/js/main.js --bundle --minify --sourcemap --outfile=static/dist/app.min.js --watch",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

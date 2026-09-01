@@ -2,7 +2,7 @@
 // CineLog - TV Shows Management & Episode Tracker Module
 // ==========================================================================
 
-import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, getKeyHeaders, generateUUID } from './state.js';
+import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, getKeyHeaders, generateUUID, recalculateShowProgress } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
@@ -914,21 +914,9 @@ function localTimestamp() {
 function persistLocalEpisodes(show, mutateEps) {
   const eps = show.episodes_watched ? [...show.episodes_watched] : [];
   mutateEps(eps);
-  eps.sort((a, b) => (a.season || 0) - (b.season || 0) || (a.episode || 0) - (b.episode || 0));
   show.episodes_watched = eps;
-  show.watched_count = eps.length;
-  if (eps.length > 0) {
-    const highestS = Math.max(...eps.map(e => e.season || 0));
-    const highestE = Math.max(...eps.filter(e => (e.season || 0) === highestS).map(e => e.episode || 0));
-    show.latest_progress = `S${String(highestS).padStart(2, "0")}E${String(highestE).padStart(2, "0")}`;
-    show.latest_season = highestS;
-    show.latest_episode = highestE;
-  } else {
-    show.latest_progress = null;
-    show.latest_season = 0;
-    show.latest_episode = 0;
-  }
-  return show;
+  // Przeliczenie watched_count / latest_* w jednym miejscu (state.js).
+  return recalculateShowProgress(show);
 }
 
 function refreshTrackerAfterEpisodeUpdate(updated) {

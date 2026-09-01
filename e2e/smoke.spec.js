@@ -188,6 +188,83 @@ test.describe("CineLog - smoke e2e", () => {
   });
   });
 
+  test("scalenie Drive: postęp serialu przeliczany z unii odcinków, dopasowanie po tmdb_id", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator("#m3-movies-grid article.m3-card").first()).toBeVisible();
+
+    const merged = await page.evaluate(() => {
+      const cloudShow = {
+        uuid: "cloud-show-1",
+        title: "Lioness (z chmury)",
+        tmdb_id: 136315,
+        watched_count: 5,
+        latest_progress: "S03E05",
+        latest_season: 3,
+        latest_episode: 5,
+        episodes_watched: [
+          { episode_id: "c1", season: 1, episode: 1 },
+          { episode_id: "c2", season: 1, episode: 2 },
+          { episode_id: "c3", season: 3, episode: 1 },
+          { episode_id: "c4", season: 3, episode: 2 },
+          { episode_id: "c5", season: 3, episode: 5 }
+        ]
+      };
+      const localShow = {
+        uuid: "cloud-show-1",
+        title: "Lioness (zmieniona wersja po rematchu)",
+        tmdb_id: 136315,
+        watched_count: 2,
+        latest_progress: "S03E02",
+        latest_season: 3,
+        latest_episode: 2,
+        episodes_watched: [
+          { episode_id: "c1", season: 1, episode: 1 },
+          { episode_id: "c2", season: 1, episode: 2 },
+          { episode_id: "c3", season: 3, episode: 1 },
+          { episode_id: "c4", season: 3, episode: 2 }
+        ]
+      };
+      return window.googleDriveSync.mergeLibraries([], [localShow], [], [cloudShow]);
+    });
+
+    expect(merged.shows).toHaveLength(1);
+    const show = merged.shows[0];
+    // unia odcinków + postęp przeliczony z unii, a nie z ostatnio zapisującego
+    expect(show.episodes_watched).toHaveLength(5);
+    expect(show.watched_count).toBe(5);
+    expect(show.latest_progress).toBe("S03E05");
+    expect(show.latest_episode).toBe(5);
+  });
+
+  test("scalenie Drive: film po tmdb_id mimo różnych tytułów, bez fałszywego scalenia dwóch wersji", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator("#m3-movies-grid article.m3-card").first()).toBeVisible();
+
+    const result = await page.evaluate(() => {
+      const cloudMovie = { uuid: "m-1", title: "Maniac (z chmury)", tmdb_id: 555, rating: 4, status: "watched" };
+      const localMovie = { uuid: "m-1", title: "Maniac (Alternatywna wersja po rematchu)", tmdb_id: 555, rating: null, status: "watchlist" };
+      const cloudA = { uuid: "a", title: "Maniac (2018)", tmdb_id: 111 };
+      const cloudB = { uuid: "b", title: "Maniac (2018)", tmdb_id: 222 };
+      const localA = { uuid: "local-a", title: "Maniac (2018) inne wydanie", tmdb_id: 222 };
+
+      return {
+        merged: window.googleDriveSync.mergeLibraries([localMovie], [], [cloudMovie], []),
+        versions: window.googleDriveSync.mergeLibraries([localA], [], [cloudA, cloudB], [])
+      };
+    });
+
+    // film scalony po tmdb_id (jeden wpis), ocena z chmury zachowana przy lokalnej null
+    expect(result.merged.movies).toHaveLength(1);
+    expect(result.merged.movies[0].rating).toBe(4);
+    expect(result.merged.movies[0].status).toBe("watchlist");
+
+    // dwa różne tmdb_id pozostają dwiema pozycjami mimo podobnych tytułów;
+    // lokalna wersja scala się z tą o tym samym tmdb_id
+    expect(result.versions.movies).toHaveLength(2);
+    const b = result.versions.movies.find(m => String(m.tmdb_id) === "222");
+    expect(b.uuid).toBe("local-a");
+  });
+
   test("zakładka rekomendacji renderuje hub bez błędów JS", async ({ page }) => {
     const errors = [];
     page.on("pageerror", (e) => errors.push(String(e)));

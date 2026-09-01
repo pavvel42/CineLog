@@ -1,5 +1,9 @@
 // Google Drive BYO-Cloud Database & Settings Synchronization Module (Client-Side REST API)
 
+// Czyste funkcje danych współdzielone z modules/state.js (esbuild bundluje
+// wszystko do drive_sync.min.js, więc <script> bez type="module" dalej działa).
+import { normalizeTitleForLibrary, recalculateShowProgress } from './modules/state.js';
+
 const DRIVE_DATABASE_FILE_NAME = "cinelog_database.json";
 const DRIVE_SETTINGS_FILE_NAME = "cinelog_settings.json";
 const DRIVE_SCOPES = "https://www.googleapis.com/auth/drive.file";
@@ -375,71 +379,76 @@ class GoogleDriveSync {
     }, 2000);
   }
 
+  // Dopasowanie pozycji między chmurą a lokalną bazą: najpierw tmdb_id,
+  // potem uuid, na końcu znormalizowany tytuł. Dwa RÓŻNE tmdb_id to dwie
+  // różne pozycje — podobny tytuł nie może ich scalić (np. po rematchu).
+  findMergeIndex(list, entry) {
+    const entryTmdb = (entry.tmdb_id === undefined || entry.tmdb_id === null || entry.tmdb_id === "") ? null : String(entry.tmdb_id);
+    const entryUuid = entry.uuid ? String(entry.uuid) : null;
+    const entryTitle = normalizeTitleForLibrary(entry.title);
+
+    return list.findIndex(cloud => {
+      const cloudTmdb = (cloud.tmdb_id === undefined || cloud.tmdb_id === null || cloud.tmdb_id === "") ? null : String(cloud.tmdb_id);
+      if (entryTmdb && cloudTmdb) return entryTmdb === cloudTmdb;
+      if (entryUuid && cloud.uuid && String(cloud.uuid) === entryUuid) return true;
+      if (entryTitle && normalizeTitleForLibrary(cloud.title) === entryTitle) return true;
+      return false;
+    });
+  }
+
+  mergeMovie(cloudMovie, localMovie) {
+    return {
+      ...cloudMovie,
+      ...localMovie,
+      is_favorite: localMovie.is_favorite || cloudMovie.is_favorite,
+      rating: (localMovie.rating !== null && localMovie.rating !== undefined) ? localMovie.rating : cloudMovie.rating,
+      status: localMovie.status || cloudMovie.status
+    };
+  }
+
+  mergeShow(cloudShow, localShow) {
+    const epSet = new Set();
+    const mergedEps = [];
+    [...(cloudShow.episodes_watched || []), ...(localShow.episodes_watched || [])].forEach(ep => {
+      const epKey = `${ep.season}_${ep.episode}`;
+      if (!epSet.has(epKey)) {
+        epSet.add(epKey);
+        mergedEps.push(ep);
+      }
+    });
+
+    const merged = {
+      ...cloudShow,
+      ...localShow,
+      episodes_watched: mergedEps,
+      rating: (localShow.rating !== null && localShow.rating !== undefined) ? localShow.rating : cloudShow.rating
+    };
+    // Postęp (watched_count / latest_progress / latest_season / latest_episode)
+    // przeliczamy z unii odcinków, zamiast ufać ostatnio zapisującemu —
+    // inaczej scalenie z telefonu (S03E02) i chmury (S03E05) daje niespójny licznik.
+    return recalculateShowProgress(merged);
+  }
+
   mergeLibraries(localMovies, localShows, cloudMovies, cloudShows) {
-    const movieMap = new Map();
-    (cloudMovies || []).forEach(m => {
-      const key = (m.title || "").trim().toLowerCase();
-      if (key) movieMap.set(key, m);
-    });
+    const movies = [...(cloudMovies || [])];
     (localMovies || []).forEach(m => {
-      const key = (m.title || "").trim().toLowerCase();
-      if (!key) return;
-      if (!movieMap.has(key)) {
-        movieMap.set(key, m);
-      } else {
-        const existing = movieMap.get(key);
-        movieMap.set(key, {
-          ...existing,
-          ...m,
-          is_favorite: m.is_favorite || existing.is_favorite,
-          rating: m.rating !== null ? m.rating : existing.rating,
-          status: m.status || existing.status
-        });
-      }
+      if (!m || !(m.title || "").trim()) return;
+      const idx = this.findMergeIndex(movies, m);
+      if (idx === -1) movies.push(m);
+      else movies[idx] = this.mergeMovie(movies[idx], m);
     });
 
-    const showMap = new Map();
-    (cloudShows || []).forEach(s => {
-      const key = (s.title || "").trim().toLowerCase();
-      if (key) showMap.set(key, s);
-    });
+    const shows = [...(cloudShows || [])];
     (localShows || []).forEach(s => {
-      const key = (s.title || "").trim().toLowerCase();
-      if (!key) return;
-      if (!showMap.has(key)) {
-        showMap.set(key, s);
-      } else {
-        const existing = showMap.get(key);
-        const epSet = new Set();
-        const mergedEps = [];
-        (existing.episodes_watched || []).forEach(ep => {
-          const epKey = `${ep.season}_${ep.episode}`;
-          if (!epSet.has(epKey)) {
-            epSet.add(epKey);
-            mergedEps.push(ep);
-          }
-        });
-        (s.episodes_watched || []).forEach(ep => {
-          const epKey = `${ep.season}_${ep.episode}`;
-          if (!epSet.has(epKey)) {
-            epSet.add(epKey);
-            mergedEps.push(ep);
-          }
-        });
-
-        showMap.set(key, {
-          ...existing,
-          ...s,
-          episodes_watched: mergedEps,
-          watched_count: mergedEps.length,
-          rating: s.rating !== null ? s.rating : existing.rating
-        });
-      }
+      if (!s || !(s.title || "").trim()) return;
+      const idx = this.findMergeIndex(shows, s);
+      if (idx === -1) shows.push(s);
+      else shows[idx] = this.mergeShow(shows[idx], s);
     });
 
     return {
-      movies: Array.from(movieMap.values()),
-      shows: Array.from(showMap.values())
+      movies: movies,
+      shows: shows
     };
   }
 

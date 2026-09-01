@@ -306,6 +306,32 @@ export function generateUUID() {
 }
 
 /**
+ * Jedyne miejsce w frontendzie przeliczające pola postępu serialu na podstawie
+ * episodes_watched (reguła 1:1 z routes/shows.py). Używane przez tracker
+ * (shows.js) i scalanie Drive (drive_sync.js).
+ * @param {object} show obiekt serialu (mutowany w miejscu)
+ * @returns {object} ten sam serial z przeliczonymi watched_count / latest_*
+ */
+export function recalculateShowProgress(show) {
+  const eps = show.episodes_watched ? [...show.episodes_watched] : [];
+  eps.sort((a, b) => (a.season || 0) - (b.season || 0) || (a.episode || 0) - (b.episode || 0));
+  show.episodes_watched = eps;
+  show.watched_count = eps.length;
+  if (eps.length > 0) {
+    const highestS = Math.max(...eps.map(e => e.season || 0));
+    const highestE = Math.max(...eps.filter(e => (e.season || 0) === highestS).map(e => e.episode || 0));
+    show.latest_progress = `S${String(highestS).padStart(2, "0")}E${String(highestE).padStart(2, "0")}`;
+    show.latest_season = highestS;
+    show.latest_episode = highestE;
+  } else {
+    show.latest_progress = null;
+    show.latest_season = 0;
+    show.latest_episode = 0;
+  }
+  return show;
+}
+
+/**
  * Buduje lokalny wpis biblioteki (film/serial) z danych podglądu TMDb —
  * używany jako fallback zapisu w trybie klienta / GitHub Pages (bez backendu).
  * Kształt pól jest spójny z buildLocalMovie / buildLocalShow z search.js.
