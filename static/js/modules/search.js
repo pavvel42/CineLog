@@ -1,4 +1,4 @@
-import { state, saveLocalDatabase, getGradientForTitle, findDuplicateInLibrary, normalizeTitleForLibrary, escapeHtml, safeUrl, getKeyHeaders, fetchWithTimeout } from './state.js';
+import { state, saveLocalDatabase, getGradientForTitle, findDuplicateInLibrary, normalizeTitleForLibrary, escapeHtml, safeUrl, getKeyHeaders, fetchWithTimeout, localTimestamp } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { getUserLanguage } from './vod.js';
@@ -895,7 +895,7 @@ function buildLocalMovie(currentPreviewData, status, rating) {
     tmdb_id: currentPreviewData.tmdb_id || currentPreviewData.id,
     imdb_id: currentPreviewData.imdb_id || "",
     is_favorite: false,
-    user_date: new Date().toISOString().split("T")[0]
+    user_date: localTimestamp().slice(0, 10)
   };
 }
 
@@ -971,7 +971,7 @@ function buildLocalShow(currentPreviewData, status, rating, episodesList) {
     total_episodes: currentPreviewData.total_episodes || 0,
     season_ep_counts: currentPreviewData.season_ep_counts || {},
     episodes_watched: episodesList,
-    user_date: new Date().toISOString().split("T")[0]
+    user_date: localTimestamp().slice(0, 10)
   };
 }
 

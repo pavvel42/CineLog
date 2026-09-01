@@ -112,7 +112,7 @@ po 3 s tracker B pokazuje wyłącznie metadane B.
 
 ---
 
-## Etap 4 — Fantomowe odcinki i strefa czasowa
+## Etap 4 — Fantomowe odcinki i strefa czasowa ✅
 
 **Zakres.**
 1. „Zaznacz wszystkie poprzednie sezony” (shows.js, `seasonMax = 10`): gdy brak
@@ -123,9 +123,23 @@ po 3 s tracker B pokazuje wyłącznie metadane B.
    w formacie spójnym z backendem (`YYYY-MM-DD HH:MM:SS`), unifikacja z
    `localTimestamp()` z shows.js (wyciągnięcie do state.js).
 
+**Rozstrzygnięcia (po wykonaniu).**
+- Długość poprzednich sezonów rozwiązywana kaskadowo: metadane TMDb →
+  `season_ep_counts` z importu TV Time → najwyższy obejrzany odcinek;
+  przy kompletnym braku danych zaznaczany jest tylko odcinek 1 (żadnych
+  fantomów).
+- `localTimestamp()` w state.js jako wspólne źródło daty (format backendu,
+  czas lokalny); używane w shows.js, movies.js (`watch_date`), search.js
+  i `buildLocalLibraryEntry` (`user_date`).
+- Test e2e fantomów zweryfikowany negatywnie na kodzie sprzed poprawki (fail).
+- Test strefy czasowej: `timezoneId: "Pacific/Kiritimati"` (UTC+14) +
+  `page.clock.setFixedTime` — deterministycznie odróżnia datę lokalną (2026-09-02)
+  od UTC (2026-09-01), niezależnie od pory uruchomienia testu.
+
 **Weryfikacja.** e2e trybu klienta: oznaczenie „wszystkich sezonów” przy
-sezonie 8-odcinkowym → brak odcinków > 8 w localStorage; data obejrzania
-zgodna z lokalną datą przeglądarki.
+sezonach 8-odcinkowych → dokładnie 8 odcinków w S1/S2, brak odcinków > 8,
+`watched_count` 20, postęp `S03E04`; `watch_date` zgodna z lokalną datą
+przeglądarki, nie UTC.
 
 ---
 

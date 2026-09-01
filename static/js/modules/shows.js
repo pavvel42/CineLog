@@ -2,7 +2,7 @@
 // CineLog - TV Shows Management & Episode Tracker Module
 // ==========================================================================
 
-import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, getKeyHeaders, generateUUID, recalculateShowProgress } from './state.js';
+import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, getKeyHeaders, generateUUID, recalculateShowProgress, localTimestamp } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
@@ -855,15 +855,26 @@ export function renderSeasonEpisodes(shouldScroll = true) {
             episode: e,
             onAllSeasons: async () => {
               const batchList = [];
+              const seasonCounts = selectedShow.season_ep_counts || {};
               for (let s = 1; s < selectedSeason; s++) {
-                let seasonMax = 10;
+                // Długość sezonu z najlepszego dostępnego źródła: metadane TMDb ->
+                // licznik odcinków z importu (season_ep_counts) -> najwyższy
+                // obejrzany odcinek. Sztywna "10" tworzyła fantomowe odcinki
+                // E9/E10 w sezonach 8-odcinkowych (psuło watched_count i postęp).
+                let seasonMax = 0;
                 Object.keys(currentShowMeta).forEach(key => {
                   const parts = key.split("_");
-                  if (parseInt(parts[0]) === s) {
-                    const epN = parseInt(parts[1]);
+                  if (parseInt(parts[0], 10) === s) {
+                    const epN = parseInt(parts[1], 10);
                     if (epN > seasonMax) seasonMax = epN;
                   }
                 });
+                const imported = parseInt(seasonCounts[s], 10);
+                if (Number.isFinite(imported) && imported > seasonMax) seasonMax = imported;
+                (selectedShow.episodes_watched || []).forEach(ep => {
+                  if (ep.season === s && ep.episode > seasonMax) seasonMax = ep.episode;
+                });
+                if (seasonMax === 0) seasonMax = 1; // brak danych o sezonie — zaznacz tylko odcinek 1
                 for (let epN = 1; epN <= seasonMax; epN++) {
                   batchList.push({ season: s, episode: epN });
                 }
@@ -924,13 +935,8 @@ export function renderSeasonEpisodes(shouldScroll = true) {
 
 // --- Lokalny zapis odcinków (tryb klienta / GitHub Pages / offline) ---
 // Odpowiednik logiki backendu z routes/shows.py: mutuje listę episodes_watched
-// i przelicza watched_count / latest_progress / latest_season / latest_episode.
-
-function localTimestamp() {
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-}
+// i przelicza watched_count / latest_progress / latest_season / latest_episode
+// (wspólny helper recalculateShowProgress w state.js).
 
 function persistLocalEpisodes(show, mutateEps) {
   const eps = show.episodes_watched ? [...show.episodes_watched] : [];

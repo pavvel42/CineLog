@@ -232,6 +232,50 @@ test.describe("CineLog - smoke e2e", () => {
     await expect(page.locator("body")).not.toContainText("WYSCIG-A-EP1");
   });
 
+  test("tryb klienta: 'wszystkie poprzednie sezony' nie tworzy fantomowych odcinków", async ({ page }) => {
+    await page.route("**/api/**", route => route.fulfill({ status: 404, body: "no backend" }));
+    const episodes = (season, count) => Array.from({ length: count }, (_, i) => ({
+      episode_id: `p${season}_${i + 1}`, season, episode: i + 1, created_at: "2026-01-01 10:00:00"
+    }));
+    const testShow = {
+      uuid: "e2e-phantom-show",
+      title: "Phantom Show",
+      status: "watching",
+      watched_count: 19,
+      latest_progress: "S03E03",
+      latest_season: 3,
+      latest_episode: 3,
+      season_ep_counts: { "1": 8, "2": 8, "3": 8 },
+      episodes_watched: [...episodes(1, 8), ...episodes(2, 8), ...episodes(3, 3)]
+    };
+    await page.addInitScript((db) => {
+      localStorage.setItem("cinelog_database", JSON.stringify(db));
+      localStorage.setItem("cinelog_active_mode", "client");
+      localStorage.setItem("cinelog_user_imported", "true");
+    }, { movies: [], shows: [testShow], updated_at: "2026-01-01T00:00:00Z" });
+
+    await page.goto("/?mode=shows");
+    await page.locator("#m3-shows-grid article.m3-card", { hasText: "Phantom Show" }).first().click();
+    const sheet = page.locator("#m3-sheet-episodes");
+    await expect(sheet).toHaveClass(/active/, { timeout: 10_000 });
+
+    // klik na S3E4 -> dialog -> "wszystkie poprzednie sezony + Sezon 3 (1-4)"
+    await sheet.locator(".m3-ep-item").nth(3).click();
+    await page.locator("#m3-btn-batch-all-seasons").click();
+
+    // Sezony 8-odcinkowe (z season_ep_counts) dostają dokładnie 8 odcinków,
+    // nie sztywne 10 z dawnego seasonMax = 10 (fantomy E9/E10).
+    await expect(page.locator("#m3-ep-show-meta")).toContainText("S03E04", { timeout: 5_000 });
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("cinelog_database")));
+    const eps = stored.shows[0].episodes_watched;
+    expect(stored.shows[0].watched_count).toBe(20);
+    expect(eps.filter(e => e.season === 1)).toHaveLength(8);
+    expect(eps.filter(e => e.season === 2)).toHaveLength(8);
+    expect(eps.filter(e => e.season === 3)).toHaveLength(4);
+    expect(eps.some(e => e.episode > 8 && e.season < 3)).toBe(false);
+    expect(stored.shows[0].latest_progress).toBe("S03E04");
+  });
+
   test("modal Tryb i Środowisko pokazuje raport rozmiaru bazy", async ({ page }) => {
     await page.route("**/api/**", route => route.fulfill({ status: 404, body: "no backend" }));
     await page.addInitScript((db) => {
@@ -308,6 +352,36 @@ test.describe("CineLog - smoke e2e", () => {
     expect(String(stored.movies[0].tmdb_id)).toBe("999");
     expect(stored.movies[0].title).toContain("Alternatywna wersja");
   });
+  });
+
+  // Strefa czasowa: Kiritimati = UTC+14, zegar zamrożony na 2026-09-01T10:30Z
+  // -> data lokalna to już 2026-09-02, podczas gdy UTC (stary kod z toISOString)
+  // wypisałby wstecznie 2026-09-01. Rozstrzyga UTC vs czas lokalny deterministycznie.
+  test.describe("tryb klienta: strefa czasowa", () => {
+    test.use({ serviceWorkers: "block", timezoneId: "Pacific/Kiritimati" });
+
+    test("watch_date filmu zapisywana w lokalnym czasie przeglądarki, nie UTC", async ({ page }) => {
+      await page.route("**/api/**", route => route.fulfill({ status: 404, body: "no backend" }));
+      await page.clock.setFixedTime(new Date("2026-09-01T10:30:00Z"));
+      const testMovie = { uuid: "e2e-tz-movie", title: "Tz Movie", status: "watchlist", rating: null, is_favorite: false };
+      await page.addInitScript((db) => {
+        localStorage.setItem("cinelog_database", JSON.stringify(db));
+        localStorage.setItem("cinelog_active_mode", "client");
+        localStorage.setItem("cinelog_user_imported", "true");
+      }, { movies: [testMovie], shows: [], updated_at: "2026-01-01T00:00:00Z" });
+
+      await page.goto("/?mode=movies");
+      await page.locator("#m3-movies-grid article.m3-card", { hasText: "Tz Movie" }).first().click();
+      const sheet = page.locator("#m3-sheet-movie-detail");
+      await expect(sheet).toHaveClass(/active/, { timeout: 10_000 });
+      await page.locator("#m3-detail-btn-watched").click();
+      await page.waitForTimeout(400);
+
+      const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("cinelog_database")));
+      expect(stored.movies[0].status).toBe("watched");
+      // lokalna data (Kiritimati) = 2026-09-02; UTC dałoby 2026-09-01
+      expect(stored.movies[0].watch_date).toMatch(/^2026-09-02 \d{2}:\d{2}:\d{2}$/);
+    });
   });
 
   test("scalenie Drive: postęp serialu przeliczany z unii odcinków, dopasowanie po tmdb_id", async ({ page }) => {

@@ -306,6 +306,18 @@ export function generateUUID() {
 }
 
 /**
+ * Znacznik czasu w LOKALNYM czasie przeglądarki, w formacie spójnym z
+ * backendem ("YYYY-MM-DD HH:MM:SS"). toISOString() zwraca UTC — wieczorem/
+ * nocą dawałoby datę wsteczną o jeden dzień względem lokalnej.
+ * @returns {string}
+ */
+export function localTimestamp() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+/**
  * Jedyne miejsce w frontendzie przeliczające pola postępu serialu na podstawie
  * episodes_watched (reguła 1:1 z routes/shows.py). Używane przez tracker
  * (shows.js) i scalanie Drive (drive_sync.js).
@@ -356,7 +368,7 @@ export function buildLocalLibraryEntry(previewData, type, status = "watchlist", 
     tmdb_id: previewData.tmdb_id || previewData.id,
     imdb_id: previewData.imdb_id || "",
     is_favorite: false,
-    user_date: new Date().toISOString().split("T")[0]
+    user_date: localTimestamp().slice(0, 10)
   };
   if (type === "series" || type === "tv") {
     entry.total_seasons = previewData.total_seasons || 1;
