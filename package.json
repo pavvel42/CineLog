@@ -12,7 +12,13 @@
     "build:app": "esbuild static/js/main.js --bundle --minify --sourcemap --outfile=static/dist/app.min.js",
     "build:drive": "esbuild static/js/drive_sync.js --minify --sourcemap --outfile=static/dist/drive_sync.min.js",
     "watch": "esbuild static/js/main.js --bundle --minify --sourcemap --outfile=static/dist/app.min.js --watch",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "python3 -m pytest tests/ -q",
+    "test:e2e": "playwright test",
+    "check:types": "python3 -m mypy && python3 -m pyflakes services routes scripts app.py run.py tests/",
+    "check:frontend": "python3 scripts/check_frontend.py",
+    "check:data": "python3 scripts/check_data_sync.py",
+    "verify": "npm run test:unit && npm run check:types && npm run check:data && npm run check:frontend && npm run test:e2e"
   },
   "repository": {
     "type": "git",
