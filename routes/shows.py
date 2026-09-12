@@ -229,6 +229,9 @@ def verify_shows_completion() -> ResponseReturnValue:
                 if s.get("status") != "watched":
                     s["status"] = "watched"
                     updated_count += 1
+                # Serial obejrzany do końca nie jest już "nadrobiony".
+                if s.get("caught_up"):
+                    s["caught_up"] = False
             elif total_eps > 0 and ep_count >= total_eps and (series_status == "Returning Series" or in_prod is True):
                 s["caught_up"] = True
                 if s.get("status") != "watching":
@@ -307,6 +310,25 @@ def add_show() -> ResponseReturnValue:
     elif not (isinstance(rating, int) and not isinstance(rating, bool) and 1 <= rating <= 5):
         rating = None
 
+    # Metadane serialu potrzebne trasie /api/shows/verify_completion do
+    # rozpoznania stanu "obejrzane wszystko" i "serial wciąż w emisji".
+    total_seasons = _app._safe_int(data.get("total_seasons", 0))
+    total_episodes = _app._safe_int(data.get("total_episodes", 0))
+    series_status = (data.get("series_status") or "").strip() or None
+    raw_in_production = data.get("in_production")
+    in_production: bool | None = None if raw_in_production is None else bool(raw_in_production)
+
+    def _apply_series_metadata(show: dict[str, Any]) -> None:
+        """Uzupełnia metadane serialu; nie nadpisuje znanych wartości zerem ani pustką."""
+        if total_seasons > 0:
+            show["total_seasons"] = total_seasons
+        if total_episodes > 0:
+            show["total_episodes"] = total_episodes
+        if series_status:
+            show["series_status"] = series_status
+        if in_production is not None:
+            show["in_production"] = in_production
+
     with _app.DATA_LOCK:
         shows = _app.load_shows()
         norm_title = _app.normalize_title(title)
@@ -315,6 +337,7 @@ def add_show() -> ResponseReturnValue:
 
         if existing_show:
             existing_show["status"] = status
+            _apply_series_metadata(existing_show)
             if rating is not None:
                 existing_show["rating"] = rating
             elif status == "watchlist":
@@ -364,6 +387,8 @@ def add_show() -> ResponseReturnValue:
             "status": status,
             "tmdb_id": _app.normalize_tmdb_id(data.get("tmdb_id"))
         }
+
+        _apply_series_metadata(new_show)
 
         shows.insert(0, new_show)
         if _app.save_shows(shows):
