@@ -2,7 +2,7 @@
 // CineLog - TV Shows Management & Episode Tracker Module
 // ==========================================================================
 
-import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, getKeyHeaders } from './state.js';
+import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, apiFetch } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
@@ -142,7 +142,7 @@ export async function renderShows() {
         const val = parseInt(star.getAttribute("data-val"), 10);
         const nextVal = s.rating === val ? null : val;
         try {
-          const res = await fetch(`/api/shows/${s.uuid}`, {
+          const res = await apiFetch(`/api/shows/${s.uuid}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ rating: nextVal })
@@ -153,7 +153,9 @@ export async function renderShows() {
             updateStats();
             saveLocalDatabase();
           }
-        } catch (err){}
+        } catch (err){
+          showToastNotification("Nie udało się zapisać oceny na serwerze.", "error");
+        }
       });
     });
 
@@ -288,7 +290,7 @@ if (detailStars) {
       const val = parseInt(star.getAttribute("data-val"), 10);
       const nextVal = show.rating === val ? null : val;
       try {
-        const res = await fetch(`/api/shows/${show.uuid}`, {
+        const res = await apiFetch(`/api/shows/${show.uuid}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ rating: nextVal })
@@ -299,7 +301,9 @@ if (detailStars) {
           updateStats();
           openEpisodeTracker(show);
         }
-      } catch (err){}
+      } catch (err){
+        showToastNotification("Nie udało się zapisać oceny na serwerze.", "error");
+      }
     });
   });
 }
@@ -383,8 +387,8 @@ async function fetchTrackerData(show) {
   const metaFetchUrl = `/api/shows/${show.uuid}/episodes_meta?lang=${getUserLanguage()}${tmdbParam}`;
 
   const [metaRes, detailRes] = await Promise.all([
-    fetch(metaFetchUrl, { headers: getKeyHeaders() }).catch(() => ({ ok: false })),
-    fetch(detailFetchUrl, { headers: getKeyHeaders() }).catch(() => ({ ok: false }))
+    apiFetch(metaFetchUrl).catch(() => ({ ok: false })),
+    apiFetch(detailFetchUrl).catch(() => ({ ok: false }))
   ]);
 
   if (metaRes && metaRes.ok) {
@@ -885,7 +889,7 @@ export function renderSeasonEpisodes(shouldScroll = true) {
 export async function toggleEpisodeWatch(season, episode) {
   if (!selectedShow) return;
   try {
-    const res = await fetch(`/api/shows/${selectedShow.uuid}/episodes`, {
+    const res = await apiFetch(`/api/shows/${selectedShow.uuid}/episodes`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ season, episode })
@@ -905,12 +909,14 @@ export async function toggleEpisodeWatch(season, episode) {
       renderShows();
       saveLocalDatabase();
     }
-  } catch(e){}
+  } catch(e){
+    showToastNotification("Nie udało się zapisać odcinka na serwerze.", "error");
+  }
 }
 
 export async function batchMarkEpisodes(showUuid, episodesList) {
   try {
-    const res = await fetch(`/api/shows/${showUuid}/batch_episodes`, {
+    const res = await apiFetch(`/api/shows/${showUuid}/batch_episodes`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ episodes: episodesList })
@@ -930,7 +936,9 @@ export async function batchMarkEpisodes(showUuid, episodesList) {
       renderShows();
       saveLocalDatabase();
     }
-  } catch(e){}
+  } catch(e){
+    showToastNotification("Nie udało się zapisać odcinków na serwerze.", "error");
+  }
 }
 
 export function askBatchConfirmation({ message, season, episode, onAllSeasons, onThisSeason, onSingle }) {
@@ -1014,12 +1022,19 @@ export async function toggleShowFavorite(uuid, currentFav) {
 
   if (window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
     try {
-      await fetch(`/api/shows/${encodeURIComponent(uuid)}`, {
+      await apiFetch(`/api/shows/${encodeURIComponent(uuid)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_favorite: nextFav })
       });
-    } catch (e) {}
+    } catch (e) {
+      // Błąd zapisu na backendzie: cofamy optymistyczną zmianę stanu.
+      if (found) found.is_favorite = currentFav;
+      renderShows();
+      updateStats();
+      saveLocalDatabase();
+      showToastNotification("Nie udało się zapisać zmiany (brak połączenia z serwerem).", "error");
+    }
   }
 }
 
@@ -1053,8 +1068,19 @@ export async function deleteShow(itemOrUuid) {
   const backendId = targetUuid || targetId || targetTmdb;
   if (backendId && window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
     try {
-      await fetch(`/api/shows/${encodeURIComponent(backendId)}`, { method: "DELETE" });
-    } catch (err) {}
+      await apiFetch(`/api/shows/${encodeURIComponent(backendId)}`, { method: "DELETE" });
+    } catch (err) {
+      // Usunięcie na serwerze nie powiodło się: odświeżamy listę z backendu,
+      // żeby lokalny stan nie udawał, że zapis się udał.
+      showToastNotification("Nie udało się usunąć serialu na serwerze. Odświeżam listę.", "error");
+      try {
+        const res = await apiFetch("/api/shows");
+        state.shows = await res.json();
+        saveLocalDatabase(true);
+        updateStats();
+        renderShows();
+      } catch (refreshErr) {}
+    }
   }
 }
 

@@ -2,7 +2,7 @@
 // CineLog - Main Application Coordinator (ES6 Modular Architecture)
 // ==========================================================================
 
-import { state, saveLocalDatabase, syncWindowAliases, resetToDemoDatabase, markUserDatabaseCustom, getActiveEnvMode, setActiveEnvMode } from './modules/state.js';
+import { state, apiFetch, saveLocalDatabase, syncWindowAliases, resetToDemoDatabase, markUserDatabaseCustom, getActiveEnvMode, setActiveEnvMode } from './modules/state.js';
 import { applyMaterial3Theme, showToastNotification, initBackdropDismiss, initThemeControls, initDemoBannerHandlers, updateDemoBannerVisibility, updateEnvStatusModalContent, openEnvStatusModal, closeEnvStatusModal, showM3ConfirmDialog, runSearchDiagnostics } from './modules/ui.js';
 import { updateStats, openAnalyticsModal, initAnalyticsEvents } from './modules/stats.js';
 import { hydrateVodCache, renderTopVodFilterBar, initVodSettingsHandlers } from './modules/vod.js';
@@ -23,8 +23,8 @@ export async function loadData(targetMode = null) {
   if (currentMode === "flask" && state.backendAvailable) {
     try {
       const [resMovies, resShows] = await Promise.all([
-        fetch("/api/movies"),
-        fetch("/api/shows")
+        apiFetch("/api/movies"),
+        apiFetch("/api/shows")
       ]);
       if (resMovies.ok && resShows.ok) {
         state.movies = await resMovies.json();
@@ -579,10 +579,8 @@ function initApp() {
 export async function detectBackendEnvironment(showFeedbackToast = false) {
   let isAvailable = false;
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
-    const res = await fetch("/api/movies", { method: "GET", signal: controller.signal });
-    clearTimeout(timeoutId);
+    // Sonda dostępności backendu z limitem czasu (apiFetch dokleja klucz BYOK).
+    const res = await apiFetch("/api/movies", { method: "GET", timeoutMs: 2500 });
     if (res.ok) {
       isAvailable = true;
     }

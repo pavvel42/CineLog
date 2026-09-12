@@ -1,4 +1,4 @@
-import { state, saveLocalDatabase, getGradientForTitle, findDuplicateInLibrary, normalizeTitleForLibrary, escapeHtml, safeUrl, getKeyHeaders, fetchWithTimeout, tmdbIdOf } from './state.js';
+import { state, saveLocalDatabase, getGradientForTitle, findDuplicateInLibrary, normalizeTitleForLibrary, escapeHtml, safeUrl, apiFetch, fetchWithTimeout, tmdbIdOf } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { getUserLanguage } from './vod.js';
@@ -192,7 +192,7 @@ async function fetchBackendProductionDetail(item) {
       type: item.type || searchType,
       lang: getUserLanguage()
     });
-    const res = await fetchWithTimeout(`/api/search_detail?${params.toString()}`, { headers: getKeyHeaders() });
+    const res = await apiFetch(`/api/search_detail?${params.toString()}`);
     if (res.ok) {
       return { detail: await res.json(), backendSuccess: true };
     }
@@ -566,7 +566,7 @@ async function fetchAddSearchResults(query) {
   // 1. If backend server might be available, try it
   if (!isStaticEnv) {
     try {
-      const res = await fetchWithTimeout(`/api/search_preview?q=${encodeURIComponent(query)}&type=${searchType}&lang=${getUserLanguage()}`, { headers: getKeyHeaders() });
+      const res = await apiFetch(`/api/search_preview?q=${encodeURIComponent(query)}&type=${searchType}&lang=${getUserLanguage()}`);
       if (res.ok) {
         data = await res.json();
       }
@@ -805,7 +805,8 @@ function initInteractiveStars() {
 
 async function saveMovieToBackend(payload) {
   try {
-    const res = await fetch("/api/movies/add", {
+    // apiFetch rzuca przy błędzie HTTP: łapiemy i schodzimy na zapis lokalny jak dotąd.
+    const res = await apiFetch("/api/movies/add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
@@ -881,7 +882,8 @@ async function addMovieFromPreview(currentPreviewData, status, rating, sheetAdd)
 
 async function saveShowToBackend(payload) {
   try {
-    const res = await fetch("/api/shows/add", {
+    // apiFetch rzuca przy błędzie HTTP: łapiemy i schodzimy na zapis lokalny jak dotąd.
+    const res = await apiFetch("/api/shows/add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)

@@ -2,7 +2,7 @@
 // CineLog - Movies Management & Details Modal Module
 // ==========================================================================
 
-import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, getKeyHeaders } from './state.js';
+import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, apiFetch } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
@@ -237,7 +237,7 @@ async function resolveMovieDetailOnline(movie) {
 
 
     let detail = null;
-    const detailRes = await fetch(detailFetchUrl, { headers: getKeyHeaders() }).catch(() => ({ ok: false }));
+    const detailRes = await apiFetch(detailFetchUrl).catch(() => ({ ok: false }));
     if (detailRes && detailRes.ok) {
       detail = await detailRes.json();
     }
@@ -669,12 +669,19 @@ export async function toggleMovieFavorite(uuid, currentFav) {
 
   if (window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
     try {
-      await fetch(`/api/movies/${encodeURIComponent(uuid)}`, {
+      await apiFetch(`/api/movies/${encodeURIComponent(uuid)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_favorite: nextFav })
       });
-    } catch (e) {}
+    } catch (e) {
+      // Błąd zapisu na backendzie: cofamy optymistyczną zmianę stanu.
+      if (found) found.is_favorite = currentFav;
+      renderMovies();
+      updateStats();
+      saveLocalDatabase();
+      showToastNotification("Nie udało się zapisać zmiany (brak połączenia z serwerem).", "error");
+    }
   }
 }
 
@@ -684,6 +691,9 @@ export async function updateMovieStatus(uuid, status) {
     payload.watch_date = new Date().toISOString().replace("T", " ").substring(0, 19);
   }
   const found = state.movies.find(m => m.uuid === uuid || m.id === uuid || String(m.tmdb_id) === String(uuid));
+  // Poprzedni stan do ewentualnego cofnięcia przy błędzie zapisu.
+  const prevStatus = found ? found.status : null;
+  const prevWatchDate = found ? found.watch_date : null;
   if (found) {
     found.status = status;
     if (status === "watched" && !found.watch_date) {
@@ -697,17 +707,28 @@ export async function updateMovieStatus(uuid, status) {
 
   if (window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
     try {
-      await fetch(`/api/movies/${encodeURIComponent(uuid)}`, {
+      await apiFetch(`/api/movies/${encodeURIComponent(uuid)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-    } catch (e) {}
+    } catch (e) {
+      // Błąd zapisu na backendzie: cofamy optymistyczną zmianę stanu.
+      if (found) {
+        found.status = prevStatus;
+        found.watch_date = prevWatchDate;
+      }
+      renderMovies();
+      updateStats();
+      saveLocalDatabase();
+      showToastNotification("Nie udało się zapisać zmiany statusu na serwerze.", "error");
+    }
   }
 }
 
 export async function updateMovieRating(uuid, rating) {
   const found = state.movies.find(m => m.uuid === uuid || m.id === uuid || String(m.tmdb_id) === String(uuid));
+  const prevRating = found ? found.rating : null;
   if (found) found.rating = rating;
   renderMovies();
   updateStats();
@@ -716,12 +737,19 @@ export async function updateMovieRating(uuid, rating) {
 
   if (window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
     try {
-      await fetch(`/api/movies/${encodeURIComponent(uuid)}`, {
+      await apiFetch(`/api/movies/${encodeURIComponent(uuid)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rating })
       });
-    } catch (e) {}
+    } catch (e) {
+      // Błąd zapisu na backendzie: cofamy optymistyczną zmianę stanu.
+      if (found) found.rating = prevRating;
+      renderMovies();
+      updateStats();
+      saveLocalDatabase();
+      showToastNotification("Nie udało się zapisać oceny na serwerze.", "error");
+    }
   }
 }
 
@@ -755,8 +783,19 @@ export async function deleteMovie(itemOrUuid) {
   const backendId = targetUuid || targetId || targetTmdb;
   if (backendId && window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
     try {
-      await fetch(`/api/movies/${encodeURIComponent(backendId)}`, { method: "DELETE" });
-    } catch (err) {}
+      await apiFetch(`/api/movies/${encodeURIComponent(backendId)}`, { method: "DELETE" });
+    } catch (err) {
+      // Usunięcie na serwerze nie powiodło się: odświeżamy listę z backendu,
+      // żeby lokalny stan nie udawał, że zapis się udał.
+      showToastNotification("Nie udało się usunąć filmu na serwerze. Odświeżam listę.", "error");
+      try {
+        const res = await apiFetch("/api/movies");
+        state.movies = await res.json();
+        saveLocalDatabase(true);
+        updateStats();
+        renderMovies();
+      } catch (refreshErr) {}
+    }
   }
 }
 
@@ -803,13 +842,8 @@ export async function openRematchPicker(item, itemType = "movie") {
 
     try {
       const typeParam = itemType === "series" ? "series" : "movie";
-      const res = await fetch(`/api/search_preview?q=${encodeURIComponent(query)}&type=${typeParam}&lang=${getUserLanguage()}`);
+      const res = await apiFetch(`/api/search_preview?q=${encodeURIComponent(query)}&type=${typeParam}&lang=${getUserLanguage()}`);
       loadingEl.style.display = "none";
-
-      if (!res.ok) {
-        resultsContainer.innerHTML = `<div style="padding: 16px; text-align: center; color: var(--md-sys-color-on-surface-variant); font-size: 0.85rem;">Nie znaleziono pozycji w TMDb.</div>`;
-        return;
-      }
 
       const data = await res.json();
       const results = data.results || (data.item ? [data.item] : []);
@@ -857,7 +891,7 @@ export async function openRematchPicker(item, itemType = "movie") {
 
           try {
             const endpoint = itemType === "series" ? `/api/shows/${item.uuid}` : `/api/movies/${item.uuid}`;
-            const updateRes = await fetch(endpoint, {
+            const updateRes = await apiFetch(endpoint, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload)
@@ -884,6 +918,7 @@ export async function openRematchPicker(item, itemType = "movie") {
             }
           } catch (err) {
             console.error("Error saving rematch:", err);
+            showToastNotification("Nie udało się zapisać nowej wersji na serwerze.", "error");
           }
         });
 
@@ -892,6 +927,8 @@ export async function openRematchPicker(item, itemType = "movie") {
     } catch (e) {
       console.error("Error executing rematch search:", e);
       loadingEl.style.display = "none";
+      // Błąd backendu (apiFetch rzuca przy statusie innym niż 2xx): ten sam komunikat co wcześniej przy !res.ok.
+      resultsContainer.innerHTML = `<div style="padding: 16px; text-align: center; color: var(--md-sys-color-on-surface-variant); font-size: 0.85rem;">Nie znaleziono pozycji w TMDb.</div>`;
     }
   };
 

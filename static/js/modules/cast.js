@@ -2,7 +2,7 @@
 // CineLog - Cast, Crew & Actor Profile Explorer Module
 // ==========================================================================
 
-import { state, getGradientForTitle, isItemInLibrary, saveLocalDatabase } from './state.js';
+import { state, getGradientForTitle, isItemInLibrary, saveLocalDatabase, apiFetch } from './state.js';
 import { showToastNotification } from './ui.js';
 import { getUserLanguage } from './vod.js';
 
@@ -112,7 +112,7 @@ export function renderCastRail(containerId, castList = [], directorsList = []) {
 async function fetchActorProfileFromBackend(personId, personName) {
   if (window.location.protocol === "file:" || window.location.hostname.includes("github.io")) return null;
   try {
-    const res = await fetch(`/api/actor/details?id=${personId || ''}&name=${encodeURIComponent(personName)}&lang=${getUserLanguage()}`);
+    const res = await apiFetch(`/api/actor/details?id=${personId || ''}&name=${encodeURIComponent(personName)}&lang=${getUserLanguage()}`);
     if (res.ok) return await res.json();
   } catch (e) {}
   return null;
@@ -466,7 +466,7 @@ export async function quickAddToWatchlist(item) {
 
   try {
     const endpoint = isShow ? "/api/shows" : "/api/movies";
-    const res = await fetch(endpoint, {
+    const res = await apiFetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
@@ -484,5 +484,6 @@ export async function quickAddToWatchlist(item) {
     }
   } catch (err) {
     console.error("Error quick adding to watchlist:", err);
+    showToastNotification("Nie udało się dodać pozycji do listy Do obejrzenia.", "error");
   }
 }

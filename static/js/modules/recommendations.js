@@ -1,4 +1,4 @@
-import { state, isItemInLibrary, saveLocalDatabase, getGradientForTitle, escapeHtml, getKeyHeaders } from './state.js';
+import { state, isItemInLibrary, saveLocalDatabase, getGradientForTitle, escapeHtml, apiFetch } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, TMDB_GLOBAL_VOD_MAP, getCountryDisplayName } from './vod.js';
@@ -102,7 +102,7 @@ export async function spinRoulette() {
       if (activePids) {
         url += `&with_watch_providers=${encodeURIComponent(activePids)}&watch_region=${state.userVodCountry}`;
       }
-      const res = await fetch(url, { headers: getKeyHeaders() });
+      const res = await apiFetch(url);
       const data = await res.json();
       const raw = data.results || [];
       candidates = raw.filter(it => !isItemInLibrary(it));
@@ -113,7 +113,7 @@ export async function spinRoulette() {
     try {
       let url = `/api/recommendations/discover?media_type=movie&min_vote_avg=7.2&min_vote_count=150`;
       if (genreParam) url += `&genres=${genreParam}`;
-      const res = await fetch(url, { headers: getKeyHeaders() });
+      const res = await apiFetch(url);
       const data = await res.json();
       const raw = data.results || [];
       candidates = raw.filter(it => !isItemInLibrary(it));
@@ -251,7 +251,7 @@ export async function quickAddToWatchlist(item, btnElement) {
   };
 
   try {
-    const res = await fetch(endpoint, {
+    const res = await apiFetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
@@ -288,6 +288,7 @@ export async function quickAddToWatchlist(item, btnElement) {
       btnElement.disabled = false;
       btnElement.innerHTML = `<span class="material-symbols-rounded" style="font-size: 18px;">bookmark_add</span>`;
     }
+    showToastNotification("Nie udało się dodać pozycji do listy Do obejrzenia.", "error");
   }
 }
 
@@ -1034,7 +1035,7 @@ async function fetchRecSection(key, apiPath, tmdbPath, tmdbParams = {}) {
 
   // 1. Try Flask endpoint
   try {
-    const res = await fetch(apiPath, { headers: getKeyHeaders() });
+    const res = await apiFetch(apiPath);
     if (res.ok) {
       const data = await res.json();
       if (data && data.results && data.results.length > 0) {

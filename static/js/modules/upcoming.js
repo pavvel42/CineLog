@@ -1,4 +1,4 @@
-import { state, getGradientForTitle, getKeyHeaders } from './state.js';
+import { state, getGradientForTitle, apiFetch } from './state.js';
 import { showToastNotification } from './ui.js';
 import { openMovieDetail } from './movies.js';
 import { openEpisodeTracker } from './shows.js';
@@ -30,7 +30,7 @@ export async function loadUpcomingData(forceRefresh = false) {
 
       // 1. Try Flask API /api/upcoming first
       try {
-        const res = await fetch(forceRefresh ? "/api/upcoming?refresh=1" : "/api/upcoming", { headers: getKeyHeaders() });
+        const res = await apiFetch(forceRefresh ? "/api/upcoming?refresh=1" : "/api/upcoming");
         if (res.ok) {
           const data = await res.json();
           items = data.items || [];

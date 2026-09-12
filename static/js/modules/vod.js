@@ -2,7 +2,7 @@
 // CineLog - VOD Watch Providers & Region Settings Module
 // ==========================================================================
 
-import { state, tmdbIdOf } from './state.js';
+import { state, tmdbIdOf, apiFetch } from './state.js';
 import { showToastNotification } from './ui.js';
 
 export const TMDB_GLOBAL_VOD_MAP = {
@@ -697,7 +697,7 @@ export function renderVodSubscriptionsChecklist(country) {
 
 export async function hydrateVodCache() {
   try {
-    const res = await fetch(`/api/vod_cache_all?region=${state.userVodCountry}`);
+    const res = await apiFetch(`/api/vod_cache_all?region=${state.userVodCountry}`);
     if (res.ok) {
       const data = await res.json();
       Object.keys(data).forEach(key => {
@@ -726,7 +726,7 @@ export async function getWatchProvidersForTitle(title, mediaType, tmdbId = null)
       if (cleanTmdbId) {
         url += `&tmdb_id=${encodeURIComponent(cleanTmdbId)}`;
       }
-      const res = await fetch(url);
+      const res = await apiFetch(url);
       if (res.ok) {
         const data = await res.json();
         if (data && data.found) {

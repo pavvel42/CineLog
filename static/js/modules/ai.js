@@ -2,7 +2,7 @@
 // CineLog - AI Assistant Module (OpenAI-compatible Multi-Turn Streaming BYOK)
 // ==========================================================================
 
-import { state } from './state.js';
+import { state, apiFetch } from './state.js';
 
 const STORAGE_KEY = "cinelog_ai_config";
 
@@ -473,14 +473,14 @@ function buildTmdbMentionItem(bestMatch, name, targetYear, isTv, tmdbId) {
 
 async function resolveTmdbMentionCandidate(name, targetYear, results, seenKeys) {
   // 3. Not in library by exact string: Fetch TMDb metadata dynamically via /api/search_preview!
-  let searchRes = await fetch(`/api/search_preview?q=${encodeURIComponent(name)}&type=movie`);
+  let searchRes = await apiFetch(`/api/search_preview?q=${encodeURIComponent(name)}&type=movie`);
   let searchData = searchRes.ok ? await searchRes.json() : null;
   let rawList = (searchData && searchData.results) || [];
   let bestMatch = pickBestSearchMatch(rawList, targetYear);
 
   // If no movie found or matched, try series
   if (!bestMatch) {
-    searchRes = await fetch(`/api/search_preview?q=${encodeURIComponent(name)}&type=series`);
+    searchRes = await apiFetch(`/api/search_preview?q=${encodeURIComponent(name)}&type=series`);
     searchData = searchRes.ok ? await searchRes.json() : null;
     rawList = (searchData && searchData.results) || [];
     bestMatch = pickBestSearchMatch(rawList, targetYear);

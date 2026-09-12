@@ -153,6 +153,30 @@ export function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
   return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
 }
 
+/**
+ * Jedno wejście do własnego backendu (/api/*): nagłówki z kluczami BYOK, limit
+ * czasu i sprawdzenie statusu w jednym miejscu. Wcześniej każde wywołanie robiło
+ * to po swojemu — część nie wysyłała klucza wcale, a mutacje ignorowały błąd
+ * i udawały sukces. Rzuca Error z polem .status gdy odpowiedź nie jest 2xx.
+ * @param {string} path ścieżka zaczynająca się od "/api/"
+ * @param {RequestInit & {timeoutMs?: number}} [options]
+ * @returns {Promise<Response>}
+ */
+export async function apiFetch(path, options = {}) {
+  const { timeoutMs = 15000, headers, ...rest } = options;
+  const response = await fetchWithTimeout(path, {
+    ...rest,
+    headers: { ...getKeyHeaders(), ...(headers || {}) },
+  }, timeoutMs);
+  if (!response.ok) {
+    const error = new Error(`Żądanie ${path} nie powiodło się (HTTP ${response.status})`);
+    error.status = response.status;
+    error.path = path;
+    throw error;
+  }
+  return response;
+}
+
 // Progressive rendering: append cards in chunks so large libraries don't freeze the UI.
 // A generation counter cancels pending chunks when a newer render starts.
 /**
