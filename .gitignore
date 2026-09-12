@@ -9,5 +9,5 @@ static/js/config.js
 __pycache__/
 *.pyc
 .venv/
-AUDYT.mdtest-results/
+test-results/
 playwright-report/
