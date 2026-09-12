@@ -27,7 +27,7 @@ export function updateDriveModalUI() {
   }
 }
 
-export function updateAiSettingsUI() {
+function updateAiSettingsUI() {
   const cfg = getAiConfig();
   const provider = cfg.provider || "openai";
   const apiKeyInput = document.getElementById("m3-ai-api-key");
@@ -55,7 +55,7 @@ export function updateAiSettingsUI() {
   if (apiKeyInput) apiKeyInput.placeholder = preset.placeholder;
 }
 
-export function updateApiKeysUI() {
+function updateApiKeysUI() {
   const tmdbInput = document.getElementById("m3-key-tmdb-input");
   const omdbInput = document.getElementById("m3-key-omdb-input");
   const statusBox = document.getElementById("m3-keys-test-status");

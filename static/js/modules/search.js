@@ -4,7 +4,7 @@ import { updateStats } from './stats.js';
 import { getUserLanguage } from './vod.js';
 import { renderPreviewVod } from './recommendations.js';
 import { renderMovies } from './movies.js';
-import { renderShows } from './shows.js';
+import { renderShows, syncShowsCompletion } from './shows.js';
 
 let searchType = "movie";
 let confirmedType = "movie";
@@ -26,7 +26,7 @@ const ratingLabels = [
   "5/5 ★★★★★ Arcydzieło!"
 ];
 
-export function setConfirmedType(type) {
+function setConfirmedType(type) {
   confirmedType = type;
   const progressBox = document.getElementById("m3-series-progress-box");
   const typeBadge = document.getElementById("m3-preview-type-badge");
@@ -53,7 +53,7 @@ export function setConfirmedType(type) {
   }
 }
 
-export function setConfirmedStatus(status) {
+function setConfirmedStatus(status) {
   confirmedStatus = status;
   const btnWatched = document.getElementById("m3-status-btn-watched");
   const btnWatchlist = document.getElementById("m3-status-btn-watchlist");
@@ -83,7 +83,7 @@ export function setConfirmedStatus(status) {
   }
 }
 
-export function setAddRating(val) {
+function setAddRating(val) {
   currentAddRating = val ? parseInt(val) : null;
   const hiddenInput = document.getElementById("m3-confirm-rating");
   const labelEl = document.getElementById("m3-add-rating-label");
@@ -110,7 +110,7 @@ export function setAddRating(val) {
   });
 }
 
-export function initPreAddEpisodeSelector(totalSeasons, seasonCounts) {
+function initPreAddEpisodeSelector(totalSeasons, seasonCounts) {
   preAddWatchedSet.clear();
   preAddSelectedSeason = 1;
   preAddSeasonCounts = seasonCounts || {};
@@ -881,8 +881,18 @@ async function addMovieFromPreview(currentPreviewData, status, rating, sheetAdd)
 
   let savedMovie = await saveMovieToBackend(payload);
   // Client-side save for GitHub Pages & offline
-  if (!savedMovie) savedMovie = buildLocalMovie(currentPreviewData, status, rating);
+  const onlyLocal = !savedMovie;
+  if (onlyLocal) savedMovie = buildLocalMovie(currentPreviewData, status, rating);
   upsertMovieInLibrary(savedMovie, sheetAdd);
+  // Komunikat MUSI iść po toaście sukcesu: oba dzielą jeden element DOM, więc
+  // wcześniejsze ostrzeżenie zostałoby nadpisane przez „Zapisano…".
+  // W trybie statycznym (GitHub Pages) zapis lokalny to normalna droga — milczymy.
+  if (onlyLocal && state.backendAvailable) {
+    showToastNotification(
+      "Serwer nie zapisał filmu — jest tylko w tej przeglądarce. Zsynchronizuj bazę z Dyskiem Google w Ustawieniach.",
+      "warning"
+    );
+  }
 }
 
 async function saveShowToBackend(payload) {
@@ -970,8 +980,18 @@ async function addShowFromPreview(currentPreviewData, status, rating, preAddWatc
 
   let savedShow = await saveShowToBackend(payload);
   // Client-side save for GitHub Pages & offline
-  if (!savedShow) savedShow = buildLocalShow(currentPreviewData, status, rating, episodesList);
+  const onlyLocal = !savedShow;
+  if (onlyLocal) savedShow = buildLocalShow(currentPreviewData, status, rating, episodesList);
   upsertShowInLibrary(savedShow, sheetAdd);
+  if (onlyLocal && state.backendAvailable) {
+    showToastNotification(
+      "Serwer nie zapisał serialu — jest tylko w tej przeglądarce. Zsynchronizuj bazę z Dyskiem Google w Ustawieniach.",
+      "warning"
+    );
+  }
+  // Świeżo dodany serial może od razu kwalifikować się na "obejrzany" (np. dodany
+  // z kompletem odcinków i statusem "Ended").
+  if (await syncShowsCompletion({ force: true })) renderShows();
 }
 
 async function handleConfirmAddSubmit(e) {

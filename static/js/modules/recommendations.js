@@ -23,7 +23,7 @@ let rouletteMood = "all";
 let recFeedData = null;
 let isRecLoading = false;
 
-export function initRouletteControls() {
+function initRouletteControls() {
   const hub = document.getElementById("m3-recommendations-container");
   if (!hub) return;
 
@@ -57,7 +57,7 @@ export function initRouletteControls() {
   }
 }
 
-export async function spinRoulette() {
+async function spinRoulette() {
   const resultContainer = document.getElementById("m3-rec-roulette-result");
   const infoEl = document.getElementById("m3-rec-roulette-info");
   if (!resultContainer) return;
@@ -186,7 +186,7 @@ export async function spinRoulette() {
   }
 }
 
-export function createRecommendationCard(item, matchPct = 96) {
+function createRecommendationCard(item, matchPct = 96) {
   const card = document.createElement("div");
   card.className = "m3-rec-card";
   const poster = item.poster_url || "static/icons/favicon.png";
@@ -225,7 +225,7 @@ export function createRecommendationCard(item, matchPct = 96) {
   return card;
 }
 
-export async function quickAddToWatchlist(item, btnElement) {
+async function quickAddToWatchlist(item, btnElement) {
   if (btnElement) {
     btnElement.disabled = true;
     btnElement.innerHTML = `<span class="material-symbols-rounded" style="font-size: 18px; animation: spin 1s linear infinite;">sync</span>`;
@@ -339,7 +339,7 @@ export async function renderPreviewVod(title, mediaType, tmdbId = null) {
   }
 }
 
-export async function openRecPreview(item) {
+async function openRecPreview(item) {
   const isSeries = item.type === "series" || item.media_type === "tv";
 
   const sheetAdd = document.getElementById("m3-sheet-add");
@@ -369,7 +369,7 @@ export async function openRecPreview(item) {
   }
 }
 
-export function buildCarouselSection(title, subtitle, iconName, items) {
+function buildCarouselSection(title, subtitle, iconName, items) {
   if (!items || items.length === 0) return null;
 
   const section = document.createElement("div");
@@ -485,7 +485,7 @@ async function renderAiMediaCards(containerEl, fullText) {
 }
 
 // Dynamically update card badge and click handler after adding from AI
-export function updateAiCardBadges(title, tmdbId, status, savedItem, type) {
+function updateAiCardBadges(title, tmdbId, status, savedItem, type) {
   const cards = document.querySelectorAll(".m3-ai-media-mini-card");
   const normTitle = (title || "").toLowerCase().trim();
 
@@ -534,7 +534,7 @@ window.updateAiCardBadges = updateAiCardBadges;
 let curatorConversation = [];
 let aiCuratorListenersBound = false;
 
-export function initAiCuratorControls() {
+function initAiCuratorControls() {
   initAiChatCore();
   initMentionChips();
   initMentionAutocomplete();
@@ -1405,7 +1405,7 @@ function appendFeedEmptyStateCard(hub) {
   hub.appendChild(emptyCard);
 }
 
-export function renderRecommendationsFeed() {
+function renderRecommendationsFeed() {
   const hub = document.getElementById("m3-rec-carousels-hub");
   if (!hub || !recFeedData) return;
 

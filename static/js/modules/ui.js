@@ -4,7 +4,7 @@
 
 import { state, isUserDatabaseDemo, getActiveEnvMode, fetchWithTimeout } from './state.js';
 
-export function hexToHsl(hex) {
+function hexToHsl(hex) {
   if (!hex || typeof hex !== "string") hex = "#9333ea";
   let c = hex.replace(/^#/, '');
   if (c.length === 3) c = c.split('').map(x => x + x).join('');
@@ -118,12 +118,12 @@ export function showToastNotification(message, type = "success") {
   }, 3200);
 }
 
-export function openModal(sheetId) {
+function openModal(sheetId) {
   const sheet = document.getElementById(sheetId);
   if (sheet) sheet.classList.add("active");
 }
 
-export function closeModal(sheetId) {
+function closeModal(sheetId) {
   const sheet = document.getElementById(sheetId);
   if (sheet) sheet.classList.remove("active");
 }

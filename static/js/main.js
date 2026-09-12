@@ -17,7 +17,7 @@ import { initImporterHandlers, openImporterModal } from './modules/importer.js';
 // Apply initial M3 theme
 applyMaterial3Theme();
 
-export async function loadData(targetMode = null) {
+async function loadData(targetMode = null) {
   const currentMode = targetMode || getActiveEnvMode();
 
   if (currentMode === "flask" && state.backendAvailable) {
@@ -80,7 +80,7 @@ export async function loadData(targetMode = null) {
   updateDemoBannerVisibility();
 }
 
-export function setMode(mode) {
+function setMode(mode) {
   state.mode = mode;
   localStorage.setItem("cinelog_mode", mode);
 
@@ -152,7 +152,7 @@ export function setMode(mode) {
   updateStats();
 }
 
-export function switchTab(tabId) {
+function switchTab(tabId) {
   const isShows = state.mode === "shows";
   if (isShows) {
     state.activeShowTab = tabId;
@@ -581,7 +581,7 @@ function initApp() {
 /**
  * Check whether local Flask backend is reachable or running as static GitHub Pages
  */
-export async function detectBackendEnvironment(showFeedbackToast = false) {
+async function detectBackendEnvironment(showFeedbackToast = false) {
   let isAvailable = false;
   try {
     // Sonda dostępności backendu z limitem czasu (apiFetch dokleja klucz BYOK).

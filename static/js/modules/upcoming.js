@@ -178,7 +178,7 @@ export async function loadUpcomingData(forceRefresh = false) {
   renderUpcoming();
 }
 
-export function getDayOfWeekPL(dateStr) {
+function getDayOfWeekPL(dateStr) {
   if (!dateStr) return "";
   try {
     const d = new Date(dateStr + "T00:00:00");
@@ -190,7 +190,7 @@ export function getDayOfWeekPL(dateStr) {
   }
 }
 
-export function formatDatePL(dateStr) {
+function formatDatePL(dateStr) {
   if (!dateStr) return "";
   try {
     const d = new Date(dateStr + "T00:00:00");
@@ -201,7 +201,7 @@ export function formatDatePL(dateStr) {
   }
 }
 
-export function renderUpcoming() {
+function renderUpcoming() {
   const contentEl = document.getElementById("m3-upcoming-content");
   if (!contentEl) return;
 
@@ -323,7 +323,7 @@ export function renderUpcoming() {
   });
 }
 
-export function exportCalendarICS() {
+function exportCalendarICS() {
   if (!upcomingData || upcomingData.length === 0) {
     showToastNotification("Brak nadchodzących premier do wyeksportowania.", "info");
     return;

@@ -17,7 +17,7 @@ let shouldCancelImport = false;
 /**
  * Universal CSV Parser handling quotes, commas, semicolons, and CRLF
  */
-export function parseCSV(text) {
+function parseCSV(text) {
   // Remove UTF-8 BOM if present
   if (text.charCodeAt(0) === 0xFEFF) {
     text = text.slice(1);
@@ -76,7 +76,7 @@ export function parseCSV(text) {
 /**
  * Identify format and normalize items to unified candidate list
  */
-export function detectAndNormalizeFile(filename, content) {
+function detectAndNormalizeFile(filename, content) {
   const ext = filename.split('.').pop().toLowerCase();
   
   // Try JSON first
@@ -253,7 +253,7 @@ export function openImporterModal() {
   modal.classList.add("active");
 }
 
-export function closeImporterModal() {
+function closeImporterModal() {
   const modal = document.getElementById("m3-sheet-importer");
   if (modal) modal.classList.remove("active");
   if (isImporting) {
@@ -621,7 +621,7 @@ function finalizeBatchImport(successCount) {
   closeImporterModal();
 }
 
-export async function executeBatchImport() {
+async function executeBatchImport() {
   if (isImporting || parsedImportCandidates.length === 0) return;
 
   isImporting = true;

@@ -6,7 +6,7 @@ import { state, getGradientForTitle, isItemInLibrary, saveLocalDatabase, apiFetc
 import { showToastNotification } from './ui.js';
 import { getUserLanguage } from './vod.js';
 
-export function normalizeTitleForMatch(str) {
+function normalizeTitleForMatch(str) {
   if (!str) return "";
   return str.toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -354,7 +354,7 @@ function renderActorRecommendations(filmography, matchedFilmographyKeys, recGrid
   });
 }
 
-export async function openActorProfile(personId, personName) {
+async function openActorProfile(personId, personName) {
   const sheet = document.getElementById("m3-sheet-actor");
   if (!sheet) return;
 
@@ -420,7 +420,7 @@ export async function openActorProfile(personId, personName) {
   }
 }
 
-export function createActorLibCard(item) {
+function createActorLibCard(item) {
   const card = document.createElement("div");
   card.className = "m3-actor-item-card";
   const posterSrc = item.poster_url || "";
@@ -452,7 +452,7 @@ export function createActorLibCard(item) {
   return card;
 }
 
-export async function quickAddToWatchlist(item) {
+async function quickAddToWatchlist(item) {
   const isShow = item.type === "tv" || item.type === "series";
   const payload = {
     title: item.title,

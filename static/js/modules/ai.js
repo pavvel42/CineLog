@@ -90,7 +90,7 @@ export function isAiConfigured() {
   return Boolean(cfg.apiKey && cfg.apiKey.trim().length > 5);
 }
 
-export function getAiLanguagePrompt() {
+function getAiLanguagePrompt() {
   const country = (state.userVodCountry || "PL").toUpperCase();
   const langMap = {
     "PL": { lang: "języku polskim (Polish)", vod: "w Polsce (np. Netflix, HBO Max, SkyShowtime, Disney+, Prime Video, Canal+, Player, Polsat Box Go, TVP VOD)" },
@@ -324,7 +324,7 @@ export function formatAiMarkdown(text) {
   return html;
 }
 
-export function cleanTitleCandidate(str) {
+function cleanTitleCandidate(str) {
   if (!str) return "";
   return str
     .replace(/<[^>]*>/g, '') // remove html

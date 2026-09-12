@@ -8,7 +8,7 @@ import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
 import { renderCastRail } from './cast.js';
 
-export function getItemWatchDate(item, type) {
+function getItemWatchDate(item, type) {
   if (type === "movie") {
     return item.watch_date || item.follow_date || item.created_at || "";
   } else {
@@ -659,7 +659,7 @@ export async function openMovieDetail(movie) {
   }
 }
 
-export async function toggleMovieFavorite(uuid, currentFav) {
+async function toggleMovieFavorite(uuid, currentFav) {
   const nextFav = !currentFav;
   const found = state.movies.find(m => m.uuid === uuid || m.id === uuid || String(m.tmdb_id) === String(uuid));
   if (found) found.is_favorite = nextFav;
@@ -685,7 +685,7 @@ export async function toggleMovieFavorite(uuid, currentFav) {
   }
 }
 
-export async function updateMovieStatus(uuid, status) {
+async function updateMovieStatus(uuid, status) {
   const payload = { status };
   if (status === "watched") {
     payload.watch_date = new Date().toISOString().replace("T", " ").substring(0, 19);
@@ -726,7 +726,7 @@ export async function updateMovieStatus(uuid, status) {
   }
 }
 
-export async function updateMovieRating(uuid, rating) {
+async function updateMovieRating(uuid, rating) {
   const found = state.movies.find(m => m.uuid === uuid || m.id === uuid || String(m.tmdb_id) === String(uuid));
   const prevRating = found ? found.rating : null;
   if (found) found.rating = rating;
@@ -753,7 +753,7 @@ export async function updateMovieRating(uuid, rating) {
   }
 }
 
-export async function deleteMovie(itemOrUuid) {
+async function deleteMovie(itemOrUuid) {
   const isObj = typeof itemOrUuid === "object" && itemOrUuid !== null;
   const targetUuid = isObj ? itemOrUuid.uuid : itemOrUuid;
   const targetId = isObj ? itemOrUuid.id : itemOrUuid;
@@ -799,7 +799,7 @@ export async function deleteMovie(itemOrUuid) {
   }
 }
 
-export function openMovieRematchPicker(movie) {
+function openMovieRematchPicker(movie) {
   openRematchPicker(movie, "movie");
 }
 

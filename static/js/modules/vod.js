@@ -111,7 +111,7 @@ export const TMDB_GLOBAL_VOD_MAP = {
   "Series On": "434"
 };
 
-export const COUNTRY_STREAMING_PROVIDERS = {
+const COUNTRY_STREAMING_PROVIDERS = {
   "PL": {
     name: "Polska 🇵🇱",
     categories: [
@@ -577,7 +577,7 @@ export const COUNTRY_STREAMING_PROVIDERS = {
   }
 };
 
-export function getProvidersForCountry(country) {
+function getProvidersForCountry(country) {
   if (COUNTRY_STREAMING_PROVIDERS[country]) {
     return COUNTRY_STREAMING_PROVIDERS[country];
   }
@@ -636,7 +636,7 @@ export function getUserLanguage() {
   return map[state.userVodCountry] || "pl-PL";
 }
 
-export function renderVodSubscriptionsChecklist(country) {
+function renderVodSubscriptionsChecklist(country) {
   const container = document.getElementById("m3-vod-subscriptions-list");
   if (!container) return;
   container.innerHTML = "";

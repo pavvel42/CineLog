@@ -380,7 +380,7 @@ function renderYearlyChart(ctxYearly, yearlyMap, { textColor, textMutedColor, gr
   }
 }
 
-export function initCharts(scope = currentAnalyticsScope) {
+function initCharts(scope = currentAnalyticsScope) {
   currentAnalyticsScope = scope;
   const ctxRatings = document.getElementById("m3RatingsChart");
   const ctxYearly = document.getElementById("m3YearlyChart");
@@ -406,7 +406,7 @@ export function initCharts(scope = currentAnalyticsScope) {
 
 
 
-export function renderYearlyGoalCard() {
+function renderYearlyGoalCard() {
   const container = document.getElementById("m3-analytics-yearly-goal-box");
   if (!container) return;
 
@@ -470,7 +470,7 @@ function cleanPartSuffix(str) {
   return (str || '').replace(/(partone|part1|czesc1|czescpierwsza|volume1|vol1|chapter1|parti|parttwo|part2|czesc2|czescdruga|volume2|vol2|chapter2|partii|partthree|part3|czesc3|czesctrzecia|volume3|vol3|chapter3|partiii|[123])$/g, '');
 }
 
-export function isDirectorMovieMatch(dm, m) {
+function isDirectorMovieMatch(dm, m) {
   if (!dm || !m) return false;
   if (dm.tmdb_id && m.tmdb_id && String(dm.tmdb_id) === String(m.tmdb_id)) return true;
 
@@ -526,7 +526,7 @@ export function isDirectorMovieMatch(dm, m) {
   return false;
 }
 
-export function renderDirectorMasteryBadges() {
+function renderDirectorMasteryBadges() {
   const container = document.getElementById("m3-analytics-directors-grid");
   if (!container) return;
 
@@ -808,7 +808,7 @@ function renderDirectorMoviesGrid(listToRender, dir, activeTab) {
   });
 }
 
-export function openDirectorDetailModal(dir, activeTab = "watched") {
+function openDirectorDetailModal(dir, activeTab = "watched") {
   currentDirectorModal = dir;
   currentDirectorTab = activeTab;
 

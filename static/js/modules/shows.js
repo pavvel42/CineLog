@@ -16,25 +16,44 @@ let selectedShow = null;
 let selectedSeason = 1;
 let currentShowMeta = {};
 
+let completionCheckInFlight = null;
+let completionCheckedAt = 0;
+// Jedno sprawdzenie na 15 s wystarczy: trasa tylko przechodzi po liście seriali,
+// a po zapisie odcinków i tak wymuszamy sprawdzenie od razu (force).
+const COMPLETION_CHECK_COOLDOWN_MS = 15_000;
+
+async function runCompletionCheck() {
+  const res = await apiFetch("/api/shows/verify_completion", { method: "POST" });
+  const data = await res.json();
+  if (!data || !data.updated) return false;
+  if (Array.isArray(data.shows)) state.shows = data.shows;
+  return true;
+}
+
 /**
  * Prosi backend o automatyczne oznaczenie seriali obejrzanych do końca
  * (/api/shows/verify_completion) i zwraca true, gdy lista się zmieniła.
  * Reguła "wszystkie odcinki + emisja zakończona" mieszka na serwerze, żeby nie
- * dublować jej w drugim miejscu; w trybie statycznym (brak backendu) żądanie
- * po prostu się nie udaje i nic się nie dzieje.
+ * dublować jej w drugim miejscu. Równoległe wejścia w zakładkę nie mnożą żądań,
+ * a `force: true` (po zapisie odcinków) omija limit czasu.
+ * @param {{force?: boolean}} [opts]
  * @returns {Promise<boolean>}
  */
-export async function syncShowsCompletion() {
-  try {
-    const res = await apiFetch("/api/shows/verify_completion", { method: "POST" });
-    const data = await res.json();
-    if (!data || !data.updated) return false;
-    if (Array.isArray(data.shows)) state.shows = data.shows;
-    return true;
-  } catch (err) {
-    console.warn("Nie udało się zweryfikować ukończenia seriali:", err);
+export async function syncShowsCompletion({ force = false } = {}) {
+  if (completionCheckInFlight) return completionCheckInFlight;
+  if (!force && (!state.backendAvailable || Date.now() - completionCheckedAt < COMPLETION_CHECK_COOLDOWN_MS)) {
     return false;
   }
+  completionCheckInFlight = runCompletionCheck()
+    .catch((err) => {
+      console.warn("Nie udało się zweryfikować ukończenia seriali:", err);
+      return false;
+    })
+    .finally(() => {
+      completionCheckInFlight = null;
+      completionCheckedAt = Date.now();
+    });
+  return completionCheckInFlight;
 }
 
 export async function renderShows() {
@@ -656,7 +675,7 @@ async function ensureSeasonMeta(tmdbId, seasonNum) {
   } catch (e) {}
 }
 
-export function renderSeasonTabs() {
+function renderSeasonTabs() {
   const tabsContainer = document.getElementById("m3-season-tabs");
   if (!tabsContainer || !selectedShow) return;
   tabsContainer.innerHTML = "";
@@ -730,7 +749,7 @@ export function renderSeasonTabs() {
   }, 100);
 }
 
-export function renderSeasonEpisodes(shouldScroll = true) {
+function renderSeasonEpisodes(shouldScroll = true) {
   const container = document.getElementById("m3-episodes-list");
   if (!container || !selectedShow) return;
   container.innerHTML = "";
@@ -907,7 +926,7 @@ export function renderSeasonEpisodes(shouldScroll = true) {
   }
 }
 
-export async function toggleEpisodeWatch(season, episode) {
+async function toggleEpisodeWatch(season, episode) {
   if (!selectedShow) return;
   try {
     const res = await apiFetch(`/api/shows/${selectedShow.uuid}/episodes`, {
@@ -929,13 +948,19 @@ export async function toggleEpisodeWatch(season, episode) {
       updateStats();
       renderShows();
       saveLocalDatabase();
+      // Backend sam oznacza serial obejrzany do końca — pytamy od razu po zapisie,
+      // żeby użytkownik nie musiał wychodzić z zakładki i wracać.
+      if (await syncShowsCompletion({ force: true })) {
+        renderShows();
+        updateStats();
+      }
     }
   } catch(e){
     showToastNotification("Nie udało się zapisać odcinka na serwerze.", "error");
   }
 }
 
-export async function batchMarkEpisodes(showUuid, episodesList) {
+async function batchMarkEpisodes(showUuid, episodesList) {
   try {
     const res = await apiFetch(`/api/shows/${showUuid}/batch_episodes`, {
       method: "POST",
@@ -956,13 +981,17 @@ export async function batchMarkEpisodes(showUuid, episodesList) {
       updateStats();
       renderShows();
       saveLocalDatabase();
+      if (await syncShowsCompletion({ force: true })) {
+        renderShows();
+        updateStats();
+      }
     }
   } catch(e){
     showToastNotification("Nie udało się zapisać odcinków na serwerze.", "error");
   }
 }
 
-export function askBatchConfirmation({ message, season, episode, onAllSeasons, onThisSeason, onSingle }) {
+function askBatchConfirmation({ message, season, episode, onAllSeasons, onThisSeason, onSingle }) {
   const modal = document.getElementById("m3-smart-batch-modal");
   if (!modal) return;
 
@@ -1033,7 +1062,7 @@ export function askBatchConfirmation({ message, season, episode, onAllSeasons, o
   }
 }
 
-export async function toggleShowFavorite(uuid, currentFav) {
+async function toggleShowFavorite(uuid, currentFav) {
   const nextFav = !currentFav;
   const found = state.shows.find(s => s.uuid === uuid || s.id === uuid || String(s.tmdb_id) === String(uuid));
   if (found) found.is_favorite = nextFav;
@@ -1059,7 +1088,7 @@ export async function toggleShowFavorite(uuid, currentFav) {
   }
 }
 
-export async function deleteShow(itemOrUuid) {
+async function deleteShow(itemOrUuid) {
   const isObj = typeof itemOrUuid === "object" && itemOrUuid !== null;
   const targetUuid = isObj ? itemOrUuid.uuid : itemOrUuid;
   const targetId = isObj ? itemOrUuid.id : itemOrUuid;
@@ -1105,7 +1134,7 @@ export async function deleteShow(itemOrUuid) {
   }
 }
 
-export function openShowRematchPicker(show) {
+function openShowRematchPicker(show) {
   openRematchPicker(show, "series");
 }
 
@@ -1235,7 +1264,7 @@ function createSeriesStreamHandlers(els, outputEl, bubbleState) {
   };
 }
 
-export function openSeriesAiModal(show) {
+function openSeriesAiModal(show) {
   if (!isAiConfigured()) {
     showToastNotification("Aby korzystać z Asystenta AI, najpierw skonfiguruj swój klucz API.", "info");
     openCloudSyncModal("ai");

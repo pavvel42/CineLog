@@ -149,4 +149,19 @@ test.describe("Wyszukiwanie i dodawanie (tryb statyczny, jak PWA na telefonie)",
     await expect(page.locator("#m3-preview-title")).toContainText("The Voyeurs");
     expect(expectedErrors(errors), `Błędy JS:\n${expectedErrors(errors).join("\n")}`).toEqual([]);
   });
+
+  test("backend odrzuca zapis -> jawny komunikat, że dane są tylko w przeglądarce", async ({ page }) => {
+    installRoutes(page);
+    // Backend odpowiada (tryb flask), ale zapis filmu pada — wcześniej kończyło się
+    // to cichym zapisem lokalnym bez żadnej informacji dla użytkownika.
+    await page.route("**/api/movies/add", (r) => r.abort());
+
+    await openAddModal(page);
+    await submitSearch(page, "The Voyeurs");
+    await page.locator("#m3-search-results-list .m3-result-item").first().click();
+    await expect(page.locator("#m3-add-step-preview")).toBeVisible({ timeout: 8000 });
+    await page.locator("#m3-confirm-add-form button[type=submit]").click();
+
+    await expect(page.locator("#m3-toast-notification")).toContainText("jest tylko w tej przeglądarce");
+  });
 });

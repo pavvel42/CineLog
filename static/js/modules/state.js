@@ -130,7 +130,7 @@ export function tmdbIdOf(value) {
  * klucze nie trafiają wtedy do query stringów i logów serwera.
  * @returns {Record<string, string>}
  */
-export function getKeyHeaders() {
+function getKeyHeaders() {
   const headers = {};
   const tmdbKey = localStorage.getItem("cinelog_tmdb_key");
   if (tmdbKey) headers["X-TMDB-Key"] = tmdbKey;
@@ -231,7 +231,7 @@ export function normalizeTitleForLibrary(title) {
     .replace(/[^a-z0-9]/g, "");
 }
 
-export function getTitleVariants(itemOrTitle) {
+function getTitleVariants(itemOrTitle) {
   if (!itemOrTitle) return [];
   const set = new Set();
   const add = (t) => {
