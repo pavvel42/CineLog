@@ -11,7 +11,8 @@ from __future__ import annotations
 import os
 import logging
 
-from flask import Flask
+from flask import Flask, jsonify, request
+from flask.typing import ResponseReturnValue
 
 from services.data_store import (
     DATA_LOCK,
@@ -19,6 +20,7 @@ from services.data_store import (
     load_json,
     save_json,
 )
+from services.security import is_allowed_write
 
 logging.basicConfig(
     level=logging.INFO,
@@ -62,6 +64,34 @@ if not TMDB_API_KEY:
     log.info("TMDB_API_KEY nie został ustawiony w .env ani w środowisku. Funkcje wyszukiwania online TMDb będą wyłączone lub ograniczone.")
 
 app = Flask(__name__)
+
+
+@app.before_request
+def _guard_cross_origin_writes() -> ResponseReturnValue | None:
+    """Blokuje operacje zapisu wysłane z obcej strony (CSRF).
+
+    Backend działa lokalnie i bez uwierzytelniania, więc bez tej bramki
+    dowolna strona otwarta w przeglądarce mogła wysłać żądanie modyfikujące
+    dane (np. wyzerować bibliotekę przez POST /api/movies/reset).
+    """
+    if is_allowed_write(
+        request.method,
+        request.host,
+        request.headers.get("Origin"),
+        request.headers.get("Sec-Fetch-Site"),
+    ):
+        return None
+    log.warning(
+        "Odrzucono zapis z obcego pochodzenia: %s %s (Origin=%s, Sec-Fetch-Site=%s)",
+        request.method,
+        request.path,
+        request.headers.get("Origin"),
+        request.headers.get("Sec-Fetch-Site"),
+    )
+    return jsonify({
+        "error": "cross_origin_blocked",
+        "message": "Operacje zapisu są dozwolone tylko z aplikacji CineLog.",
+    }), 403
 
 
 # Katalog danych: nowa nazwa "data"; starsze instalacje z "export data" nadal działają.

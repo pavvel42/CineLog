@@ -34,9 +34,13 @@ def ensure_frontend_config() -> bool:
 
 def main() -> None:
     ensure_frontend_config()
+    # Domyślnie tylko pętla lokalna: backend nie ma uwierzytelniania, więc
+    # wystawienie go do sieci LAN wymaga świadomej decyzji (HOST=0.0.0.0).
+    host = os.environ.get("HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", 5001))
     debug_mode = os.environ.get("FLASK_DEBUG", "0") == "1"
-    app.run(debug=debug_mode, port=port)
+    print(f"[start] CineLog: http://{host}:{port}")
+    app.run(debug=debug_mode, host=host, port=port)
 
 
 if __name__ == "__main__":

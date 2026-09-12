@@ -11,6 +11,8 @@ import logging
 import urllib.parse
 import urllib.request
 
+from services.security import mask_secret
+
 log = logging.getLogger("cinelog")
 
 TMDB_BASE = "https://api.themoviedb.org/3"
@@ -29,7 +31,7 @@ def tmdb_get(path: str, params: dict | None, api_key: str, timeout: int = DEFAUL
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8", errors="ignore"))
     except Exception as e:
-        log.warning("TMDb GET %s failed: %s", path, e)
+        log.warning("TMDb GET %s failed: %s", path, mask_secret(str(e), api_key))
         return None
 
 

@@ -22,6 +22,8 @@ from flask import Blueprint, jsonify, request, Response, send_file
 
 from flask.typing import ResponseReturnValue
 
+from services.security import mask_secret
+
 import app as _app
 
 log = logging.getLogger("cinelog")
@@ -77,6 +79,15 @@ def reset_all() -> ResponseReturnValue:
     return jsonify({"status": "reset_complete"})
 
 # --- API KEYS VERIFICATION ---
+def _error_message(label: str, exc: Exception, *secrets: str) -> str:
+    """Komunikat błędu bez wartości kluczy API.
+
+    Biblioteki HTTP potrafią wkleić cały adres żądania (z kluczem w parametrze
+    `api_key`) do treści wyjątku, dlatego każdy użyty klucz maskujemy.
+    """
+    return f"Błąd {label}: {mask_secret(str(exc), *secrets)}"
+
+
 @bp.route("/api/keys/test", methods=["POST"])
 def test_api_keys() -> ResponseReturnValue:
     data = request.get_json(silent=True) or {}
@@ -96,7 +107,7 @@ def test_api_keys() -> ResponseReturnValue:
                 if resp.status == 200:
                     results["tmdb"] = {"ok": True, "message": "Połączono pomyślnie z TMDb API (v3)"}
         except Exception as e:
-            results["tmdb"] = {"ok": False, "message": f"Błąd TMDb: {str(e)}"}
+            results["tmdb"] = {"ok": False, "message": _error_message("TMDb", e, tmdb_key)}
             
     if omdb_key:
         try:
@@ -109,7 +120,7 @@ def test_api_keys() -> ResponseReturnValue:
                 else:
                     results["omdb"] = {"ok": False, "message": odata.get("Error", "Błąd klucza OMDb")}
         except Exception as e:
-            results["omdb"] = {"ok": False, "message": f"Błąd OMDb: {str(e)}"}
+            results["omdb"] = {"ok": False, "message": _error_message("OMDb", e, omdb_key)}
             
     return jsonify(results)
 
