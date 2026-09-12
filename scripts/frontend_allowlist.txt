@@ -1,0 +1,5 @@
+# Wyjątki dla scripts/check_frontend.py — każdy wpis z uzasadnieniem.
+# Format: <typ>:<klucz>  gdzie typ to inline_handler | dead_id | unused_import
+#
+# Przykład (dodawaj tylko z powodem, nie „żeby było zielone”):
+# dead_id:m3-toast-notification   # element tworzony w locie przez showToastNotification

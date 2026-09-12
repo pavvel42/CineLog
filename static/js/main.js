@@ -2,13 +2,13 @@
 // CineLog - Main Application Coordinator (ES6 Modular Architecture)
 // ==========================================================================
 
-import { state, saveLocalDatabase, syncWindowAliases, getGradientForTitle, resetToDemoDatabase, markUserDatabaseCustom, isUserDatabaseDemo, getActiveEnvMode, setActiveEnvMode } from './modules/state.js';
+import { state, saveLocalDatabase, syncWindowAliases, resetToDemoDatabase, markUserDatabaseCustom, getActiveEnvMode, setActiveEnvMode } from './modules/state.js';
 import { applyMaterial3Theme, showToastNotification, initBackdropDismiss, initThemeControls, initDemoBannerHandlers, updateDemoBannerVisibility, updateEnvStatusModalContent, openEnvStatusModal, closeEnvStatusModal, showM3ConfirmDialog, runSearchDiagnostics } from './modules/ui.js';
-import { updateStats, initCharts, openAnalyticsModal, initAnalyticsEvents } from './modules/stats.js';
+import { updateStats, openAnalyticsModal, initAnalyticsEvents } from './modules/stats.js';
 import { hydrateVodCache, renderTopVodFilterBar, initVodSettingsHandlers } from './modules/vod.js';
 import { renderMovies, openMovieDetail } from './modules/movies.js';
-import { renderShows, openEpisodeTracker, toggleEpisodeWatch } from './modules/shows.js';
-import { loadRecommendationsHub, renderRecommendationsFeed } from './modules/recommendations.js';
+import { renderShows, openEpisodeTracker } from './modules/shows.js';
+import { loadRecommendationsHub } from './modules/recommendations.js';
 import { loadUpcomingData, initUpcomingFilters } from './modules/upcoming.js';
 import { initSearchAndAddModal } from './modules/search.js';
 import { initCloudSyncHandlers, openCloudSyncModal, updateDriveModalUI } from './modules/cloud.js';

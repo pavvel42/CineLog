@@ -2,7 +2,7 @@
 // CineLog - VOD Watch Providers & Region Settings Module
 // ==========================================================================
 
-import { state, syncWindowAliases, tmdbIdOf } from './state.js';
+import { state, tmdbIdOf } from './state.js';
 import { showToastNotification } from './ui.js';
 
 export const TMDB_GLOBAL_VOD_MAP = {

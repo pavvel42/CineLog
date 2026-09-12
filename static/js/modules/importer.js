@@ -671,21 +671,12 @@ export async function executeBatchImport() {
  * Initialize Importer UI Event Listeners
  */
 export function initImporterHandlers() {
-  const btnOpenImporter = document.getElementById("m3-btn-open-importer");
-  const btnOpenImporterCloud = document.getElementById("m3-btn-open-importer-cloud");
   const btnClose = document.getElementById("m3-importer-close");
   const dropzone = document.getElementById("m3-import-dropzone");
   const fileInput = document.getElementById("m3-importer-file-input");
   const btnSelectFile = document.getElementById("m3-btn-select-import-file");
   const btnStart = document.getElementById("m3-btn-start-import");
   const btnReset = document.getElementById("m3-btn-reset-import");
-
-  if (btnOpenImporter) {
-    btnOpenImporter.addEventListener("click", openImporterModal);
-  }
-  if (btnOpenImporterCloud) {
-    btnOpenImporterCloud.addEventListener("click", openImporterModal);
-  }
 
   if (btnClose) {
     btnClose.addEventListener("click", closeImporterModal);

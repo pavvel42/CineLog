@@ -175,17 +175,9 @@ function renderPreAddEpisodesGrid() {
       }
       renderPreAddSeasonTabs(Object.keys(preAddSeasonCounts).length || 1);
       renderPreAddEpisodesGrid();
-      updatePreAddSummary();
     });
 
     grid.appendChild(chip);
-  }
-}
-
-function updatePreAddSummary() {
-  const countEl = document.getElementById("m3-pre-add-summary-count");
-  if (countEl) {
-    countEl.innerText = `${preAddWatchedSet.size} ${preAddWatchedSet.size === 1 ? 'odcinek' : 'odcinków'}`;
   }
 }
 
@@ -465,7 +457,6 @@ function initAddModalShell() {
 
 const sheetAdd = document.getElementById("m3-sheet-add");
 const btnFabAdd = document.getElementById("m3-fab-add");
-const btnSidebarAdd = document.getElementById("m3-btn-add");
 const addCloseBtn = document.getElementById("m3-sheet-close");
 const stepSearch = document.getElementById("m3-add-step-search");
 const stepResults = document.getElementById("m3-add-step-results");
@@ -521,7 +512,6 @@ window.openAddModalWithQuery = (query) => {
 };
 
 if (btnFabAdd) btnFabAdd.addEventListener("click", openAddModal);
-if (btnSidebarAdd) btnSidebarAdd.addEventListener("click", openAddModal);
 if (addCloseBtn && sheetAdd) {
   addCloseBtn.addEventListener("click", () => sheetAdd.classList.remove("active"));
 }

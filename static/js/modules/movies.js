@@ -6,7 +6,7 @@ import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, norma
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
-import { renderCastRail, normalizeTitleForMatch } from './cast.js';
+import { renderCastRail } from './cast.js';
 
 export function getItemWatchDate(item, type) {
   if (type === "movie") {

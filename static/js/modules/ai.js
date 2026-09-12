@@ -2,8 +2,7 @@
 // CineLog - AI Assistant Module (OpenAI-compatible Multi-Turn Streaming BYOK)
 // ==========================================================================
 
-import { state, getGradientForTitle } from './state.js';
-import { showToastNotification } from './ui.js';
+import { state } from './state.js';
 
 const STORAGE_KEY = "cinelog_ai_config";
 

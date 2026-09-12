@@ -222,12 +222,17 @@ export function renderUpcoming() {
           Wszystkie seriale i filmy z Twojej biblioteki miały już premierę lub czekają na ogłoszenie daty kolejnego sezonu w TMDb.<br>
           Gdy stacja lub platforma VOD zapowie nowy odcinek, pojawi się on tutaj z odliczaniem dni.
         </p>
-        <button type="button" class="m3-btn-action-primary" onclick="loadUpcomingData(true)" style="padding: 9px 18px; font-weight: 700;">
+        <button type="button" class="m3-btn-action-primary" data-action="refresh-upcoming" style="padding: 9px 18px; font-weight: 700;">
           <span class="material-symbols-rounded" style="font-size: 18px;">sync</span>
           <span>Odśwież harmonogram</span>
         </button>
       </div>
     `;
+    // CSP blokuje atrybuty onclick — akcję podpinamy zdarzeniem.
+    const refreshUpcomingBtn = contentEl.querySelector("[data-action='refresh-upcoming']");
+    if (refreshUpcomingBtn) {
+      refreshUpcomingBtn.addEventListener("click", () => loadUpcomingData(true));
+    }
     return;
   }
 

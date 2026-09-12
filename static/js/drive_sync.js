@@ -474,7 +474,10 @@ class GoogleDriveSync {
   }
 
   updateStatusUI(state, customMessage) {
-    const chip = document.getElementById("m3-chip-drive-status");
+    // Element statusu: ten sam przycisk co wejście do chmury (id: m3-btn-open-cloud-sync),
+    // rozpoznawany po atrybucie, bo element nie ma osobnego id (wcześniej odwołanie
+    // do "m3-chip-drive-status" nie trafiało w nic i status nigdy się nie aktualizował).
+    const chip = document.querySelector("[data-drive-chip]");
     const chipText = document.getElementById("m3-drive-status-text");
     const chipIcon = document.getElementById("m3-drive-status-icon");
 

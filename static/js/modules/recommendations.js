@@ -1,7 +1,7 @@
 import { state, isItemInLibrary, saveLocalDatabase, getGradientForTitle, escapeHtml, getKeyHeaders } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
-import { getWatchProvidersForTitle, getUserLanguage, TMDB_GLOBAL_VOD_MAP, getCountryDisplayName } from './vod.js';
+import { getWatchProvidersForTitle, TMDB_GLOBAL_VOD_MAP, getCountryDisplayName } from './vod.js';
 import { renderMovies, openMovieDetail } from './movies.js';
 import { renderShows, openEpisodeTracker } from './shows.js';
 import { selectProductionDetail } from './search.js';
@@ -1195,6 +1195,25 @@ export async function loadRecommendationsHub(forceRefresh = false) {
   }
 }
 
+/**
+ * Podpina akcje kart zachęty do klucza TMDb.
+ * Atrybuty onclick są tu bezużyteczne: Content-Security-Policy ("script-src 'self'")
+ * blokuje ich wykonanie, więc przycisk wyglądał poprawnie, ale nic nie robił.
+ * @param {HTMLElement} root
+ */
+function wireKeyPromptActions(root) {
+  root.querySelectorAll("[data-action]").forEach((el) => {
+    el.addEventListener("click", () => {
+      const action = el.getAttribute("data-action");
+      if (action === "open-cloud-sync-keys") {
+        if (window.openCloudSyncModal) window.openCloudSyncModal("keys");
+      } else if (action === "refresh-recommendations") {
+        loadRecommendationsHub(true);
+      }
+    });
+  });
+}
+
 function buildTmdbKeyBanner() {
   const banner = document.createElement("div");
   banner.className = "m3-cloud-info-card";
@@ -1212,7 +1231,7 @@ function buildTmdbKeyBanner() {
       </div>
     </div>
     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-      <button type="button" class="m3-btn-action-primary" onclick="if(window.openCloudSyncModal) window.openCloudSyncModal('keys');" style="font-weight: 700; padding: 9px 16px; font-size: 0.82rem;">
+      <button type="button" class="m3-btn-action-primary" data-action="open-cloud-sync-keys" style="font-weight: 700; padding: 9px 16px; font-size: 0.82rem;">
         <span class="material-symbols-rounded" style="font-size: 18px;">key</span>
         <span>Wprowadź klucz TMDb</span>
       </button>
@@ -1221,6 +1240,7 @@ function buildTmdbKeyBanner() {
       </a>
     </div>
   `;
+  wireKeyPromptActions(banner);
   return banner;
 }
 
@@ -1360,7 +1380,7 @@ function appendFeedEmptyStateCard(hub) {
         </p>
       </div>
       <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 4px;">
-        <button type="button" class="m3-btn-action-primary" onclick="if(window.openCloudSyncModal) window.openCloudSyncModal('keys');" style="font-weight: 700; padding: 10px 20px;">
+        <button type="button" class="m3-btn-action-primary" data-action="open-cloud-sync-keys" style="font-weight: 700; padding: 10px 20px;">
           <span class="material-symbols-rounded">key</span>
           <span>Wprowadź klucz TMDb</span>
         </button>
@@ -1374,12 +1394,13 @@ function appendFeedEmptyStateCard(hub) {
       <span class="material-symbols-rounded" style="font-size: 40px; color: var(--md-sys-color-on-surface-variant);">movie_filter</span>
       <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--md-sys-color-on-surface);">Brak pasujących propozycji</h3>
       <p style="font-size: 0.84rem; color: var(--md-sys-color-on-surface-variant); max-width: 480px;">Wszystkie propozycje z tej kategorii znajdują się już w Twojej bibliotece lub filtr nie zwrócił wyników.</p>
-      <button type="button" class="m3-btn-action-primary" onclick="loadRecommendationsHub(true)" style="margin-top: 6px;">
+      <button type="button" class="m3-btn-action-primary" data-action="refresh-recommendations" style="margin-top: 6px;">
         <span class="material-symbols-rounded">refresh</span>
         <span>Odśwież propozycje</span>
       </button>
     `;
   }
+  wireKeyPromptActions(emptyCard);
   hub.appendChild(emptyCard);
 }
 
