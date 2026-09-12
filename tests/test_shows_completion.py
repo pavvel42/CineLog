@@ -9,30 +9,6 @@ automatycznego oznaczania obejrzanych seriali.
 
 from __future__ import annotations
 
-import pytest
-
-import app as app_module
-
-
-@pytest.fixture()
-def client(tmp_path, monkeypatch):
-    files = {
-        "MOVIES_FILE": tmp_path / "movies.json",
-        "MOVIES_BACKUP_FILE": tmp_path / "movies_backup.json",
-        "SHOWS_FILE": tmp_path / "shows.json",
-        "SHOWS_BACKUP_FILE": tmp_path / "shows_backup.json",
-        "UPCOMING_CACHE_FILE": tmp_path / "upcoming_cache.json",
-        "VOD_CACHE_FILE": tmp_path / "vod_cache.json",
-    }
-    for attr, path in files.items():
-        monkeypatch.setattr(app_module, attr, str(path))
-    for attr in ("MOVIES_FILE", "SHOWS_FILE"):
-        app_module.save_json(str(files[attr]), [])
-
-    app_module.app.config["TESTING"] = True
-    with app_module.app.test_client() as c:
-        yield c
-
 
 def _episodes(count: int) -> list[dict[str, int]]:
     return [{"season": 1, "episode": i} for i in range(1, count + 1)]
