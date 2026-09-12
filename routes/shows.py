@@ -337,6 +337,10 @@ def add_show() -> ResponseReturnValue:
                 existing_show["watched_count"] = len(existing_eps)
                 if len(existing_eps) > 0 and status == "watchlist":
                     existing_show["status"] = "watching"
+            if data.get("tmdb_id") is not None:
+                tmdb_id = _app.normalize_tmdb_id(data.get("tmdb_id"))
+                if tmdb_id and not existing_show.get("tmdb_id"):
+                    existing_show["tmdb_id"] = tmdb_id
             existing_show["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             if _app.save_shows(shows):
                 return jsonify(existing_show), 200
@@ -357,7 +361,8 @@ def add_show() -> ResponseReturnValue:
             "latest_progress": latest_progress,
             "latest_season": highest_s,
             "latest_episode": highest_e,
-            "status": status
+            "status": status,
+            "tmdb_id": _app.normalize_tmdb_id(data.get("tmdb_id"))
         }
 
         shows.insert(0, new_show)

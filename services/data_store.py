@@ -69,6 +69,26 @@ def safe_int(value: object, default: int = 0) -> int:
         return default
 
 
+def normalize_tmdb_id(value: object) -> int | None:
+    """Zwraca identyfikator TMDb jako dodatnią liczbę całkowitą albo None.
+
+    Klient potrafił wysłać literał "tmdb_undefined" (sklejenie tekstu z undefined)
+    w polu ``tmdb_id``; taki identyfikator psuł deduplikację, cache VOD i zapytania
+    do TMDb, więc jest odrzucany zamiast zapisywany.
+    """
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        return value if value > 0 else None
+    if isinstance(value, str):
+        trimmed = value.strip()
+        if not trimmed.isdigit():
+            return None
+        parsed = int(trimmed)
+        return parsed if parsed > 0 else None
+    return None
+
+
 def is_safe_media_url(value: object) -> bool:
     """Accept only http(s) poster/image URLs to avoid injecting javascript: data: etc."""
     if not isinstance(value, str) or not value.strip():

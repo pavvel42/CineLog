@@ -1,4 +1,4 @@
-import { state, saveLocalDatabase, getGradientForTitle, findDuplicateInLibrary, normalizeTitleForLibrary, escapeHtml, safeUrl, getKeyHeaders, fetchWithTimeout } from './state.js';
+import { state, saveLocalDatabase, getGradientForTitle, findDuplicateInLibrary, normalizeTitleForLibrary, escapeHtml, safeUrl, getKeyHeaders, fetchWithTimeout, tmdbIdOf } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { getUserLanguage } from './vod.js';
@@ -255,7 +255,7 @@ async function fetchTmdbPlotEn(tmdbType, tmdbId, localTmdbKey) {
 
 function mapTmdbDetailToPreview(tData, item, tmdbType, imdbId, plot) {
   const detail = {
-    id: item.id || `tmdb_${tData.id}`,
+    id: item.id || tData.id || null,
     tmdb_id: tData.id,
     imdb_id: tData.imdb_id || (tData.external_ids && tData.external_ids.imdb_id) || imdbId || "",
     title: tData.title || tData.name || item.title,
@@ -325,7 +325,7 @@ async function applyOmdbFallback(item, detail, localOmdbKey) {
 }
 
 function setPreviewConfirmState(detail, detectedType) {
-  const existing = findDuplicateInLibrary(detail.title, detectedType, detail.tmdb_id || detail.id);
+  const existing = findDuplicateInLibrary(detail.title, detectedType, tmdbIdOf(detail.tmdb_id) || tmdbIdOf(detail.id));
   const confirmBtn = document.querySelector("#m3-confirm-add-form button[type='submit']");
   const confirmBtnText = confirmBtn ? (confirmBtn.querySelector("span:not(.material-symbols-rounded)") || confirmBtn) : null;
 
@@ -424,7 +424,7 @@ export async function selectProductionDetail(item) {
       initPreAddEpisodeSelector(detail.total_seasons || 1, detail.season_ep_counts || {});
     }
 
-    renderPreviewVod(detail.title, detectedType === "series" ? "tv" : "movie", detail.tmdb_id || detail.id);
+    renderPreviewVod(detail.title, detectedType === "series" ? "tv" : "movie", tmdbIdOf(detail.tmdb_id) || tmdbIdOf(detail.id));
 
     stepResults.style.display = "none";
     document.getElementById("m3-add-step-search").style.display = "none";
@@ -598,7 +598,7 @@ async function fetchAddSearchResults(query) {
           year: (item.release_date || item.first_air_date || "").substring(0, 4),
           poster_url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : "",
           type: searchType === "series" ? "series" : "movie",
-          tmdb_id: item.id,
+          tmdb_id: tmdbIdOf(item.id),
           plot: item.overview || "",
           rating: item.vote_average || null
         }));
@@ -841,7 +841,7 @@ function buildLocalMovie(currentPreviewData, status, rating) {
     poster_url: currentPreviewData.poster_url || "",
     status: status,
     rating: rating,
-    tmdb_id: currentPreviewData.tmdb_id || currentPreviewData.id,
+    tmdb_id: tmdbIdOf(currentPreviewData.tmdb_id) || tmdbIdOf(currentPreviewData.id),
     imdb_id: currentPreviewData.imdb_id || "",
     is_favorite: false,
     user_date: new Date().toISOString().split("T")[0]
@@ -879,7 +879,7 @@ async function addMovieFromPreview(currentPreviewData, status, rating, sheetAdd)
     release_date: currentPreviewData.released || (currentPreviewData.year ? `${currentPreviewData.year.substring(0, 4)}-01-01` : null),
     status: status,
     rating: rating,
-    tmdb_id: currentPreviewData.tmdb_id || currentPreviewData.id,
+    tmdb_id: tmdbIdOf(currentPreviewData.tmdb_id) || tmdbIdOf(currentPreviewData.id),
     is_favorite: false
   };
 
@@ -914,7 +914,7 @@ function buildLocalShow(currentPreviewData, status, rating, episodesList) {
     poster_url: currentPreviewData.poster_url || "",
     status: status,
     rating: rating,
-    tmdb_id: currentPreviewData.tmdb_id || currentPreviewData.id,
+    tmdb_id: tmdbIdOf(currentPreviewData.tmdb_id) || tmdbIdOf(currentPreviewData.id),
     imdb_id: currentPreviewData.imdb_id || "",
     total_seasons: currentPreviewData.total_seasons || 1,
     total_episodes: currentPreviewData.total_episodes || 0,
@@ -959,7 +959,7 @@ async function addShowFromPreview(currentPreviewData, status, rating, preAddWatc
     poster_url: currentPreviewData.poster_url,
     status: status,
     rating: rating,
-    tmdb_id: currentPreviewData.tmdb_id || currentPreviewData.id,
+    tmdb_id: tmdbIdOf(currentPreviewData.tmdb_id) || tmdbIdOf(currentPreviewData.id),
     episodes_watched: episodesList
   };
 

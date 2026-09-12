@@ -37,7 +37,7 @@ __all__ = [
     "load_movies", "save_movies", "load_shows", "save_shows",
     "load_vod_cache", "save_vod_cache", "fetch_live_watch_providers",
     "format_tmdb_summary", "fetch_online_metadata", "fetch_episodes_meta",
-    "normalize_title", "_safe_int", "_is_safe_media_url",
+    "normalize_title", "normalize_tmdb_id", "_safe_int", "_is_safe_media_url",
 ]
 
 def _load_env_file() -> None:
@@ -139,6 +139,7 @@ from services.metadata import fetch_online_metadata
 from services.episodes_meta import fetch_episodes_meta
 from services.data_store import (
     normalize_title,
+    normalize_tmdb_id,
     safe_int as _safe_int,
     is_safe_media_url as _is_safe_media_url,
 )

@@ -122,6 +122,10 @@ def add_movie() -> ResponseReturnValue:
                 existing_movie["rating"] = None
             if poster_url and (not existing_movie.get("poster_url") or "favicon" in existing_movie.get("poster_url", "")):
                 existing_movie["poster_url"] = poster_url
+            if data.get("tmdb_id") is not None:
+                tmdb_id = _app.normalize_tmdb_id(data.get("tmdb_id"))
+                if tmdb_id and not existing_movie.get("tmdb_id"):
+                    existing_movie["tmdb_id"] = tmdb_id
             if release_date and not existing_movie.get("release_date"):
                 existing_movie["release_date"] = release_date
             if status == "watched":
@@ -144,6 +148,7 @@ def add_movie() -> ResponseReturnValue:
             "rating": rating,
             "poster_url": poster_url,
             "raw_rating_suffix": None,
+            "tmdb_id": _app.normalize_tmdb_id(data.get("tmdb_id")),
             "rewatched": _app._safe_int(data.get("rewatched", 0))
         }
 

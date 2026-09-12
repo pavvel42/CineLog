@@ -105,6 +105,27 @@ export function safeUrl(value) {
 }
 
 /**
+ * Zwraca identyfikator TMDb jako liczbę dodatnią albo null.
+ * Powód: w ścieżce awaryjnej (brak szczegółów z TMDb) identyfikator budowano
+ * sklejeniem tekstu, co dawało literał "tmdb_undefined" wysyłany potem do API
+ * jako prawdziwe id (zapytania do movie/tmdb_undefined/...).
+ * @param {*} value
+ * @returns {number|null}
+ */
+export function tmdbIdOf(value) {
+  if (typeof value === "number") {
+    return Number.isInteger(value) && value > 0 ? value : null;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!/^\d+$/.test(trimmed)) return null;
+    const parsed = Number(trimmed);
+    return parsed > 0 ? parsed : null;
+  }
+  return null;
+}
+
+/**
  * Nagłówki z lokalnymi kluczami API (BYOK) dla wywołań własnego backendu —
  * klucze nie trafiają wtedy do query stringów i logów serwera.
  * @returns {Record<string, string>}

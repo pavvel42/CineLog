@@ -2,7 +2,7 @@
 // CineLog - VOD Watch Providers & Region Settings Module
 // ==========================================================================
 
-import { state, syncWindowAliases } from './state.js';
+import { state, syncWindowAliases, tmdbIdOf } from './state.js';
 import { showToastNotification } from './ui.js';
 
 export const TMDB_GLOBAL_VOD_MAP = {
@@ -709,8 +709,11 @@ export async function hydrateVodCache() {
 
 export async function getWatchProvidersForTitle(title, mediaType, tmdbId = null) {
   const cleanTitle = (title || "").replace(/\s*\([^)]*\)/g, "").trim().toLowerCase();
+  // Identyfikator przechodzi walidację: śmieciowe wartości (np. "tmdb_undefined")
+  // nie mogą trafić do adresu API ani do zapytania do TMDb.
+  const cleanTmdbId = tmdbIdOf(tmdbId);
   const cacheKey = `${mediaType}_${state.userVodCountry}_${cleanTitle}`;
-  if (state.vodCache[cacheKey] && state.vodCache[cacheKey].found && !tmdbId) {
+  if (state.vodCache[cacheKey] && state.vodCache[cacheKey].found && !cleanTmdbId) {
     return state.vodCache[cacheKey];
   }
 
@@ -720,8 +723,8 @@ export async function getWatchProvidersForTitle(title, mediaType, tmdbId = null)
   if (window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
     try {
       let url = `/api/watch_providers?title=${encodeURIComponent(cleanTitle)}&type=${mediaType}&region=${state.userVodCountry}`;
-      if (tmdbId) {
-        url += `&tmdb_id=${encodeURIComponent(tmdbId)}`;
+      if (cleanTmdbId) {
+        url += `&tmdb_id=${encodeURIComponent(cleanTmdbId)}`;
       }
       const res = await fetch(url);
       if (res.ok) {
@@ -737,7 +740,7 @@ export async function getWatchProvidersForTitle(title, mediaType, tmdbId = null)
   // 2. Direct client-side TMDb Watch Providers API (GitHub Pages / Client mode)
   if (rawTmdbKey) {
     try {
-      let resolvedTmdbId = tmdbId;
+      let resolvedTmdbId = cleanTmdbId;
       const tmdbType = (mediaType === "series" || mediaType === "tv") ? "tv" : "movie";
 
       // If tmdbId not provided, search TMDb for this title
@@ -833,7 +836,7 @@ export async function ensureVodDataForVisible(items, mediaType, onProgress, onCo
   for (let i = 0; i < missing.length; i += chunkSize) {
     const chunk = missing.slice(i, i + chunkSize);
     await Promise.all(chunk.map(async (item) => {
-      await getWatchProvidersForTitle(item.title, mediaType, item.tmdb_id || item.id);
+      await getWatchProvidersForTitle(item.title, mediaType, tmdbIdOf(item.tmdb_id) || tmdbIdOf(item.id));
       processed++;
       const pct = Math.round((processed / total) * 100);
       if (countEl) countEl.innerText = `${processed}/${total} (${pct}%)`;
