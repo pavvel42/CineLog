@@ -16,6 +16,27 @@ let selectedShow = null;
 let selectedSeason = 1;
 let currentShowMeta = {};
 
+/**
+ * Prosi backend o automatyczne oznaczenie seriali obejrzanych do końca
+ * (/api/shows/verify_completion) i zwraca true, gdy lista się zmieniła.
+ * Reguła "wszystkie odcinki + emisja zakończona" mieszka na serwerze, żeby nie
+ * dublować jej w drugim miejscu; w trybie statycznym (brak backendu) żądanie
+ * po prostu się nie udaje i nic się nie dzieje.
+ * @returns {Promise<boolean>}
+ */
+export async function syncShowsCompletion() {
+  try {
+    const res = await apiFetch("/api/shows/verify_completion", { method: "POST" });
+    const data = await res.json();
+    if (!data || !data.updated) return false;
+    if (Array.isArray(data.shows)) state.shows = data.shows;
+    return true;
+  } catch (err) {
+    console.warn("Nie udało się zweryfikować ukończenia seriali:", err);
+    return false;
+  }
+}
+
 export async function renderShows() {
   const grid = document.getElementById("m3-shows-grid");
   if (!grid) return;

@@ -7,7 +7,7 @@ import { applyMaterial3Theme, showToastNotification, initBackdropDismiss, initTh
 import { updateStats, openAnalyticsModal, initAnalyticsEvents } from './modules/stats.js';
 import { hydrateVodCache, renderTopVodFilterBar, initVodSettingsHandlers } from './modules/vod.js';
 import { renderMovies, openMovieDetail } from './modules/movies.js';
-import { renderShows, openEpisodeTracker } from './modules/shows.js';
+import { renderShows, openEpisodeTracker, syncShowsCompletion } from './modules/shows.js';
 import { loadRecommendationsHub } from './modules/recommendations.js';
 import { loadUpcomingData, initUpcomingFilters } from './modules/upcoming.js';
 import { initSearchAndAddModal } from './modules/search.js';
@@ -207,6 +207,11 @@ export function switchTab(tabId) {
     if (isShows) {
       if (showsGrid) showsGrid.style.display = "grid";
       renderShows();
+      // Backend potrafi sam oznaczyć seriale obejrzane do końca — jeśli coś
+      // zmienił, odświeżamy kafelki, żeby statusy były aktualne od razu.
+      syncShowsCompletion().then(changed => {
+        if (changed) renderShows();
+      });
     } else {
       if (moviesGrid) moviesGrid.style.display = "grid";
       renderMovies();

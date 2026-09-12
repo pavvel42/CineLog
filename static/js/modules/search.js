@@ -262,6 +262,11 @@ function mapTmdbDetailToPreview(tData, item, tmdbType, imdbId, plot) {
     poster_url: tData.poster_path ? `https://image.tmdb.org/t/p/w500${tData.poster_path}` : (item.poster_url || ""),
     total_seasons: tData.number_of_seasons || 1,
     total_episodes: tData.number_of_episodes || 0,
+    // TMDb podaje status emisji ("Returning Series", "Ended", "Canceled") oraz
+    // flagę in_production - bez nich nie da się odróżnić serialu obejrzanego do
+    // końca od takiego, który wciąż wychodzi.
+    series_status: tData.status || null,
+    in_production: typeof tData.in_production === "boolean" ? tData.in_production : null,
     season_ep_counts: {}
   };
   if (tData.seasons && Array.isArray(tData.seasons)) {
@@ -910,6 +915,8 @@ function buildLocalShow(currentPreviewData, status, rating, episodesList) {
     imdb_id: currentPreviewData.imdb_id || "",
     total_seasons: currentPreviewData.total_seasons || 1,
     total_episodes: currentPreviewData.total_episodes || 0,
+    series_status: currentPreviewData.series_status || null,
+    in_production: typeof currentPreviewData.in_production === "boolean" ? currentPreviewData.in_production : null,
     season_ep_counts: currentPreviewData.season_ep_counts || {},
     episodes_watched: episodesList,
     user_date: new Date().toISOString().split("T")[0]
@@ -952,7 +959,13 @@ async function addShowFromPreview(currentPreviewData, status, rating, preAddWatc
     status: status,
     rating: rating,
     tmdb_id: tmdbIdOf(currentPreviewData.tmdb_id) || tmdbIdOf(currentPreviewData.id),
-    episodes_watched: episodesList
+    episodes_watched: episodesList,
+    // Metadane, bez których backend nie rozpozna stanu "obejrzane wszystko"
+    // i "serial wciąż w emisji" (/api/shows/verify_completion).
+    total_seasons: currentPreviewData.total_seasons || 1,
+    total_episodes: currentPreviewData.total_episodes || 0,
+    series_status: currentPreviewData.series_status || null,
+    in_production: typeof currentPreviewData.in_production === "boolean" ? currentPreviewData.in_production : null
   };
 
   let savedShow = await saveShowToBackend(payload);
