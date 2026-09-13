@@ -72,6 +72,28 @@ def test_wykrywa_nieuzywany_import(repo):
     assert "nieuzywana" in findings[0]
 
 
+def test_wykrywa_wolanie_cudzego_eksportu_bez_importu(repo):
+    """Realny przypadek: `ui.js` wołał `escapeHtml` bez importu — pusty dialog i toast."""
+    _write(repo / "static/js/modules/state.js", 'export function escapeHtml(v) { return v; }\n')
+    _write(repo / "static/js/modules/a.js", 'const html = escapeHtml("x");\n')
+    findings = check_frontend.run(repo, allowlist=set())
+    assert len(findings) == 1
+    assert "missing_import" in findings[0]
+    assert "escapeHtml" in findings[0]
+
+
+def test_nie_zglasza_zaimportowanego_eksportu(repo):
+    _write(repo / "static/js/modules/state.js", 'export function escapeHtml(v) { return v; }\n')
+    _write(repo / "static/js/modules/a.js", 'import { escapeHtml } from "./state.js";\nconst html = escapeHtml("x");\n')
+    assert check_frontend.run(repo, allowlist=set()) == []
+
+
+def test_nie_zglasza_funkcji_zdefiniowanej_lokalnie(repo):
+    _write(repo / "static/js/modules/state.js", 'export function escapeHtml(v) { return v; }\n')
+    _write(repo / "static/js/modules/a.js", 'function escapeHtml(v) { return v; }\nconst html = escapeHtml("x");\n')
+    assert check_frontend.run(repo, allowlist=set()) == []
+
+
 def test_allowlista_wycisza_zglaszany_problem(repo):
     _write(repo / "static/js/modules/a.js", 'document.getElementById("m3-swiadomie-brak").innerText = "x";\n')
     findings = check_frontend.run(repo, allowlist={"dead_id:m3-swiadomie-brak"})

@@ -11,6 +11,7 @@ dla przeglądarki do momentu, gdy funkcja przestanie działać:
    identyfikatorów, których nie ma ani w ``index.html``, ani w HTML składanym
    w JS (literówka albo element usunięty z widoku).
 3. ``unused_import`` — nazwy zaimportowane z modułu ES i nigdzie nieużyte.
+4. ``missing_import`` — wołanie funkcji eksportowanej z innego modułu bez importu.
 
 Użycie:
     python3 scripts/check_frontend.py           # exit 1 gdy są problemy
@@ -33,6 +34,25 @@ INLINE_HANDLER_RE = re.compile(rf"""\son(?:{INLINE_EVENTS})\s*=\s*["'`]""", re.I
 ID_LOOKUP_RE = re.compile(r"""getElementById\(\s*["']([^"']+)["']|querySelector(?:All)?\(\s*["']#([^"'\s]+)["']""")
 ID_DEFINITION_RE = re.compile(r"""id\s*[:=]\s*["']([^"']+)["']|\bid\s*=\s*["']([^"']+)["']""")
 IMPORT_RE = re.compile(r"""import\s*\{([^}]*)\}\s*from\s*["'][^"']+["']""")
+EXPORT_RE = re.compile(r"export\s+(?:async\s+)?(?:function|const|let|var|class)\s+([A-Za-z_$][\w$]*)")
+LOCAL_DEFINITION_RE = re.compile(
+    r"(?:^|[\s;{}])(?:export\s+)?(?:async\s+)?(?:function|const|let|var|class)\s+([A-Za-z_$][\w$]*)"
+)
+CALL_RE = re.compile(r"(?<![\w.$])([A-Za-z_$][\w$]*)\s*\(")
+# Wbudowane i słowa kluczowe — mogą wyglądać jak wołanie funkcji z innego modułu.
+BUILTINS = {
+    "if", "for", "while", "switch", "catch", "return", "typeof", "new", "delete", "void",
+    "function", "await", "super", "in", "of", "do", "else", "try", "throw", "yield",
+    "Math", "Number", "String", "Boolean", "JSON", "Object", "Array", "Promise", "Symbol",
+    "Date", "RegExp", "Error", "TypeError", "Map", "Set", "WeakMap", "WeakSet", "Intl",
+    "URL", "URLSearchParams", "FormData", "Blob", "File", "FileReader", "Headers", "Request",
+    "Response", "AbortController", "TextEncoder", "TextDecoder", "CustomEvent", "Event",
+    "MutationObserver", "IntersectionObserver", "ResizeObserver", "Image", "Audio", "Option",
+    "setTimeout", "setInterval", "clearTimeout", "clearInterval", "requestAnimationFrame",
+    "cancelAnimationFrame", "queueMicrotask", "structuredClone", "fetch", "alert", "confirm",
+    "prompt", "console", "parseInt", "parseFloat", "isNaN", "isFinite", "encodeURIComponent",
+    "decodeURIComponent", "btoa", "atob", "require", "import", "getComputedStyle",
+}
 ALLOWLIST_PATH = Path(__file__).resolve().parent / "frontend_allowlist.txt"
 
 
@@ -125,12 +145,58 @@ def check_unused_imports(repo_root: Path, allowlist: set[str]) -> list[str]:
     return findings
 
 
+def collect_module_exports(repo_root: Path) -> set[str]:
+    """Nazwy eksportowane przez jakikolwiek moduł frontendu."""
+    exports: set[str] = set()
+    for path in iter_frontend_files(repo_root):
+        if path.suffix != ".js":
+            continue
+        exports.update(EXPORT_RE.findall(path.read_text(encoding="utf-8")))
+    return exports
+
+
+def check_missing_imports(repo_root: Path, allowlist: set[str]) -> list[str]:
+    """Wołanie cudzej funkcji bez importu to ``ReferenceError`` w przeglądarce.
+
+    Audyt trafił na to w ``ui.js``: po dodaniu escapowania komunikatów moduł wołał
+    ``escapeHtml(...)``, którego nigdzie nie importował. Build przechodzi (to nie jest
+    błąd składni), więc jedynym objawem był pusty dialog i toast bez treści.
+    """
+    eksporty = collect_module_exports(repo_root)
+    findings = []
+    for path in iter_frontend_files(repo_root):
+        if path.suffix != ".js":
+            continue
+        rel = path.relative_to(repo_root)
+        content = path.read_text(encoding="utf-8")
+        zaimportowane = {
+            raw.strip().split(" as ")[-1].strip()
+            for match in IMPORT_RE.finditer(content)
+            for raw in match.group(1).split(",")
+            if raw.strip()
+        }
+        lokalne = set(LOCAL_DEFINITION_RE.findall(content))
+        for name in sorted(set(CALL_RE.findall(content))):
+            if name in BUILTINS or name in zaimportowane or name in lokalne:
+                continue
+            if name not in eksporty:
+                continue
+            if f"missing_import:{rel}:{name}" in allowlist:
+                continue
+            findings.append(
+                f"missing_import  {rel}  {name}(...) nie jest zaimportowane w tym module "
+                f"(biblioteka przeglądarki zgłosi ReferenceError)"
+            )
+    return findings
+
+
 def run(repo_root: Path, allowlist: set[str] | None = None) -> list[str]:
     entries = load_allowlist(ALLOWLIST_PATH) if allowlist is None else allowlist
     return (
         check_inline_handlers(repo_root, entries)
         + check_dead_ids(repo_root, entries)
         + check_unused_imports(repo_root, entries)
+        + check_missing_imports(repo_root, entries)
     )
 
 
@@ -150,7 +216,7 @@ def main(argv: list[str] | None = None) -> int:
         for finding in findings:
             print(f"  {finding}")
         return 1
-    print("Frontend bez zastrzeżeń (inline handlery, martwe id, nieużywane importy).")
+    print("Frontend bez zastrzeżeń (inline handlery, martwe id, nieużywane importy, brakujące importy).")
     return 0
 
 
