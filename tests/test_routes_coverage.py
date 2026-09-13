@@ -70,8 +70,15 @@ def klucz(monkeypatch):
 
 @pytest.fixture()
 def bez_klucza(monkeypatch):
+    """Środowisko bez żadnego klucza — testy nie mogą zależeć od `.env` dewelopera.
+
+    Klucz OMDb z otoczenia wystarczał, żeby trasy zamiast `needs_key` szły do
+    dostawcy i zwracały 404 (nie do odróżnienia od braku trafień).
+    """
     monkeypatch.setattr(client_keys, "tmdb_key", lambda: "")
+    monkeypatch.setattr(client_keys, "omdb_key", lambda: "")
     monkeypatch.setattr(app_module, "TMDB_API_KEY", "")
+    monkeypatch.setattr("routes.search.server_omdb_key", lambda: "")
     app_module.RECOMMENDATIONS_CACHE.clear()
     yield ""
     app_module.RECOMMENDATIONS_CACHE.clear()

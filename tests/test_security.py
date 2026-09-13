@@ -105,6 +105,50 @@ def test_log_klienta_tmdb_nie_zawiera_klucza(caplog, monkeypatch):
     assert sentinel not in caplog.text, "klucz API trafił do logu"
 
 
+def test_klucz_nie_trafia_do_access_logu_serwera() -> None:
+    """D1b: werkzeug loguje adres żądania razem z query stringiem.
+
+    Stare zakładki i skrypty curl nadal wysyłają klucz w adresie, więc jego wartość
+    byłaby w logu jawna — `SanitizedRequestHandler` ma ją zamaskować, zostawiając
+    nazwę parametru (diagnostyka) i nie ruszając zwykłych parametrów.
+    """
+    from services.access_log import SanitizedRequestHandler
+
+    class AtrapaHandler(SanitizedRequestHandler):
+        """Handler bez gniazda — interesuje nas wyłącznie treść wpisu do logu."""
+
+        def __init__(self, path: str) -> None:
+            self.path = path
+            self.command = "GET"
+            self.request_version = "HTTP/1.1"
+            self.wpisy: list[str] = []
+
+        def log(self, typ: str, message: str, *args: object) -> None:
+            self.wpisy.append(message % args)
+
+    handler = AtrapaHandler(
+        "/api/search_preview?q=Inception&type=movie&tmdb_key=TAJNE-TMDB&apikey=TAJNE-OMDB&foo=bar"
+    )
+    handler.log_request(200, 123)
+
+    assert len(handler.wpisy) == 1
+    wpis = handler.wpisy[0]
+    assert "TAJNE-TMDB" not in wpis, "klucz TMDb wyciekł do access-logu"
+    assert "TAJNE-OMDB" not in wpis, "klucz OMDb wyciekł do access-logu"
+    assert "tmdb_key=***" in wpis and "apikey=***" in wpis
+    assert "q=Inception" in wpis and "foo=bar" in wpis, "zwykłe parametry mają zostać w logu"
+
+
+def test_sanityzacja_sciezki_nie_zmienia_zwyklych_adresow() -> None:
+    from services.access_log import sanitize_path
+
+    assert sanitize_path("/api/movies") == "/api/movies"
+    assert sanitize_path("/api/search_preview?q=Inception&type=movie") == (
+        "/api/search_preview?q=Inception&type=movie"
+    )
+    assert sanitize_path("/api/search?q=apikey") == "/api/search?q=apikey"
+
+
 def test_odpowiedzi_api_nie_zawieraja_klucza_serwera(client, monkeypatch):
     """Klucz serwera nie może pojawić się w żadnej odpowiedzi API."""
     sentinel = "SENTINEL-TMDB-KEY-1234567890"

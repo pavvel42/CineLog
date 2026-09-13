@@ -201,11 +201,44 @@ def test_update_show_rating_validation(client):
 # ---------- API: wyszukiwanie i cache ----------
 
 def test_search_preview_needs_key_without_any_key(client, monkeypatch):
+    """Bez klucza TMDb i bez klucza OMDb wyszukiwanie online nie ma czym odpowiedzieć.
+
+    Test musi być hermetyczny: kasuje oba źródła klucza OMDb, bo wcześniej przechodził
+    tylko na maszynie bez `.env` (klucz OMDb z otoczenia wystarczał, żeby trasa znalazła
+    wynik i zwróciła `found: True`).
+    """
     monkeypatch.setattr(app_module, "TMDB_API_KEY", "")
+    monkeypatch.setattr("routes.search.server_omdb_key", lambda: "")
     r = client.get("/api/search_preview?q=inception")
     body = r.get_json()
     assert body["found"] is False
     assert body["needs_key"] is True
+
+
+def test_search_preview_odrzucony_klucz_zglasza_key_rejected(client, monkeypatch):
+    """Odrzucony klucz (401) to nie to samo co brak klucza - front musi to wiedzieć.
+
+    Bez rozróżnienia użytkownik z błędnym kluczem widzi „brak wyników” zamiast
+    informacji, że dostawca odrzucił klucz.
+    """
+    import email.message
+    import urllib.error
+
+    sentinel = "SENTINEL-TMDB-KEY-ODRZUCONY"
+
+    def odrzucaj(req, timeout=None):
+        naglowki = email.message.Message()
+        raise urllib.error.HTTPError(req.full_url, 401, "Unauthorized", naglowki, None)
+
+    monkeypatch.setattr("routes.search.urllib.request.urlopen", odrzucaj)
+    monkeypatch.setattr("routes.search.server_omdb_key", lambda: "")
+
+    r = client.get("/api/search_preview?q=inception", headers={"X-TMDB-Key": sentinel})
+    body = r.get_json()
+    assert body["found"] is False
+    assert body["key_rejected"] is True
+    assert "odrzucony" in body["message"].lower()
+    assert sentinel not in r.get_data(as_text=True), "klucz nie może wrócić w odpowiedzi"
 
 
 def test_client_keys_header_takes_precedence():
@@ -223,6 +256,26 @@ def test_client_keys_empty_when_missing():
     from services import client_keys
 
     with app_module.app.test_request_context():
+        assert client_keys.tmdb_key() == ""
+        assert client_keys.omdb_key() == ""
+
+
+def test_client_keys_ignoruja_klucz_z_query_stringu():
+    """D1: klucz z query stringu jest ignorowany (trafiał do access-logu i do cache).
+
+    Nagłówki BYOK to jedyne źródło klucza — także dla starych zakładek i skryptów curl,
+    które wciąż wysyłają `?tmdb_key=`.
+    """
+    from services import client_keys
+
+    with app_module.app.test_request_context(
+        query_string={
+            "tmdb_key": "qs-tmdb",
+            "apikey": "qs-apikey",
+            "omdb_key": "qs-omdb",
+            "imdb_key": "qs-imdb",
+        }
+    ):
         assert client_keys.tmdb_key() == ""
         assert client_keys.omdb_key() == ""
 
