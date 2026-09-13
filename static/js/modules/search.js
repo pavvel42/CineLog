@@ -438,7 +438,7 @@ export async function selectProductionDetail(item) {
   }
 }
 
-export async function diagnoseSearchFlow(query = "Kiedy nikt nie patrzy") {
+async function diagnoseSearchFlow(query = "Kiedy nikt nie patrzy") {
   const steps = [];
   const step = (n, text) => { steps.push(`${n}. ${text}`); try { document.getElementById("m3-diag-output")?.append(Object.assign(document.createElement("div"), { textContent: `${n}. ${text}` })); } catch (e) {} };
 

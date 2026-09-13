@@ -744,7 +744,7 @@ function getSeasonDisplayInfo(seasonNum) {
   return { watchedSet, hasEp0, epCountToRender, watchedInSeason: watchedSet.size, totalEps };
 }
 
-export function renderSeasonTabs() {
+function renderSeasonTabs() {
   const tabsContainer = document.getElementById("m3-season-tabs");
   if (!tabsContainer || !selectedShow) return;
   tabsContainer.innerHTML = "";
@@ -995,7 +995,7 @@ function refreshTrackerAfterEpisodeUpdate(updated) {
   saveLocalDatabase();
 }
 
-export async function toggleEpisodeWatch(season, episode) {
+async function toggleEpisodeWatch(season, episode) {
   if (!selectedShow) return;
 
   if (!state.backendAvailable) {
@@ -1031,7 +1031,7 @@ export async function toggleEpisodeWatch(season, episode) {
   } catch(e){ console.warn("Zapis odcinka nieudany (sieć):", e); }
 }
 
-export async function batchMarkEpisodes(showUuid, episodesList) {
+async function batchMarkEpisodes(showUuid, episodesList) {
   if (!state.backendAvailable) {
     const show = state.shows.find(s => s && s.uuid === showUuid) || selectedShow;
     if (!show) return;
@@ -1430,7 +1430,7 @@ function openSeriesAiModal(show) {
       seriesConversations[show.uuid].push({ role: "assistant", content: answer });
     } catch (err) {
       if (els.contentEl) {
-        els.contentEl.innerHTML = `<span style="color: var(--md-sys-color-error); font-weight: 600;">🔴 Błąd: ${err.message}</span>`;
+        els.contentEl.innerHTML = `<span style="color: var(--md-sys-color-error); font-weight: 600;">🔴 Błąd: ${escapeHtml(err.message)}</span>`;
       }
     }
   };

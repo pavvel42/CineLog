@@ -130,7 +130,7 @@ export function tmdbIdOf(value) {
  * klucze nie trafiają wtedy do query stringów i logów serwera.
  * @returns {Record<string, string>}
  */
-export function getKeyHeaders() {
+function getKeyHeaders() {
   const headers = {};
   const tmdbKey = localStorage.getItem("cinelog_tmdb_key");
   if (tmdbKey) headers["X-TMDB-Key"] = tmdbKey;
@@ -414,7 +414,7 @@ export function generateUUID() {
  * trzymamy ją pod osobnym kluczem: nadpisywanie "cinelog_database" kasowało
  * bibliotekę użytkownika i powrót na tryb klienta jej nie przywracał.
  */
-export function aktywnyKluczBazy() {
+function aktywnyKluczBazy() {
   return getActiveEnvMode() === "flask" ? "cinelog_database_server" : "cinelog_database";
 }
 
