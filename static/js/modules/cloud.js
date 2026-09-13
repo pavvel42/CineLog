@@ -2,7 +2,7 @@
 // CineLog - Google Drive Cloud Sync, Local Backup & AI Configuration Module
 // ==========================================================================
 
-import { state, saveLocalDatabase, markUserDatabaseCustom, syncWindowAliases, escapeHtml } from './state.js';
+import { state, saveLocalDatabase, markUserDatabaseCustom, syncWindowAliases, escapeHtml, zapiszKopieBazy, pobierzKopieBazy, przywrocKopieBazy } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { renderMovies } from './movies.js';
@@ -506,6 +506,7 @@ if (btnConnect) {
 
     if (window.googleDriveSync) {
       window.googleDriveSync.connect(clientId, (movies, shows) => {
+        if (movies && movies.length > 0) zapiszKopieBazy("połączenie z Google Drive");
         if (movies && movies.length > 0) state.movies = movies;
         if (shows && shows.length > 0) state.shows = shows;
         saveLocalDatabase();
@@ -540,6 +541,7 @@ if (btnPull) {
       try {
         const data = await window.googleDriveSync.downloadFromDrive();
         if (data && (data.movies || data.shows)) {
+          const kopiaZapisana = zapiszKopieBazy("Pull z Google Drive");
           state.movies = Array.isArray(data.movies) ? data.movies : [];
           state.shows = Array.isArray(data.shows) ? data.shows : [];
           saveLocalDatabase();
@@ -561,6 +563,9 @@ if (btnPull) {
           if (sheet) sheet.classList.remove("active");
 
           showToastNotification(`Wczytano z Dysku Google: ${state.movies.length} filmów, ${state.shows.length} seriali! ✨`, "success");
+          if (kopiaZapisana) {
+            showToastNotification("Poprzednia biblioteka zapisana jako kopia (sekcja „Kopia i Import z pliku”).", "info");
+          }
         } else {
           showToastNotification("Nie znaleziono pliku bazy na Dysku. Upewnij się, że na drugim urządzeniu kliknięto 'Wyślij do Chmury'.", "warning");
         }
@@ -585,7 +590,22 @@ if (btnPush) {
       try {
         const ok = await window.googleDriveSync.uploadToDrive(state.movies, state.shows);
         if (ok) {
-          showToastNotification(`Przesłano bibliotekę (${state.movies.length} filmów, ${state.shows.length} seriali) na Dysk Google! ☁️`, "success");
+          // Ustawienia VOD mają na Dysku osobny plik (cinelog_settings.json) — dorzucamy je,
+          // żeby "Wyślij do Chmury" znaczyło komplet. Wcześniej leciały tylko przy zmianie
+          // ustawień w zakładce VOD, więc plik ustawień zostawał stary.
+          let ustawieniaOk = false;
+          try {
+            ustawieniaOk = await window.googleDriveSync.uploadSettingsToDrive(state.userVodCountry, state.userVodSubscriptions);
+          } catch (e) {
+            ustawieniaOk = false;
+          }
+          showToastNotification(
+            `Przesłano bibliotekę (${state.movies.length} filmów, ${state.shows.length} seriali)${ustawieniaOk ? " i ustawienia VOD" : ""} na Dysk Google! ☁️`,
+            "success"
+          );
+          if (!ustawieniaOk) {
+            showToastNotification("Nie udało się wysłać ustawień VOD (biblioteka zapisana poprawnie).", "warning");
+          }
         } else {
           showToastNotification("Błąd zapisu na Dysku Google. Spróbuj zalogować się ponownie.", "error");
         }
@@ -610,6 +630,7 @@ if (btnMerge) {
       try {
         const cloudData = await window.googleDriveSync.downloadFromDrive();
         if (cloudData) {
+          const kopiaZapisana = zapiszKopieBazy("scalanie z Google Drive");
           const merged = window.googleDriveSync.mergeLibraries(state.movies, state.shows, cloudData.movies, cloudData.shows);
           state.movies = merged.movies;
           state.shows = merged.shows;
@@ -630,6 +651,9 @@ if (btnMerge) {
           if (sheet) sheet.classList.remove("active");
 
           showToastNotification(`Pomyślnie scalono bazę! Stan: ${state.movies.length} filmów, ${state.shows.length} seriali. ✨`, "success");
+          if (kopiaZapisana) {
+            showToastNotification("Poprzednia biblioteka zapisana jako kopia (sekcja „Kopia i Import z pliku”).", "info");
+          }
         } else {
           await window.googleDriveSync.uploadToDrive(state.movies, state.shows);
           showToastNotification("Utworzono nową bazę na Dysku Google z Twojej aktualnej biblioteki.", "success");
@@ -661,6 +685,54 @@ if (btnImportTrigger && fileInput) {
   });
 }
 
+
+// Przywracanie kopii bazy sprzed ostatniego nadpisania (Pull, scalanie, import, tryb serwera).
+// Kopię zapisuje funkcja zapiszKopieBazy() z state.js — tu tylko UI i wywołanie.
+const btnRestoreBackup = document.getElementById("m3-btn-restore-backup");
+const hintRestoreBackup = document.getElementById("m3-restore-backup-hint");
+
+function updateKopiaBazyHint() {
+  if (!hintRestoreBackup) return;
+  const kopia = pobierzKopieBazy();
+  if (!kopia) {
+    hintRestoreBackup.textContent = "Brak kopii — żadna operacja nie nadpisała jeszcze biblioteki.";
+    return;
+  }
+  const kiedy = kopia.saved_at ? new Date(kopia.saved_at).toLocaleString("pl-PL") : "nieznana data";
+  hintRestoreBackup.textContent = `Kopia z ${kiedy} (${kopia.source || "operacja"}): ${(kopia.movies || []).length} filmów, ${(kopia.shows || []).length} seriali.`;
+}
+
+if (btnRestoreBackup) {
+  updateKopiaBazyHint();
+  btnRestoreBackup.addEventListener("click", async () => {
+    const kopia = pobierzKopieBazy();
+    if (!kopia) {
+      showToastNotification("Brak kopii do przywrócenia — żadna operacja nie nadpisała biblioteki.", "warning");
+      return;
+    }
+    const kiedy = kopia.saved_at ? new Date(kopia.saved_at).toLocaleString("pl-PL") : "nieznana data";
+    const confirmed = await showM3ConfirmDialog({
+      title: "Przywrócić poprzednią bazę?",
+      message: `Kopia z <b>${kiedy}</b> (${kopia.source || "operacja"}) zawiera <b>${(kopia.movies || []).length} filmów</b> i <b>${(kopia.shows || []).length} seriali</b>.<br><br>Zastąpi ona obecną bibliotekę i przełączy aplikację na tryb klienta.`,
+      confirmText: "Przywróć kopię",
+      cancelText: "Anuluj",
+      icon: "restore",
+      isDestructive: true
+    });
+    if (!confirmed) return;
+
+    const przywrocone = przywrocKopieBazy();
+    if (!przywrocone) {
+      showToastNotification("Nie udało się przywrócić kopii.", "error");
+      return;
+    }
+    updateStats();
+    if (state.mode === "movies") renderMovies();
+    else renderShows();
+    updateKopiaBazyHint();
+    showToastNotification(`Przywrócono kopię: ${przywrocone.movies.length} filmów, ${przywrocone.shows.length} seriali.`, "success");
+  });
+}
 
 window.openCloudSyncModal = openCloudSyncModal;
 window.updateDriveModalUI = updateDriveModalUI;

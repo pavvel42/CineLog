@@ -361,12 +361,89 @@ export function generateUUID() {
 }
 
 /**
+ * Klucz, pod którym zapisujemy aktywną bazę.
+ *
+ * W trybie serwera (Flask) biblioteka przychodzi z /api/movies i /api/shows, więc
+ * trzymamy ją pod osobnym kluczem: nadpisywanie "cinelog_database" kasowało
+ * bibliotekę użytkownika i powrót na tryb klienta jej nie przywracał.
+ */
+export function aktywnyKluczBazy() {
+  return getActiveEnvMode() === "flask" ? "cinelog_database_server" : "cinelog_database";
+}
+
+/** Klucz kopii ostatniej bazy użytkownika, sprzed destrukcyjnego nadpisania. */
+const KLUCZ_KOPII_BAZY = "cinelog_database_backup";
+
+/**
+ * Zapisuje kopię bazy użytkownika przed operacją, która ma ją zastąpić
+ * (Pull z Dysku, scalanie, import z pliku, przełączenie na serwer/demo).
+ * Kopia jest jednopoziomowa: trzyma ostatnią wersję sprzed nadpisania.
+ * @param {string} [zrodlo=""] Krótki opis operacji (do komunikatu w UI).
+ * @returns {boolean} true, jeśli kopię udało się zapisać
+ */
+export function zapiszKopieBazy(zrodlo = "") {
+  try {
+    const aktualna = localStorage.getItem("cinelog_database");
+    if (!aktualna) return false;
+    const parsed = JSON.parse(aktualna);
+    if (!parsed || !Array.isArray(parsed.movies) || !Array.isArray(parsed.shows)) return false;
+    if (!parsed.movies.length && !parsed.shows.length) return false;
+    localStorage.setItem(KLUCZ_KOPII_BAZY, JSON.stringify({
+      movies: parsed.movies,
+      shows: parsed.shows,
+      saved_at: new Date().toISOString(),
+      source: zrodlo
+    }));
+    return true;
+  } catch (e) {
+    console.warn("Nie udało się zapisać kopii bazy:", e);
+    return false;
+  }
+}
+
+/**
+ * Zwraca kopię bazy użytkownika (sprzed ostatniego nadpisania) albo null.
+ * @returns {{movies: object[], shows: object[], saved_at?: string, source?: string}|null}
+ */
+export function pobierzKopieBazy() {
+  try {
+    const raw = localStorage.getItem(KLUCZ_KOPII_BAZY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.movies)) return null;
+    return parsed;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Przywraca kopię jako aktywną bibliotekę użytkownika (przełącza na tryb klienta).
+ * @returns {{movies: object[], shows: object[]}|null}
+ */
+export function przywrocKopieBazy() {
+  const kopia = pobierzKopieBazy();
+  if (!kopia) return null;
+  state.movies = Array.isArray(kopia.movies) ? kopia.movies : [];
+  state.shows = Array.isArray(kopia.shows) ? kopia.shows : [];
+  localStorage.setItem("cinelog_database", JSON.stringify({
+    movies: state.movies,
+    shows: state.shows,
+    updated_at: new Date().toISOString()
+  }));
+  localStorage.removeItem(KLUCZ_KOPII_BAZY);
+  markUserDatabaseCustom();
+  syncWindowAliases();
+  return { movies: state.movies, shows: state.shows };
+}
+
+/**
  * Zapisuje stan biblioteki do localStorage i ewentualnie triggeruje autosave Drive.
  * @param {boolean} [skipCloudSync=false] true = nigdy nie dotykaj Drive (np. zapis demo)
  */
 export function saveLocalDatabase(skipCloudSync = false) {
   try {
-    localStorage.setItem("cinelog_database", JSON.stringify({
+    localStorage.setItem(aktywnyKluczBazy(), JSON.stringify({
       movies: state.movies,
       shows: state.shows,
       updated_at: new Date().toISOString()
@@ -376,8 +453,10 @@ export function saveLocalDatabase(skipCloudSync = false) {
   }
   syncWindowAliases();
   
-  // 🛡️ CRITICAL GUARD: Never auto-sync to Google Drive if explicitly skipped or database is marked as demo
-  if (!skipCloudSync && !isUserDatabaseDemo() && window.googleDriveSync && window.googleDriveSync.isAuthorized()) {
+  // 🛡️ CRITICAL GUARD: auto-sync do Drive tylko dla bazy UŻYTKOWNIKA (tryb klienta).
+  // Bez tego warunku jedna edycja w trybie serwera wypychała do chmury bazę serwera,
+  // nadpisując bibliotekę użytkownika na Dysku.
+  if (!skipCloudSync && getActiveEnvMode() === "client" && window.googleDriveSync && window.googleDriveSync.isAuthorized()) {
     window.googleDriveSync.triggerAutoSave(state.movies, state.shows);
   }
 }
@@ -411,6 +490,7 @@ export function markUserDatabaseCustom() {
  */
 export async function resetToDemoDatabase() {
   setActiveEnvMode("demo");
+  zapiszKopieBazy("reset do bazy demonstracyjnej");
   localStorage.removeItem("cinelog_database");
   localStorage.removeItem("cinelog_user_imported");
   localStorage.removeItem("cinelog_demo_banner_dismissed");

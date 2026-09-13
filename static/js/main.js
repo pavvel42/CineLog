@@ -2,7 +2,7 @@
 // CineLog - Main Application Coordinator (ES6 Modular Architecture)
 // ==========================================================================
 
-import { state, apiFetch, saveLocalDatabase, syncWindowAliases, resetToDemoDatabase, markUserDatabaseCustom, getActiveEnvMode, setActiveEnvMode } from './modules/state.js';
+import { state, apiFetch, saveLocalDatabase, syncWindowAliases, resetToDemoDatabase, markUserDatabaseCustom, getActiveEnvMode, setActiveEnvMode, zapiszKopieBazy } from './modules/state.js';
 import { applyMaterial3Theme, showToastNotification, initBackdropDismiss, initThemeControls, initDemoBannerHandlers, updateDemoBannerVisibility, updateEnvStatusModalContent, openEnvStatusModal, closeEnvStatusModal, showM3ConfirmDialog, runSearchDiagnostics } from './modules/ui.js';
 import { updateStats, openAnalyticsModal, initAnalyticsEvents } from './modules/stats.js';
 import { hydrateVodCache, renderTopVodFilterBar, initVodSettingsHandlers } from './modules/vod.js';
@@ -66,6 +66,8 @@ async function loadData(targetMode = null) {
   if (currentMode === "client" && window.googleDriveSync && window.googleDriveSync.isAuthorized()) {
     try {
       window.googleDriveSync.checkAutoSync((cloudMovies, cloudShows) => {
+        // Baza z chmury zastępuje bibliotekę w przeglądarce — najpierw kopia.
+        if (Array.isArray(cloudMovies) && cloudMovies.length) zapiszKopieBazy("auto-sync Google Drive");
         state.movies = cloudMovies;
         state.shows = cloudShows;
         updateStats();
@@ -420,13 +422,32 @@ async function switchToFlaskEnvironment() {
     showToastNotification("Serwer Flask nie odpowiada. Uruchom 'python app.py' w terminalu.", "warning");
     return;
   }
+
+  // Baza serwera zastępuje bibliotekę w przeglądarce — najpierw zgoda użytkownika.
+  // (Wcześniej to przełączenie nadpisywało bibliotekę bez pytania i bez kopii.)
+  const confirmed = await showM3ConfirmDialog({
+    title: "Załadować bazę z serwera Flask?",
+    message: "Aktywną biblioteką stanie się baza z serwera (katalog danych na dysku).<br><br><div style='background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 10px; padding: 10px 12px; font-size: 0.8rem; color: var(--md-sys-color-on-surface);'>🛡️ <b>Twoja biblioteka i kopia na Dysku Google są bezpieczne</b> — baza serwera trafia do osobnego schowka, a poprzednią bibliotekę zapiszę jako kopię.</div>",
+    confirmText: "Załaduj z serwera",
+    cancelText: "Anuluj",
+    icon: "dns",
+    isDestructive: false
+  });
+  if (!confirmed) return;
+
+  const kopiaZapisana = zapiszKopieBazy("przełączenie na serwer Flask");
   setActiveEnvMode("flask");
   showToastNotification("Ładowanie bazy z serwera Flask...", "info");
   try {
     await loadData("flask");
     detectBackendEnvironment(false);
     closeEnvStatusModal();
-    showToastNotification("🟢 Pomyślnie wczytano bazę z serwera Flask!", "success");
+    showToastNotification(
+      kopiaZapisana
+        ? "🟢 Wczytano bazę z serwera Flask (poprzednia biblioteka zapisana jako kopia)."
+        : "🟢 Pomyślnie wczytano bazę z serwera Flask!",
+      "success"
+    );
   } catch (e) {
     showToastNotification("Błąd wczytywania danych z serwera Flask.", "error");
   }

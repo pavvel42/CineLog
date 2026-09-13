@@ -2,7 +2,7 @@
 // CineLog - Universal Importer Module (Filmweb, Letterboxd, IMDb, JSON)
 // ==========================================================================
 
-import { state, saveLocalDatabase, isItemInLibrary, generateUUID, markUserDatabaseCustom, escapeHtml, apiFetch, isRealDetail } from './state.js';
+import { state, saveLocalDatabase, isItemInLibrary, generateUUID, markUserDatabaseCustom, escapeHtml, apiFetch, isRealDetail, zapiszKopieBazy } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { renderMovies } from './movies.js';
@@ -301,6 +301,8 @@ export function handleImportFile(file) {
         const importedShows = json.shows && Array.isArray(json.shows) ? json.shows : [];
 
         if (importedMovies.length > 0 || importedShows.length > 0) {
+          // Import zastępuje bibliotekę — najpierw kopia poprzedniej wersji.
+          const kopiaZapisana = zapiszKopieBazy("import z pliku");
           if (importedMovies.length > 0) state.movies = importedMovies;
           if (importedShows.length > 0) state.shows = importedShows;
 
@@ -310,6 +312,9 @@ export function handleImportFile(file) {
 
           saveLocalDatabase();
           showToastNotification(`🎉 Wczytano kopię CineLog: ${importedMovies.length} filmów i ${importedShows.length} seriali!`, "success");
+          if (kopiaZapisana) {
+            showToastNotification("Poprzednia biblioteka zapisana jako kopia (sekcja „Kopia i Import z pliku”).", "info");
+          }
 
           const sheetCloud = document.getElementById("m3-sheet-cloud-sync");
           if (sheetCloud) sheetCloud.classList.remove("active");

@@ -367,6 +367,17 @@ class GoogleDriveSync {
       return;
     }
 
+    // 🛡️ CRITICAL SAFETY GUARD: baza serwera (tryb "flask") nigdy nie leci do chmury.
+    // Bez tego jedna edycja w trybie serwera wysyłała na Drive bazę z /api/*,
+    // nadpisując bibliotekę użytkownika (i flagę "cinelog_user_imported" z przeszłości
+    // wystarczało, żeby ten guard przepuścił). Auto-sync dotyczy wyłącznie trybu klienta.
+    const tryb = localStorage.getItem("cinelog_active_mode")
+      || (isCustom ? "client" : "demo");
+    if (tryb !== "client") {
+      console.warn(`🛡️ Google Drive Auto-Save wstrzymany: aktywna baza to tryb "${tryb}", a nie biblioteka użytkownika.`);
+      return;
+    }
+
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
     this.updateStatusUI("syncing", "Oczekuję na zapis...");
 
