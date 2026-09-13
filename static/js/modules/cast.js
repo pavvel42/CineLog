@@ -2,7 +2,7 @@
 // CineLog - Cast, Crew & Actor Profile Explorer Module
 // ==========================================================================
 
-import { state, getGradientForTitle, isItemInLibrary, saveLocalDatabase, apiFetch } from './state.js';
+import { state, getGradientForTitle, isItemInLibrary, saveLocalDatabase, apiFetch, buildLocalLibraryEntry, getActiveEnvMode } from './state.js';
 import { showToastNotification } from './ui.js';
 import { getUserLanguage } from './vod.js';
 
@@ -464,6 +464,16 @@ async function quickAddToWatchlist(item) {
     release_date: item.release_date || (item.year ? `${item.year}-01-01` : "")
   };
 
+  const finishAdd = (added) => {
+    if (isShow) {
+      state.shows.unshift(added);
+    } else {
+      state.movies.unshift(added);
+    }
+    saveLocalDatabase();
+    showToastNotification(`Dodano "${item.title}" do listy Do obejrzenia! 🎬`);
+  };
+
   try {
     const endpoint = isShow ? "/api/shows" : "/api/movies";
     const res = await apiFetch(endpoint, {
@@ -473,17 +483,19 @@ async function quickAddToWatchlist(item) {
     });
 
     if (res.ok) {
-      const added = await res.json();
-      if (isShow) {
-        state.shows.unshift(added);
-      } else {
-        state.movies.unshift(added);
-      }
-      saveLocalDatabase();
-      showToastNotification(`Dodano "${item.title}" do listy Do obejrzenia! 🎬`);
+      finishAdd(await res.json());
+    } else {
+      // Tryb klienta (GitHub Pages / offline): zapis lokalny zamiast cichej porażki.
+      finishAdd(buildLocalLibraryEntry(item, isShow ? "series" : "movie", "watchlist"));
     }
   } catch (err) {
     console.error("Error quick adding to watchlist:", err);
-    showToastNotification("Nie udało się dodać pozycji do listy Do obejrzenia.", "error");
+    // Tryb klienta (GitHub Pages / offline) albo odrzucony zapis: pozycja zostaje
+    // lokalnie, żeby kliknięcie nie przepadło. W trybie serwera Flask mówimy wprost,
+    // że pozycja jest tylko w przeglądarce — inaczej byłby to cichy sukces.
+    finishAdd(buildLocalLibraryEntry(item, isShow ? "series" : "movie", "watchlist"));
+    if (getActiveEnvMode() === "flask") {
+      showToastNotification("Nie udało się zapisać na serwerze — pozycja jest tylko w tej przeglądarce.", "error");
+    }
   }
 }

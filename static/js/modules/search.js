@@ -1,4 +1,4 @@
-import { state, saveLocalDatabase, getGradientForTitle, findDuplicateInLibrary, normalizeTitleForLibrary, escapeHtml, safeUrl, apiFetch, fetchWithTimeout, tmdbIdOf, isRealDetail } from './state.js';
+import { state, saveLocalDatabase, getGradientForTitle, findDuplicateInLibrary, normalizeTitleForLibrary, escapeHtml, safeUrl, apiFetch, fetchWithTimeout, tmdbIdOf, isRealDetail, localTimestamp } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { getUserLanguage } from './vod.js';
@@ -182,7 +182,9 @@ function renderPreAddEpisodesGrid() {
 }
 
 async function fetchBackendProductionDetail(item) {
-  if (window.location.protocol === "file:" || window.location.hostname.includes("github.io")) return null;
+  if (window.location.protocol === "file:" || window.location.hostname.includes("github.io")) {
+    return { detail: null, backendSuccess: false };
+  }
   try {
     const params = new URLSearchParams({
       tmdb_id: item.tmdb_id || "",
@@ -435,6 +437,55 @@ export async function selectProductionDetail(item) {
     showToastNotification("Nie udało się wczytać szczegółów tytułu.", "error");
   }
 }
+
+export async function diagnoseSearchFlow(query = "Kiedy nikt nie patrzy") {
+  const steps = [];
+  const step = (n, text) => { steps.push(`${n}. ${text}`); try { document.getElementById("m3-diag-output")?.append(Object.assign(document.createElement("div"), { textContent: `${n}. ${text}` })); } catch (e) {} };
+
+  let data = null;
+  try {
+    step(9, `fetch search: start "${query}"`);
+    data = await fetchAddSearchResults(query);
+    step(10, `fetch search: ${data ? (data.found ? `found, wyników=${data.results.length}` : JSON.stringify(data).slice(0, 80)) : "NULL"}`);
+  } catch (e) {
+    step(10, `fetch search: WYJĄTEK ${e.message}`);
+    return steps;
+  }
+
+  if (!data || !data.found || !(data.results || []).length) {
+    step(11, "brak wyników do przetestowania podglądu");
+    return steps;
+  }
+
+  const target = data.results.length === 1 ? data.results[0] : data.results[0];
+
+  const capturedErrors = [];
+  const origConsoleError = console.error;
+  console.error = (...args) => {
+    capturedErrors.push(args.map((a) => (a && a.message ? a.message : String(a))).join(" ").slice(0, 220));
+    origConsoleError(...args);
+  };
+
+  try {
+    step(11, `selectProductionDetail("${target.title}") — start`);
+    await selectProductionDetail(target);
+    step(12, capturedErrors.length
+      ? `zakończony, ale POŁKNIĘTO BŁĄD: ${capturedErrors.join(" | ")}`
+      : "selectProductionDetail zakończony bez wyjątku");
+  } catch (e) {
+    step(12, `selectProductionDetail WYJĄTEK: ${e.message}`);
+    console.error = origConsoleError;
+    return steps;
+  }
+  console.error = origConsoleError;
+
+  const preview = document.getElementById("m3-add-step-preview");
+  const sheet = document.getElementById("m3-sheet-add");
+  step(13, `step-preview display=${preview ? getComputedStyle(preview).display : "?"}, sheet-add class="${sheet ? sheet.className : "?"}"`);
+  step(14, `preview title="${document.getElementById("m3-preview-title")?.innerText}"`);
+  return steps;
+}
+window.__cinelogDiagnoseSearchFlow = diagnoseSearchFlow;
 
 export function initSearchAndAddModal() {
   initHeaderSearchClear();
@@ -848,7 +899,7 @@ function buildLocalMovie(currentPreviewData, status, rating) {
     tmdb_id: tmdbIdOf(currentPreviewData.tmdb_id) || tmdbIdOf(currentPreviewData.id),
     imdb_id: currentPreviewData.imdb_id || "",
     is_favorite: false,
-    user_date: new Date().toISOString().split("T")[0]
+    user_date: localTimestamp().slice(0, 10)
   };
 }
 
@@ -937,7 +988,7 @@ function buildLocalShow(currentPreviewData, status, rating, episodesList) {
     in_production: typeof currentPreviewData.in_production === "boolean" ? currentPreviewData.in_production : null,
     season_ep_counts: currentPreviewData.season_ep_counts || {},
     episodes_watched: episodesList,
-    user_date: new Date().toISOString().split("T")[0]
+    user_date: localTimestamp().slice(0, 10)
   };
 }
 

@@ -1,4 +1,4 @@
-import { state, isItemInLibrary, saveLocalDatabase, getGradientForTitle, escapeHtml, apiFetch } from './state.js';
+import { state, isItemInLibrary, saveLocalDatabase, getGradientForTitle, escapeHtml, apiFetch, buildLocalLibraryEntry, getActiveEnvMode } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, TMDB_GLOBAL_VOD_MAP, getCountryDisplayName } from './vod.js';
@@ -250,6 +250,25 @@ async function quickAddToWatchlist(item, btnElement) {
     is_favorite: false
   };
 
+  const finishAdd = (addedItem) => {
+    if (isShow) {
+      state.shows.unshift(addedItem);
+      renderShows();
+    } else {
+      state.movies.unshift(addedItem);
+      renderMovies();
+    }
+    updateStats();
+    saveLocalDatabase();
+
+    if (btnElement) {
+      btnElement.classList.add("added");
+      btnElement.innerHTML = `<span class="material-symbols-rounded" style="font-size: 18px;">check</span>`;
+      btnElement.title = "Dodano do listy Do obejrzenia!";
+    }
+    showToastNotification(`Dodano "${item.title}" do listy Do obejrzenia! 🔖`);
+  };
+
   try {
     const res = await apiFetch(endpoint, {
       method: "POST",
@@ -259,36 +278,20 @@ async function quickAddToWatchlist(item, btnElement) {
 
     if (res.ok) {
       const addedItem = await res.json();
-      if (isShow) {
-        state.shows.unshift(addedItem);
-        renderShows();
-      } else {
-        state.movies.unshift(addedItem);
-        renderMovies();
-      }
-      updateStats();
-      saveLocalDatabase();
-
-      if (btnElement) {
-        btnElement.classList.add("added");
-        btnElement.innerHTML = `<span class="material-symbols-rounded" style="font-size: 18px;">check</span>`;
-        btnElement.title = "Dodano do listy Do obejrzenia!";
-      }
-      showToastNotification(`Dodano "${item.title}" do listy Do obejrzenia! 🔖`);
+      finishAdd(addedItem);
     } else {
-      if (btnElement) {
-        btnElement.disabled = false;
-        btnElement.innerHTML = `<span class="material-symbols-rounded" style="font-size: 18px;">bookmark_add</span>`;
-      }
-      showToastNotification("Nie udało się dodać pozycji do listy Do obejrzenia.", "error");
+      // Tryb klienta (GitHub Pages / offline): zapis lokalny zamiast błędu.
+      finishAdd(buildLocalLibraryEntry(item, isShow ? "series" : "movie", "watchlist"));
     }
   } catch (err) {
     console.error("Error adding rec item:", err);
-    if (btnElement) {
-      btnElement.disabled = false;
-      btnElement.innerHTML = `<span class="material-symbols-rounded" style="font-size: 18px;">bookmark_add</span>`;
+    // Pozycja zostaje w bibliotece lokalnie (tryb klienta / offline). W trybie serwera
+    // Flask mówimy wprost, że zapis nie doszedł — przycisk pokazuje wtedy „dodano”,
+    // więc cicha porażka myliłaby.
+    finishAdd(buildLocalLibraryEntry(item, isShow ? "series" : "movie", "watchlist"));
+    if (getActiveEnvMode() === "flask") {
+      showToastNotification("Nie udało się zapisać na serwerze — pozycja jest tylko w tej przeglądarce.", "error");
     }
-    showToastNotification("Nie udało się dodać pozycji do listy Do obejrzenia.", "error");
   }
 }
 

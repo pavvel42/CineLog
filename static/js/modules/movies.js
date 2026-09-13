@@ -2,7 +2,7 @@
 // CineLog - Movies Management & Details Modal Module
 // ==========================================================================
 
-import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, apiFetch, isRealDetail, clientTmdbKey, szukajWTmdbPoStronieKlienta } from './state.js';
+import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, apiFetch, isRealDetail, clientTmdbKey, szukajWTmdbPoStronieKlienta, localTimestamp, getActiveEnvMode } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
@@ -676,12 +676,19 @@ async function toggleMovieFavorite(uuid, currentFav) {
         body: JSON.stringify({ is_favorite: nextFav })
       });
     } catch (e) {
-      // Błąd zapisu na backendzie: cofamy optymistyczną zmianę stanu.
-      if (found) found.is_favorite = currentFav;
-      renderMovies();
-      updateStats();
-      saveLocalDatabase();
-      showToastNotification("Nie udało się zapisać zmiany (brak połączenia z serwerem).", "error");
+      if (getActiveEnvMode() === "flask") {
+        // Backend istnieje, a zapisu nie przyjął: cofamy optymistyczną zmianę,
+        // żeby UI nie pokazywało stanu, którego serwer nie ma.
+        if (found) found.is_favorite = currentFav;
+        renderMovies();
+        updateStats();
+        saveLocalDatabase();
+        showToastNotification("Nie udało się zapisać zmiany na serwerze.", "error");
+      } else {
+        // Tryb klienta / demo (brak backendu, GitHub Pages, offline): zmiana została
+        // zapisana lokalnie i taka ma zostać — to normalny tryb pracy, nie błąd.
+        console.warn("Zapis ulubionych filmu nieudany (sieć):", e);
+      }
     }
   }
 }
@@ -689,7 +696,7 @@ async function toggleMovieFavorite(uuid, currentFav) {
 async function updateMovieStatus(uuid, status) {
   const payload = { status };
   if (status === "watched") {
-    payload.watch_date = new Date().toISOString().replace("T", " ").substring(0, 19);
+    payload.watch_date = localTimestamp();
   }
   const found = state.movies.find(m => m.uuid === uuid || m.id === uuid || String(m.tmdb_id) === String(uuid));
   // Poprzedni stan do ewentualnego cofnięcia przy błędzie zapisu.
@@ -714,15 +721,20 @@ async function updateMovieStatus(uuid, status) {
         body: JSON.stringify(payload)
       });
     } catch (e) {
-      // Błąd zapisu na backendzie: cofamy optymistyczną zmianę stanu.
-      if (found) {
-        found.status = prevStatus;
-        found.watch_date = prevWatchDate;
+      if (getActiveEnvMode() === "flask") {
+        // Backend istnieje, a zapisu nie przyjął: cofamy optymistyczną zmianę.
+        if (found) {
+          found.status = prevStatus;
+          found.watch_date = prevWatchDate;
+        }
+        renderMovies();
+        updateStats();
+        saveLocalDatabase();
+        showToastNotification("Nie udało się zapisać zmiany statusu na serwerze.", "error");
+      } else {
+        // Tryb klienta / demo: zmiana zostaje lokalnie.
+        console.warn("Zapis statusu filmu nieudany (sieć):", e);
       }
-      renderMovies();
-      updateStats();
-      saveLocalDatabase();
-      showToastNotification("Nie udało się zapisać zmiany statusu na serwerze.", "error");
     }
   }
 }
@@ -744,12 +756,17 @@ async function updateMovieRating(uuid, rating) {
         body: JSON.stringify({ rating })
       });
     } catch (e) {
-      // Błąd zapisu na backendzie: cofamy optymistyczną zmianę stanu.
-      if (found) found.rating = prevRating;
-      renderMovies();
-      updateStats();
-      saveLocalDatabase();
-      showToastNotification("Nie udało się zapisać oceny na serwerze.", "error");
+      if (getActiveEnvMode() === "flask") {
+        // Backend istnieje, a zapisu nie przyjął: cofamy optymistyczną zmianę.
+        if (found) found.rating = prevRating;
+        renderMovies();
+        updateStats();
+        saveLocalDatabase();
+        showToastNotification("Nie udało się zapisać oceny na serwerze.", "error");
+      } else {
+        // Tryb klienta / demo: zmiana zostaje lokalnie.
+        console.warn("Zapis oceny filmu nieudany (sieć):", e);
+      }
     }
   }
 }
@@ -841,43 +858,46 @@ export async function openRematchPicker(item, itemType = "movie") {
     loadingEl.style.display = "flex";
     resultsContainer.innerHTML = "";
 
+    let results = [];
+
     try {
       const typeParam = itemType === "series" ? "series" : "movie";
-
       let data = null;
       try {
         const res = await apiFetch(`/api/search_preview?q=${encodeURIComponent(query)}&type=${typeParam}&lang=${getUserLanguage()}`);
         data = await res.json().catch(() => null);
       } catch (err) {
-        // Backend niedostępny (tryb demo, offline) — poniżej spróbujemy kluczem z przeglądarki.
+        // Backend niedostępny (tryb demo, offline) — niżej szukamy kluczem z przeglądarki.
         console.warn("Podgląd wersji z backendu nie odpowiedział:", err);
       }
 
-      let results = (data && (data.results || (data.item ? [data.item] : []))) || [];
+      results = (data && (data.results || (data.item ? [data.item] : []))) || [];
 
       // Backend bez klucza odpowiada `needs_key` (prośba o klucz, nie dane) i nie zna
       // innych wersji — a użytkownik może mieć własny klucz TMDb. Wtedy szukamy nim
       // wprost u dostawcy, zamiast pokazywać „brak innych wersji”.
       if (results.length === 0 && (!data || data.needs_key || data.key_rejected)) {
         const wynikiKlienta = await szukajWTmdbPoStronieKlienta(query, typeParam, getUserLanguage());
-        if (wynikiKlienta) results = wynikiKlienta;
+        if (wynikiKlienta && wynikiKlienta.length) results = wynikiKlienta;
       }
 
       loadingEl.style.display = "none";
 
       if (results.length === 0) {
-        const stronaBezKlucza = data && (data.needs_key || data.key_rejected) && !clientTmdbKey();
-        resultsContainer.innerHTML = stronaBezKlucza
+        // Backend bez klucza nie zna innych wersji, a klient nie ma czym szukać —
+        // powiedzmy to wprost, zamiast sugerować, że innych wersji nie ma.
+        const backendBezKlucza = data && (data.needs_key || data.key_rejected) && !clientTmdbKey();
+        resultsContainer.innerHTML = backendBezKlucza
           ? `<div style="padding: 16px; text-align: center; color: var(--md-sys-color-on-surface-variant); font-size: 0.85rem;">Wyszukiwanie innych wersji wymaga klucza TMDb — dodaj go w sekcji „Klucze API”.</div>`
           : `<div style="padding: 16px; text-align: center; color: var(--md-sys-color-on-surface-variant); font-size: 0.85rem;">Brak innych wersji pasujących do "${query}".</div>`;
         return;
       }
 
-      results.forEach(it => {
-        const card = document.createElement("div");
-        const pUrl = it.poster_url || "";
-        const yearStr = it.year || (it.release_date ? it.release_date.split("-")[0] : "");
-        const isCurrentMatch = (it.tmdb_id && item.tmdb_id && String(it.tmdb_id) === String(item.tmdb_id)) || (it.poster_url && item.poster_url && it.poster_url === item.poster_url);
+    results.forEach(it => {
+      const card = document.createElement("div");
+      const pUrl = it.poster_url || "";
+      const yearStr = it.year || (it.release_date ? it.release_date.split("-")[0] : "");
+      const isCurrentMatch = (it.tmdb_id && item.tmdb_id && String(it.tmdb_id) === String(item.tmdb_id)) || (it.poster_url && item.poster_url && it.poster_url === item.poster_url);
         card.className = `m3-rematch-card ${isCurrentMatch ? 'is-active-match' : ''}`;
 
         card.innerHTML = `
@@ -910,6 +930,24 @@ export async function openRematchPicker(item, itemType = "movie") {
             tmdb_id: it.tmdb_id || it.id
           };
 
+          const applyRematch = (updated) => {
+            Object.assign(item, updated);
+            sheetRematch.classList.remove("active");
+
+            if (itemType === "series") {
+              if (window.renderShows) window.renderShows();
+              updateStats();
+              if (window.openEpisodeTracker) window.openEpisodeTracker(item);
+            } else {
+              renderMovies();
+              updateStats();
+              openMovieDetail(item);
+            }
+            showToastNotification(`Zaktualizowano wersję ${itemType === "series" ? "serialu" : "filmu"}: "${item.title}" (${yearStr})! ✨`);
+            saveLocalDatabase();
+          };
+
+          let saved = false;
           try {
             const endpoint = itemType === "series" ? `/api/shows/${item.uuid}` : `/api/movies/${item.uuid}`;
             const updateRes = await apiFetch(endpoint, {
@@ -919,27 +957,17 @@ export async function openRematchPicker(item, itemType = "movie") {
             });
 
             if (updateRes.ok) {
-              const updated = await updateRes.json();
-              Object.assign(item, updated);
-
-              sheetRematch.classList.remove("active");
-
-              if (itemType === "series") {
-                if (window.renderShows) window.renderShows();
-                updateStats();
-                if (window.openEpisodeTracker) window.openEpisodeTracker(item);
-                showToastNotification(`Zaktualizowano wersję serialu: "${item.title}" (${yearStr})! ✨`);
-              } else {
-                renderMovies();
-                updateStats();
-                openMovieDetail(item);
-                showToastNotification(`Zaktualizowano wersję filmu: "${item.title}" (${yearStr})! ✨`);
-              }
-              saveLocalDatabase();
+              applyRematch(await updateRes.json());
+              saved = true;
             }
           } catch (err) {
             console.error("Error saving rematch:", err);
             showToastNotification("Nie udało się zapisać nowej wersji na serwerze.", "error");
+          }
+
+          if (!saved) {
+            // Tryb klienta (GitHub Pages / offline): aktualizacja lokalna.
+            applyRematch(payload);
           }
         });
 

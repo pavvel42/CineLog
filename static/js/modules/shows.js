@@ -2,7 +2,7 @@
 // CineLog - TV Shows Management & Episode Tracker Module
 // ==========================================================================
 
-import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, apiFetch, isRealDetail } from './state.js';
+import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, apiFetch, isRealDetail, generateUUID, recalculateShowProgress, localTimestamp } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
@@ -15,6 +15,11 @@ import { openCloudSyncModal } from './cloud.js';
 let selectedShow = null;
 let selectedSeason = 1;
 let currentShowMeta = {};
+// Licznik generacji trackera (wzorzec z renderListInChunks): każde otwarcie
+// trackera unieważnia wciąż lecące asynchroniczne odpowiedzi poprzedniego —
+// bez tego opóźnione metadane serialu A nadpisują tracker aktualnie
+// otwartego serialu B (wyścig przy szybkim przełączaniu).
+let trackerGen = 0;
 
 let completionCheckInFlight = null;
 let completionCheckedAt = 0;
@@ -181,6 +186,11 @@ export async function renderShows() {
         e.stopPropagation();
         const val = parseInt(star.getAttribute("data-val"), 10);
         const nextVal = s.rating === val ? null : val;
+        s.rating = nextVal;
+        renderShows();
+        updateStats();
+        saveLocalDatabase();
+        if (!state.backendAvailable) return;
         try {
           const res = await apiFetch(`/api/shows/${s.uuid}`, {
             method: "PUT",
@@ -206,6 +216,7 @@ export async function renderShows() {
 }
 
 export async function openEpisodeTracker(show) {
+  const gen = ++trackerGen;
   selectedShow = show;
   selectedSeason = Math.max(show.latest_season || 1, 1);
   currentShowMeta = {};
@@ -224,6 +235,7 @@ export async function openEpisodeTracker(show) {
   document.getElementById("m3-sheet-episodes").classList.add("active");
 
   getWatchProvidersForTitle(show.title, "tv", show.tmdb_id).then(data => {
+    if (gen !== trackerGen) return; // otwarty już inny serial — nie dotykaj jego VOD
     vodLogosContainer.innerHTML = "";
     const flat = data.flatrate || [];
     const free = data.free || [];
@@ -263,7 +275,8 @@ export async function openEpisodeTracker(show) {
   });
 
   try {
-    const detail = await fetchTrackerData(show);
+    const detail = await fetchTrackerData(show, gen);
+    if (gen !== trackerGen) return;
     renderSeasonTabs();
     renderSeasonEpisodes(false);
     applyShowDetailToTracker(show, detail);
@@ -329,6 +342,14 @@ if (detailStars) {
       e.stopPropagation();
       const val = parseInt(star.getAttribute("data-val"), 10);
       const nextVal = show.rating === val ? null : val;
+      show.rating = nextVal;
+      renderShows();
+      updateStats();
+      saveLocalDatabase();
+      if (!state.backendAvailable) {
+        openEpisodeTracker(show);
+        return;
+      }
       try {
         const res = await apiFetch(`/api/shows/${show.uuid}`, {
           method: "PUT",
@@ -415,10 +436,14 @@ if (deleteShowBtn) {
 }
 }
 
-async function fetchTrackerData(show) {
+async function fetchTrackerData(show, gen = trackerGen) {
   // Dane trackera online: backend (/episodes_meta + /search_detail) -> fallbacki klienta TMDb/OMDb.
   // Ustawia modułowe currentShowMeta i dogrzewa metadane bieżącego sezonu.
+  // gen: po każdym await sprawdzamy, czy tracker nie został przełączony na
+  // inny serial — przestarzała odpowiedź nie może nadpisać currentShowMeta
+  // ani przerenderować listy odcinków.
   const localTmdbKey = localStorage.getItem("cinelog_tmdb_key") || "";
+  const localOmdbKey = localStorage.getItem("cinelog_omdb_key") || localStorage.getItem("cinelog_imdb_key") || "";
   const showYear = show.release_year || (show.release_date ? show.release_date.split("-")[0] : "");
   const tmdbParam = show.tmdb_id ? `&tmdb_id=${show.tmdb_id}` : "";
   const yearParam = showYear ? `&year=${showYear}` : "";
@@ -431,8 +456,12 @@ async function fetchTrackerData(show) {
     apiFetch(detailFetchUrl).catch(() => ({ ok: false }))
   ]);
 
+  if (gen !== trackerGen) return null;
+
   if (metaRes && metaRes.ok) {
-    currentShowMeta = await metaRes.json();
+    const meta = await metaRes.json();
+    if (gen !== trackerGen) return null;
+    currentShowMeta = meta;
   }
 
   let detail = null;
@@ -568,10 +597,12 @@ async function fetchTrackerData(show) {
   }
 
   // Direct client fallback for episode metadata if empty
+  if (gen !== trackerGen) return null;
   if (Object.keys(currentShowMeta).length === 0 && localTmdbKey && show.tmdb_id) {
-    await ensureSeasonMeta(show.tmdb_id, selectedSeason);
+    await ensureSeasonMeta(show.tmdb_id, selectedSeason, gen);
   }
 
+  if (gen !== trackerGen) return null;
   renderSeasonTabs();
   renderSeasonEpisodes(false);
 
@@ -648,15 +679,17 @@ const showBadgesRow = document.getElementById("m3-ep-show-badges-row");
   }
 }
 
-async function ensureSeasonMeta(tmdbId, seasonNum) {
+async function ensureSeasonMeta(tmdbId, seasonNum, gen = trackerGen) {
   if (!tmdbId || !seasonNum) return;
   const localKey = localStorage.getItem("cinelog_tmdb_key");
   if (!localKey) return;
   try {
     const url = `https://api.themoviedb.org/3/tv/${tmdbId}/season/${seasonNum}?api_key=${localKey}&language=${getUserLanguage()}`;
     const res = await fetch(url);
+    if (gen !== trackerGen) return; // tracker przełączony na inny serial
     if (!res.ok) return;
     const data = await res.json();
+    if (gen !== trackerGen) return;
     (data.episodes || []).forEach(ep => {
       const eNum = ep.episode_number;
       if (eNum !== undefined) {
@@ -676,19 +709,47 @@ async function ensureSeasonMeta(tmdbId, seasonNum) {
   } catch (e) {}
 }
 
-function renderSeasonTabs() {
+/**
+ * Jedno źródło prawdy dla wyświetlania sezonu: licznik badge'u "(x/y)"
+ * i zakres renderowanych wierszy muszą się zgadzać (wcześniej dwie kopie
+ * logiki z różnym traktowaniem ep0 i rozszerzenia klienta +3).
+ */
+function getSeasonDisplayInfo(seasonNum) {
+  const watchedSet = new Set();
+  (selectedShow.episodes_watched || []).forEach(ep => {
+    if (ep.season === seasonNum) watchedSet.add(ep.episode);
+  });
+
+  const hasEp0 = watchedSet.has(0) || Boolean(currentShowMeta[`${seasonNum}_0`]);
+
+  let maxEpInSeason = 0;
+  Object.keys(currentShowMeta).forEach(key => {
+    const parts = key.split("_");
+    if (parseInt(parts[0], 10) === seasonNum) {
+      const epN = parseInt(parts[1], 10);
+      if (epN > maxEpInSeason) maxEpInSeason = epN;
+    }
+  });
+
+  const maxWatchedEp = watchedSet.size > 0 ? Math.max(...watchedSet) : 0;
+  let epCountToRender = Math.max(maxEpInSeason, maxWatchedEp, 1);
+  if (!maxEpInSeason && !state.backendAvailable) {
+    // Tryb klienta bez metadanych TMDb: pokaż kilka kolejnych odcinków,
+    // żeby dało się klikać w przód poza ostatnio obejrzany odcinek.
+    epCountToRender = Math.max(maxWatchedEp + 3, 1);
+  }
+
+  // mianownik badge'u = liczba renderowanych wierszy (0..N przy ep0, inaczej 1..N)
+  const totalEps = Math.max(epCountToRender + (hasEp0 ? 1 : 0), watchedSet.size);
+  return { watchedSet, hasEp0, epCountToRender, watchedInSeason: watchedSet.size, totalEps };
+}
+
+export function renderSeasonTabs() {
   const tabsContainer = document.getElementById("m3-season-tabs");
   if (!tabsContainer || !selectedShow) return;
   tabsContainer.innerHTML = "";
 
-  const watched = selectedShow.episodes_watched || [];
   const latestSeason = selectedShow.latest_season || 1;
-
-  const seasonMap = {};
-  watched.forEach(ep => {
-    if (!seasonMap[ep.season]) seasonMap[ep.season] = new Set();
-    seasonMap[ep.season].add(ep.episode);
-  });
 
   let totalSeasons = Math.max(latestSeason, 1);
   Object.keys(currentShowMeta).forEach(key => {
@@ -697,36 +758,18 @@ function renderSeasonTabs() {
   });
 
   for (let s = 1; s <= totalSeasons; s++) {
-    const watchedSet = seasonMap[s] || new Set();
-    const hasEp0 = watchedSet.has(0) || Boolean(currentShowMeta[`${s}_0`]);
-    const watchedInSeason = watchedSet.size;
-
-    let maxEpInSeason = 0;
-    Object.keys(currentShowMeta).forEach(key => {
-      const parts = key.split("_");
-      if (parseInt(parts[0]) === s) {
-        const epNum = parseInt(parts[1]);
-        if (epNum > maxEpInSeason) maxEpInSeason = epNum;
-      }
-    });
-
-    const maxWatchedInSeason = watchedSet.size > 0 ? Math.max(...watchedSet) : 0;
-    const finalMaxEp = Math.max(maxEpInSeason, maxWatchedInSeason, 1);
-    let totalEps = finalMaxEp;
-    if (hasEp0 && (watchedSet.has(0) || currentShowMeta[`${s}_0`])) {
-      totalEps = finalMaxEp + 1;
-    }
-    totalEps = Math.max(totalEps, watchedInSeason);
+    const info = getSeasonDisplayInfo(s);
 
     const tabBtn = document.createElement("button");
     tabBtn.className = `m3-season-tab ${s === selectedSeason ? 'active' : ''}`;
     tabBtn.id = `tab-season-${s}`;
     tabBtn.innerHTML = `
       <span>Sezon ${s}</span>
-      <span class="m3-season-tab-badge">(${watchedInSeason}/${totalEps})</span>
+      <span class="m3-season-tab-badge">(${info.watchedInSeason}/${info.totalEps})</span>
     `;
 
     tabBtn.addEventListener("click", async () => {
+      const gen = trackerGen;
       selectedSeason = s;
       document.querySelectorAll(".m3-season-tab").forEach(t => t.classList.remove("active"));
       tabBtn.classList.add("active");
@@ -735,6 +778,7 @@ function renderSeasonTabs() {
       const tid = selectedShow.tmdb_id;
       if (tid && !currentShowMeta[`${s}_1`]) {
         await ensureSeasonMeta(tid, s);
+        if (gen !== trackerGen) return; // w międzyczasie otwarto inny serial
         renderSeasonEpisodes(false);
       }
     });
@@ -755,29 +799,13 @@ function renderSeasonEpisodes(shouldScroll = true) {
   if (!container || !selectedShow) return;
   container.innerHTML = "";
 
-  const watched = selectedShow.episodes_watched || [];
   const latestSeason = selectedShow.latest_season || 1;
   const latestEpisode = selectedShow.latest_episode || 0;
 
-  const watchedInThisSeason = new Set();
-  watched.forEach(ep => {
-    if (ep.season === selectedSeason) {
-      watchedInThisSeason.add(ep.episode);
-    }
-  });
-
-  const hasEp0 = watchedInThisSeason.has(0) || Boolean(currentShowMeta[`${selectedSeason}_0`]);
-  let maxEpInSeason = 0;
-  Object.keys(currentShowMeta).forEach(key => {
-    const parts = key.split("_");
-    if (parseInt(parts[0]) === selectedSeason) {
-      const epNum = parseInt(parts[1]);
-      if (epNum > maxEpInSeason) maxEpInSeason = epNum;
-    }
-  });
-
-  const maxWatchedEp = watchedInThisSeason.size > 0 ? Math.max(...watchedInThisSeason) : 0;
-  const epCountToRender = Math.max(maxEpInSeason, maxWatchedEp, 1);
+  const info = getSeasonDisplayInfo(selectedSeason);
+  const watchedInThisSeason = info.watchedSet;
+  const hasEp0 = info.hasEp0;
+  const epCountToRender = info.epCountToRender;
   const startEp = hasEp0 ? 0 : 1;
 
   let targetElementId = null;
@@ -860,15 +888,26 @@ function renderSeasonEpisodes(shouldScroll = true) {
             episode: e,
             onAllSeasons: async () => {
               const batchList = [];
+              const seasonCounts = selectedShow.season_ep_counts || {};
               for (let s = 1; s < selectedSeason; s++) {
-                let seasonMax = 10;
+                // Długość sezonu z najlepszego dostępnego źródła: metadane TMDb ->
+                // licznik odcinków z importu (season_ep_counts) -> najwyższy
+                // obejrzany odcinek. Sztywna "10" tworzyła fantomowe odcinki
+                // E9/E10 w sezonach 8-odcinkowych (psuło watched_count i postęp).
+                let seasonMax = 0;
                 Object.keys(currentShowMeta).forEach(key => {
                   const parts = key.split("_");
-                  if (parseInt(parts[0]) === s) {
-                    const epN = parseInt(parts[1]);
+                  if (parseInt(parts[0], 10) === s) {
+                    const epN = parseInt(parts[1], 10);
                     if (epN > seasonMax) seasonMax = epN;
                   }
                 });
+                const imported = parseInt(seasonCounts[s], 10);
+                if (Number.isFinite(imported) && imported > seasonMax) seasonMax = imported;
+                (selectedShow.episodes_watched || []).forEach(ep => {
+                  if (ep.season === s && ep.episode > seasonMax) seasonMax = ep.episode;
+                });
+                if (seasonMax === 0) seasonMax = 1; // brak danych o sezonie — zaznacz tylko odcinek 1
                 for (let epN = 1; epN <= seasonMax; epN++) {
                   batchList.push({ season: s, episode: epN });
                 }
@@ -927,8 +966,56 @@ function renderSeasonEpisodes(shouldScroll = true) {
   }
 }
 
-async function toggleEpisodeWatch(season, episode) {
+// --- Lokalny zapis odcinków (tryb klienta / GitHub Pages / offline) ---
+// Odpowiednik logiki backendu z routes/shows.py: mutuje listę episodes_watched
+// i przelicza watched_count / latest_progress / latest_season / latest_episode
+// (wspólny helper recalculateShowProgress w state.js).
+
+function persistLocalEpisodes(show, mutateEps) {
+  const eps = show.episodes_watched ? [...show.episodes_watched] : [];
+  mutateEps(eps);
+  show.episodes_watched = eps;
+  // Przeliczenie watched_count / latest_* w jednym miejscu (state.js).
+  return recalculateShowProgress(show);
+}
+
+function refreshTrackerAfterEpisodeUpdate(updated) {
+  selectedShow = updated;
+  const idx = state.shows.findIndex(s => s.uuid === updated.uuid);
+  if (idx !== -1) state.shows[idx] = updated;
+
+  const progressText = updated.latest_progress ? `Postęp: ${updated.latest_progress} (${updated.watched_count} odcinków)` : "Brak obejrzanych odcinków";
+  const metaEl = document.getElementById("m3-ep-show-meta");
+  if (metaEl) metaEl.innerText = progressText;
+
+  renderSeasonTabs();
+  renderSeasonEpisodes(false);
+  updateStats();
+  renderShows();
+  saveLocalDatabase();
+}
+
+export async function toggleEpisodeWatch(season, episode) {
   if (!selectedShow) return;
+
+  if (!state.backendAvailable) {
+    persistLocalEpisodes(selectedShow, (eps) => {
+      const idx = eps.findIndex(e => e.season === season && e.episode === episode);
+      if (idx !== -1) {
+        eps.splice(idx, 1);
+      } else {
+        eps.push({
+          episode_id: generateUUID(),
+          season: season,
+          episode: episode,
+          created_at: localTimestamp()
+        });
+      }
+    });
+    refreshTrackerAfterEpisodeUpdate(selectedShow);
+    return;
+  }
+
   try {
     const res = await apiFetch(`/api/shows/${selectedShow.uuid}/episodes`, {
       method: "POST",
@@ -937,31 +1024,38 @@ async function toggleEpisodeWatch(season, episode) {
     });
     if (res.ok) {
       const updated = await res.json();
-      selectedShow = updated;
-      const idx = state.shows.findIndex(s => s.uuid === updated.uuid);
-      if (idx !== -1) state.shows[idx] = updated;
-
-      const progressText = updated.latest_progress ? `Postęp: ${updated.latest_progress} (${updated.watched_count} odcinków)` : "Brak obejrzanych odcinków";
-      document.getElementById("m3-ep-show-meta").innerText = progressText;
-
-      renderSeasonTabs();
-      renderSeasonEpisodes(false);
-      updateStats();
-      renderShows();
-      saveLocalDatabase();
-      // Backend sam oznacza serial obejrzany do końca — pytamy od razu po zapisie,
-      // żeby użytkownik nie musiał wychodzić z zakładki i wracać.
-      if (await syncShowsCompletion({ force: true })) {
-        renderShows();
-        updateStats();
-      }
+      refreshTrackerAfterEpisodeUpdate(updated);
+    } else {
+      console.warn(`Zapis odcinka nieudany (HTTP ${res.status}) dla ${selectedShow.uuid}`);
     }
-  } catch(e){
-    showToastNotification("Nie udało się zapisać odcinka na serwerze.", "error");
-  }
+  } catch(e){ console.warn("Zapis odcinka nieudany (sieć):", e); }
 }
 
-async function batchMarkEpisodes(showUuid, episodesList) {
+export async function batchMarkEpisodes(showUuid, episodesList) {
+  if (!state.backendAvailable) {
+    const show = state.shows.find(s => s && s.uuid === showUuid) || selectedShow;
+    if (!show) return;
+    persistLocalEpisodes(show, (eps) => {
+      const existing = new Set(eps.map(e => `${e.season}_${e.episode}`));
+      episodesList.forEach(item => {
+        const sNum = parseInt(item.season, 10) || 0;
+        const eNum = parseInt(item.episode, 10) || 0;
+        const key = `${sNum}_${eNum}`;
+        if (!existing.has(key)) {
+          eps.push({
+            episode_id: generateUUID(),
+            season: sNum,
+            episode: eNum,
+            created_at: localTimestamp()
+          });
+          existing.add(key);
+        }
+      });
+    });
+    refreshTrackerAfterEpisodeUpdate(show);
+    return;
+  }
+
   try {
     const res = await apiFetch(`/api/shows/${showUuid}/batch_episodes`, {
       method: "POST",
@@ -970,24 +1064,18 @@ async function batchMarkEpisodes(showUuid, episodesList) {
     });
     if (res.ok) {
       const updated = await res.json();
-      selectedShow = updated;
-      const idx = state.shows.findIndex(s => s.uuid === updated.uuid);
-      if (idx !== -1) state.shows[idx] = updated;
+      refreshTrackerAfterEpisodeUpdate(updated);
 
-      const progressText = updated.latest_progress ? `Postęp: ${updated.latest_progress} (${updated.watched_count} odcinków)` : "Brak obejrzanych odcinków";
-      document.getElementById("m3-ep-show-meta").innerText = progressText;
-
-      renderSeasonTabs();
-      renderSeasonEpisodes(false);
-      updateStats();
-      renderShows();
-      saveLocalDatabase();
+      // Po zapisie wsadowym dociągamy postęp z backendu (jedno źródło prawdy).
       if (await syncShowsCompletion({ force: true })) {
         renderShows();
         updateStats();
       }
+    } else {
+      console.warn(`Zapis wsadowy nieudany (HTTP ${res.status}) dla ${showUuid}`);
     }
   } catch(e){
+    // Zapis padł (sieć / backend): mówimy o tym wprost, a nie tylko w konsoli.
     showToastNotification("Nie udało się zapisać odcinków na serwerze.", "error");
   }
 }

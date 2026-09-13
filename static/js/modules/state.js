@@ -130,7 +130,7 @@ export function tmdbIdOf(value) {
  * klucze nie trafiają wtedy do query stringów i logów serwera.
  * @returns {Record<string, string>}
  */
-function getKeyHeaders() {
+export function getKeyHeaders() {
   const headers = {};
   const tmdbKey = localStorage.getItem("cinelog_tmdb_key");
   if (tmdbKey) headers["X-TMDB-Key"] = tmdbKey;
@@ -449,6 +449,109 @@ export function zapiszKopieBazy(zrodlo = "") {
 }
 
 /**
+ * Znacznik czasu w LOKALNYM czasie przeglądarki, w formacie spójnym z
+ * backendem ("YYYY-MM-DD HH:MM:SS"). toISOString() zwraca UTC — wieczorem/
+ * nocą dawałoby datę wsteczną o jeden dzień względem lokalnej.
+ * @returns {string}
+ */
+export function localTimestamp() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+/**
+ * Jedyne miejsce w frontendzie przeliczające pola postępu serialu na podstawie
+ * episodes_watched (reguła 1:1 z routes/shows.py). Używane przez tracker
+ * (shows.js) i scalanie Drive (drive_sync.js).
+ * @param {object} show obiekt serialu (mutowany w miejscu)
+ * @returns {object} ten sam serial z przeliczonymi watched_count / latest_*
+ */
+export function recalculateShowProgress(show) {
+  const eps = show.episodes_watched ? [...show.episodes_watched] : [];
+  eps.sort((a, b) => (a.season || 0) - (b.season || 0) || (a.episode || 0) - (b.episode || 0));
+  show.episodes_watched = eps;
+  show.watched_count = eps.length;
+  if (eps.length > 0) {
+    const highestS = Math.max(...eps.map(e => e.season || 0));
+    const highestE = Math.max(...eps.filter(e => (e.season || 0) === highestS).map(e => e.episode || 0));
+    show.latest_progress = `S${String(highestS).padStart(2, "0")}E${String(highestE).padStart(2, "0")}`;
+    show.latest_season = highestS;
+    show.latest_episode = highestE;
+  } else {
+    show.latest_progress = null;
+    show.latest_season = 0;
+    show.latest_episode = 0;
+  }
+  return show;
+}
+
+/**
+ * Buduje lokalny wpis biblioteki (film/serial) z danych podglądu TMDb —
+ * używany jako fallback zapisu w trybie klienta / GitHub Pages (bez backendu).
+ * Kształt pól jest spójny z buildLocalMovie / buildLocalShow z search.js.
+ * @param {object} previewData dane podglądu (title, tmdb_id/id, poster_url, ...)
+ * @param {"movie"|"series"} type
+ * @param {string} [status]
+ * @param {number|null} [rating]
+ * @param {Array} [episodesList] lista {season, episode} dla seriali
+ * @returns {object}
+ */
+export function buildLocalLibraryEntry(previewData, type, status = "watchlist", rating = null, episodesList = []) {
+  const entry = {
+    uuid: `${type}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    title: previewData.title,
+    original_title: previewData.original_title || previewData.title,
+    year: previewData.year || "",
+    genre: previewData.genre || "",
+    plot: previewData.plot || "",
+    poster_url: previewData.poster_url || "",
+    status: status || "watchlist",
+    rating: rating ?? null,
+    tmdb_id: previewData.tmdb_id || previewData.id,
+    imdb_id: previewData.imdb_id || "",
+    is_favorite: false,
+    user_date: localTimestamp().slice(0, 10)
+  };
+  if (type === "series" || type === "tv") {
+    entry.total_seasons = previewData.total_seasons || 1;
+    entry.total_episodes = previewData.total_episodes || 0;
+    entry.season_ep_counts = previewData.season_ep_counts || {};
+    entry.episodes_watched = episodesList;
+  } else {
+    entry.director = previewData.director || "";
+    entry.cast = previewData.cast || "";
+    entry.runtime = previewData.runtime || "";
+    entry.release_date = previewData.release_date || (previewData.year ? `${previewData.year}-01-01` : null);
+  }
+  return entry;
+}
+
+// Ostatni czas pokazania toastu o przekroczeniu kwoty localStorage —
+// throttling, żeby seria zapisów nie spamowała użytkownika powiadomieniami.
+let lastQuotaToastAt = 0;
+
+function isQuotaError(err) {
+  if (!err) return false;
+  return err.name === "QuotaExceededError"
+    || err.code === 22
+    || (typeof err.message === "string" && /quota|exceed/i.test(err.message));
+}
+
+function showStorageQuotaWarning() {
+  const now = Date.now();
+  if (now - lastQuotaToastAt < 60_000) return;
+  lastQuotaToastAt = now;
+  console.error("🛑 localStorage quota exceeded — baza nie została zapisana w przeglądarce.");
+  if (typeof window !== "undefined" && typeof window.showToastNotification === "function") {
+    window.showToastNotification(
+      "🛑 Brak miejsca w pamięci przeglądarki — zmiany NIE zostały zapisane! Zrób kopię (Chmura → Drive / eksport JSON) i usuń część pozycji.",
+      "error"
+    );
+  }
+}
+
+/**
  * Zwraca kopię bazy użytkownika (sprzed ostatniego nadpisania) albo null.
  * @returns {{movies: object[], shows: object[], saved_at?: string, source?: string}|null}
  */
@@ -496,14 +599,18 @@ export function saveLocalDatabase(skipCloudSync = false) {
       updated_at: new Date().toISOString()
     }));
   } catch (e) {
-    console.warn("Nie udało się zapisać bazy do localStorage:", e);
+    if (isQuotaError(e)) {
+      showStorageQuotaWarning();
+    } else {
+      console.warn("Nie udało się zapisać bazy do localStorage:", e);
+    }
   }
   syncWindowAliases();
-  
-  // 🛡️ CRITICAL GUARD: auto-sync do Drive tylko dla bazy UŻYTKOWNIKA (tryb klienta).
+  // 🛡️ CRITICAL GUARD: auto-sync do Drive tylko dla bazy UŻYTKOWNIKA w trybie klienta.
   // Bez tego warunku jedna edycja w trybie serwera wypychała do chmury bazę serwera,
-  // nadpisując bibliotekę użytkownika na Dysku.
-  if (!skipCloudSync && getActiveEnvMode() === "client" && window.googleDriveSync && window.googleDriveSync.isAuthorized()) {
+  // nadpisując bibliotekę użytkownika na Dysku. Baza oznaczona jako demo też nie jedzie
+  // do chmury (drugi guard, niezależny od trybu).
+  if (!skipCloudSync && getActiveEnvMode() === "client" && !isUserDatabaseDemo() && window.googleDriveSync && window.googleDriveSync.isAuthorized()) {
     window.googleDriveSync.triggerAutoSave(state.movies, state.shows);
   }
 }

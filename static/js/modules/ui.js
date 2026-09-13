@@ -238,6 +238,25 @@ export function updateEnvStatusModalContent(isBackendAvailable) {
   const toggleText = document.getElementById("m3-env-toggle-text");
   const guideBox = document.getElementById("m3-env-key-guide-box");
 
+  // Raport rozmiaru bazy w localStorage — diagnostyka zbliżania się do kwoty (~5 MB na origin).
+  const dbSizeEl = document.getElementById("m3-env-db-size");
+  if (dbSizeEl) {
+    const sizeSpan = dbSizeEl.querySelector("span:last-child");
+    try {
+      const raw = localStorage.getItem("cinelog_database") || "";
+      const bytes = raw.length * 2; // localStorage liczy znaki jako UTF-16
+      const quotaBytes = 5 * 1024 * 1024;
+      const pct = Math.min(100, Math.round((bytes / quotaBytes) * 100));
+      const fmt = (b) => b >= 1024 * 1024 ? `${(b / (1024 * 1024)).toFixed(2)} MB` : `${Math.max(1, Math.round(b / 1024))} kB`;
+      if (sizeSpan) {
+        const warnColor = pct >= 80 ? "var(--md-sys-color-error)" : (pct >= 50 ? "#f59e0b" : "inherit");
+        sizeSpan.innerHTML = `Baza w localStorage: <strong style="color: ${warnColor};">${fmt(bytes)}</strong> z ~5 MB limitu przeglądarki (${pct}%)`;
+      }
+    } catch (e) {
+      if (sizeSpan) sizeSpan.innerText = "Rozmiar bazy: brak danych";
+    }
+  }
+
   const versionEl = document.getElementById("m3-app-version");
   if (versionEl) {
     let version = "";
@@ -375,6 +394,8 @@ export function updateEnvStatusModalContent(isBackendAvailable) {
 }
 
 export function openEnvStatusModal() {
+  // Odśwież treść (m.in. pomiar rozmiaru bazy) przy każdym otwarciu modala.
+  updateEnvStatusModalContent(state.backendAvailable);
   openModal("m3-sheet-env-status");
 }
 
@@ -508,6 +529,11 @@ export async function runSearchDiagnostics() {
     SEARCH_DIAG_ERROR_BUFFER.slice(-4).forEach((msg) => diagLine(output, `   • ${msg.slice(0, 140)}`));
   } else {
     diagLine(output, "8. Złapane błędy JS: brak");
+  }
+
+  if (typeof window.__cinelogDiagnoseSearchFlow === "function") {
+    diagLine(output, "--- Symulacja pełnego przepływu ---");
+    await window.__cinelogDiagnoseSearchFlow("Kiedy nikt nie patrzy");
   }
 }
 
