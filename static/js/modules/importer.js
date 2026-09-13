@@ -395,7 +395,7 @@ function renderImportPreview() {
       row.style.cssText = "display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: var(--md-sys-color-surface-container); border-radius: 8px; font-size: 0.78rem; gap: 8px;";
       
       const starHtml = item.rating 
-        ? `<span style="color: var(--md-sys-color-primary); font-weight: 700;">★ ${item.rating}/10</span>` 
+        ? `<span style="color: var(--md-sys-color-primary); font-weight: 700;">★ ${escapeHtml(item.rating)}/10</span>` 
         : `<span style="color: var(--md-sys-color-outline-variant);">Brak oceny</span>`;
 
       const dupBadge = item._isDuplicate 

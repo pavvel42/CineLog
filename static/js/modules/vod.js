@@ -2,7 +2,7 @@
 // CineLog - VOD Watch Providers & Region Settings Module
 // ==========================================================================
 
-import { state, tmdbIdOf, apiFetch } from './state.js';
+import { state, tmdbIdOf, apiFetch, escapeHtml, safeUrl } from './state.js';
 import { showToastNotification } from './ui.js';
 
 export const TMDB_GLOBAL_VOD_MAP = {
@@ -648,7 +648,7 @@ function renderVodSubscriptionsChecklist(country) {
     catBlock.innerHTML = `
       <div style="font-size: 0.75rem; font-weight: 700; color: var(--md-sys-color-primary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
         <span class="material-symbols-rounded" style="font-size: 16px;">category</span>
-        <span>${cat.name}</span>
+        <span>${escapeHtml(cat.name)}</span>
       </div>
       <div class="m3-vod-cat-grid"></div>
     `;
@@ -662,17 +662,17 @@ function renderVodSubscriptionsChecklist(country) {
       const fallbackBadge = `<span class="m3-vod-badge-fallback" style="background-color: ${item.color || 'var(--md-sys-color-primary)'}; color: #fff; font-size: 0.62rem; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 4px;">${monogram}</span>`;
 
       const logoHtml = item.logo 
-        ? `<img src="${item.logo}" alt="${item.label}" class="m3-vod-item-logo" data-fallback-display="inline-flex"><span style="display: none;">${fallbackBadge}</span>`
+        ? `<img src="${escapeHtml(safeUrl(item.logo))}" alt="${escapeHtml(item.label)}" class="m3-vod-item-logo" data-fallback-display="inline-flex"><span style="display: none;">${fallbackBadge}</span>`
         : fallbackBadge;
 
       label.innerHTML = `
-        <input type="checkbox" value="${item.value}" ${isChecked ? 'checked' : ''} style="display: none;">
+        <input type="checkbox" value="${escapeHtml(item.value)}" ${isChecked ? 'checked' : ''} style="display: none;">
         <span class="material-symbols-rounded m3-vod-item-check" style="font-size: 20px; color: ${isChecked ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-outline-variant)'}; flex-shrink: 0;">
           ${isChecked ? 'check_box' : 'check_box_outline_blank'}
         </span>
         <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex-grow: 1;">
           ${logoHtml}
-          <span style="font-size: 0.82rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.label}</span>
+          <span style="font-size: 0.82rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.label)}</span>
         </div>
       `;
 

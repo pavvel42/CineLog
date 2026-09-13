@@ -2,7 +2,7 @@
 // CineLog - Cast, Crew & Actor Profile Explorer Module
 // ==========================================================================
 
-import { state, getGradientForTitle, isItemInLibrary, saveLocalDatabase, apiFetch, buildLocalLibraryEntry, getActiveEnvMode } from './state.js';
+import { state, getGradientForTitle, isItemInLibrary, saveLocalDatabase, escapeHtml, safeUrl, apiFetch, buildLocalLibraryEntry, getActiveEnvMode } from './state.js';
 import { showToastNotification } from './ui.js';
 import { getUserLanguage } from './vod.js';
 
@@ -89,15 +89,15 @@ export function renderCastRail(containerId, castList = [], directorsList = []) {
     card.title = `${p.name} (${combinedRole})`;
 
     const photoHtml = p.profile_url
-      ? `<img src="${p.profile_url}" alt="${p.name}" loading="lazy" data-fallback-display="flex"><div class="m3-cast-photo-fallback" style="display: none;"><span class="material-symbols-rounded" style="font-size: 24px; opacity: 0.85;">person</span></div>`
+      ? `<img src="${escapeHtml(safeUrl(p.profile_url))}" alt="${escapeHtml(p.name)}" loading="lazy" data-fallback-display="flex"><div class="m3-cast-photo-fallback" style="display: none;"><span class="material-symbols-rounded" style="font-size: 24px; opacity: 0.85;">person</span></div>`
       : `<div class="m3-cast-photo-fallback"><span class="material-symbols-rounded" style="font-size: 24px; opacity: 0.85;">person</span></div>`;
 
     card.innerHTML = `
       <div class="m3-cast-photo-box">
         ${photoHtml}
       </div>
-      <div class="m3-cast-name">${p.name}</div>
-      <div class="m3-cast-character" style="${p.isCrew ? 'color: var(--md-sys-color-primary); font-weight: 600;' : ''}">${combinedRole}</div>
+      <div class="m3-cast-name">${escapeHtml(p.name)}</div>
+      <div class="m3-cast-character" style="${p.isCrew ? 'color: var(--md-sys-color-primary); font-weight: 600;' : ''}">${escapeHtml(combinedRole)}</div>
     `;
 
     card.addEventListener("click", (e) => {
@@ -302,9 +302,9 @@ function buildActorRecommendationCard(rec) {
   card.className = "m3-actor-item-card";
   const posterSrc = rec.poster_url || "";
   card.innerHTML = `
-    ${posterSrc ? `<img src="${posterSrc}" alt="${rec.title}" class="m3-actor-item-poster" loading="lazy" data-fallback-display="flex"><div class="m3-actor-item-poster" style="display: none; align-items: center; justify-content: center; background: ${getGradientForTitle(rec.title)}; color: #fff; font-weight: 700; font-size: 0.75rem; text-align: center; padding: 4px;">${rec.title}</div>` : `<div class="m3-actor-item-poster" style="display: flex; align-items: center; justify-content: center; background: ${getGradientForTitle(rec.title)}; color: #fff; font-weight: 700; font-size: 0.75rem; text-align: center; padding: 4px;">${rec.title}</div>`}
+    ${posterSrc ? `<img src="${escapeHtml(safeUrl(posterSrc))}" alt="${escapeHtml(rec.title)}" class="m3-actor-item-poster" loading="lazy" data-fallback-display="flex"><div class="m3-actor-item-poster" style="display: none; align-items: center; justify-content: center; background: ${getGradientForTitle(rec.title)}; color: #fff; font-weight: 700; font-size: 0.75rem; text-align: center; padding: 4px;">${escapeHtml(rec.title)}</div>` : `<div class="m3-actor-item-poster" style="display: flex; align-items: center; justify-content: center; background: ${getGradientForTitle(rec.title)}; color: #fff; font-weight: 700; font-size: 0.75rem; text-align: center; padding: 4px;">${escapeHtml(rec.title)}</div>`}
     <div class="m3-actor-item-body">
-      <div class="m3-actor-item-title">${rec.title}</div>
+      <div class="m3-actor-item-title">${escapeHtml(rec.title)}</div>
       <div class="m3-actor-item-meta">
         <span>${rec.year || ''}</span>
         ${rec.vote_average ? `<span style="font-weight: 700; color: #f59e0b; display: inline-flex; align-items: center; gap: 2px;">★ ${rec.vote_average}</span>` : ''}
@@ -430,12 +430,12 @@ function createActorLibCard(item) {
     : "Do obejrzenia";
 
   card.innerHTML = `
-    ${posterSrc ? `<img src="${posterSrc}" alt="${item.title}" class="m3-actor-item-poster" loading="lazy" data-fallback-display="flex"><div class="m3-actor-item-poster" style="display: none; align-items: center; justify-content: center; background: ${getGradientForTitle(item.title)}; color: #fff; font-weight: 700; font-size: 0.75rem; text-align: center; padding: 4px;">${item.title}</div>` : `<div class="m3-actor-item-poster" style="display: flex; align-items: center; justify-content: center; background: ${getGradientForTitle(item.title)}; color: #fff; font-weight: 700; font-size: 0.75rem; text-align: center; padding: 4px;">${item.title}</div>`}
+    ${posterSrc ? `<img src="${escapeHtml(safeUrl(posterSrc))}" alt="${escapeHtml(item.title)}" class="m3-actor-item-poster" loading="lazy" data-fallback-display="flex"><div class="m3-actor-item-poster" style="display: none; align-items: center; justify-content: center; background: ${getGradientForTitle(item.title)}; color: #fff; font-weight: 700; font-size: 0.75rem; text-align: center; padding: 4px;">${escapeHtml(item.title)}</div>` : `<div class="m3-actor-item-poster" style="display: flex; align-items: center; justify-content: center; background: ${getGradientForTitle(item.title)}; color: #fff; font-weight: 700; font-size: 0.75rem; text-align: center; padding: 4px;">${escapeHtml(item.title)}</div>`}
     <div class="m3-actor-item-body">
-      <div class="m3-actor-item-title">${item.title}</div>
+      <div class="m3-actor-item-title">${escapeHtml(item.title)}</div>
       <div class="m3-actor-item-meta">
         <span>${item.release_date ? item.release_date.split("-")[0] : (item.release_year || '')}</span>
-        <span style="font-weight: 700; color: var(--md-sys-color-primary);">${statusLabel}</span>
+        <span style="font-weight: 700; color: var(--md-sys-color-primary);">${escapeHtml(statusLabel)}</span>
       </div>
     </div>
   `;

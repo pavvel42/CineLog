@@ -17,8 +17,9 @@
     "test:e2e": "playwright test",
     "check:types": "python3 -m mypy && python3 -m pyflakes services routes scripts app.py run.py tests/",
     "check:frontend": "python3 scripts/check_frontend.py",
+    "check:xss": "python3 scripts/check_xss.py",
     "check:data": "python3 scripts/check_data_sync.py",
-    "verify": "npm run test:unit && npm run check:types && npm run check:data && npm run check:frontend && npm run test:e2e"
+    "verify": "npm run test:unit && npm run check:types && npm run check:data && npm run check:frontend && npm run check:xss && npm run test:e2e"
   },
   "repository": {
     "type": "git",

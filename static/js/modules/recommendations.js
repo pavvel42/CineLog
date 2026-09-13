@@ -1,4 +1,4 @@
-import { state, isItemInLibrary, saveLocalDatabase, getGradientForTitle, escapeHtml, apiFetch, buildLocalLibraryEntry, getActiveEnvMode } from './state.js';
+import { state, isItemInLibrary, saveLocalDatabase, getGradientForTitle, escapeHtml, safeUrl, apiFetch, buildLocalLibraryEntry, getActiveEnvMode } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, TMDB_GLOBAL_VOD_MAP, getCountryDisplayName } from './vod.js';
@@ -146,17 +146,17 @@ async function spinRoulette() {
   resultContainer.innerHTML = `
     <div class="m3-roulette-result-card">
       <div style="width: 85px; min-width: 85px; height: 120px; border-radius: 10px; overflow: hidden; background: #000; flex-shrink: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-        <img src="${poster}" alt="${title}" style="width: 100%; height: 100%; object-fit: cover;">
+        <img src="${escapeHtml(safeUrl(poster))}" alt="${escapeHtml(title)}" style="width: 100%; height: 100%; object-fit: cover;">
       </div>
       <div style="display: flex; flex-direction: column; gap: 6px; flex-grow: 1; min-width: 0;">
         <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
           <span class="m3-meta-badge highlight" style="font-size: 0.7rem;">${isMovie ? '🎬 FILM' : '📺 SERIAL'}</span>
-          ${year ? `<span style="font-size: 0.78rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant);">${year}</span>` : ''}
-          <span style="font-size: 0.78rem; font-weight: 700; color: #f59e0b;">★ ${rating}</span>
+          ${year ? `<span style="font-size: 0.78rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant);">${escapeHtml(year)}</span>` : ''}
+          <span style="font-size: 0.78rem; font-weight: 700; color: #f59e0b;">★ ${escapeHtml(rating)}</span>
         </div>
-        <h3 style="font-size: 1.05rem; font-weight: 800; margin: 0; color: var(--md-sys-color-on-surface);">${title}</h3>
+        <h3 style="font-size: 1.05rem; font-weight: 800; margin: 0; color: var(--md-sys-color-on-surface);">${escapeHtml(title)}</h3>
         <p style="font-size: 0.78rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 0;">
-          ${picked.overview || picked.plot || "Znakomity wybór na seans!"}
+          ${escapeHtml(picked.overview || picked.plot || "Znakomity wybór na seans!")}
         </p>
         <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px; flex-wrap: wrap;">
           ${!inLibrary ? `
@@ -196,18 +196,18 @@ function createRecommendationCard(item, matchPct = 96) {
 
   card.innerHTML = `
     <div class="m3-rec-poster-box">
-      <img src="${poster}" alt="${title}" loading="lazy">
+      <img src="${escapeHtml(safeUrl(poster))}" alt="${escapeHtml(title)}" loading="lazy">
       <span class="m3-rec-match-badge">${matchPct}% Zgodności</span>
       <button type="button" class="m3-rec-quick-add" title="Dodaj do Planowanych">
         <span class="material-symbols-rounded" style="font-size: 20px;">bookmark_add</span>
       </button>
     </div>
     <div class="m3-rec-info">
-      <h4 class="m3-rec-title" title="${title}">${title}</h4>
+      <h4 class="m3-rec-title" title="${escapeHtml(title)}">${escapeHtml(title)}</h4>
       <div class="m3-rec-meta">
-        ${year ? `<span>${year}</span>` : ''}
+        ${year ? `<span>${escapeHtml(year)}</span>` : ''}
         <span>•</span>
-        <span class="m3-rec-rating-badge"><span class="material-symbols-rounded" style="font-size: 13px;">star</span> ${rating}</span>
+        <span class="m3-rec-rating-badge"><span class="material-symbols-rounded" style="font-size: 13px;">star</span> ${escapeHtml(rating)}</span>
       </div>
     </div>
   `;
@@ -331,8 +331,8 @@ export async function renderPreviewVod(title, mediaType, tmdbId = null) {
       uniqueAll.slice(0, 10).forEach(p => {
         const badge = document.createElement("div");
         badge.className = "m3-preview-vod-badge";
-        const logoImg = p.logo ? `<img src="${p.logo}" alt="${p.name}">` : '';
-        badge.innerHTML = `${logoImg}<span>${p.name}</span>`;
+        const logoImg = p.logo ? `<img src="${escapeHtml(safeUrl(p.logo))}" alt="${escapeHtml(p.name)}">` : '';
+        badge.innerHTML = `${logoImg}<span>${escapeHtml(p.name)}</span>`;
         listEl.appendChild(badge);
       });
     }
@@ -384,9 +384,9 @@ function buildCarouselSection(title, subtitle, iconName, items) {
     <div>
       <h3 class="m3-carousel-title">
         <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 22px;">${iconName}</span>
-        ${title}
+        ${escapeHtml(title)}
       </h3>
-      ${subtitle ? `<div class="m3-carousel-subtitle">${subtitle}</div>` : ''}
+      ${subtitle ? `<div class="m3-carousel-subtitle">${escapeHtml(subtitle)}</div>` : ''}
     </div>
   `;
 
@@ -448,14 +448,14 @@ async function renderAiMediaCards(containerEl, fullText) {
     html += `
       <div class="m3-ai-media-mini-card" data-card-idx="${index}" data-tmdb-id="${item.tmdb_id || item.id || ''}" style="flex: 0 0 115px; width: 115px; background: var(--md-sys-color-surface-container); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; overflow: hidden; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; display: flex; flex-direction: column;">
         <div style="width: 100%; height: 145px; position: relative; background: ${gradient};">
-          ${poster ? `<img src="${poster}" alt="${title}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover;">` : `<div style="display:flex; height:100%; align-items:center; justify-content:center; padding:6px; font-size:0.7rem; font-weight:700; text-align:center; color:#fff;">${title}</div>`}
-          ${rating ? `<span style="position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.75); color: #fbbf24; font-size: 0.68rem; font-weight: 800; padding: 1px 5px; border-radius: 6px;">${rating}</span>` : ''}
+          ${poster ? `<img src="${escapeHtml(safeUrl(poster))}" alt="${escapeHtml(title)}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover;">` : `<div style="display:flex; height:100%; align-items:center; justify-content:center; padding:6px; font-size:0.7rem; font-weight:700; text-align:center; color:#fff;">${escapeHtml(title)}</div>`}
+          ${rating ? `<span style="position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.75); color: #fbbf24; font-size: 0.68rem; font-weight: 800; padding: 1px 5px; border-radius: 6px;">${escapeHtml(rating)}</span>` : ''}
           <span style="position: absolute; top: 4px; left: 4px; background: rgba(0,0,0,0.75); color: #e2e8f0; font-size: 0.62rem; font-weight: 700; padding: 1px 4px; border-radius: 4px;">${isMovie ? 'Film' : 'Serial'}</span>
           ${statusBadge}
         </div>
         <div style="padding: 6px; display: flex; flex-direction: column; gap: 2px;">
-          <div style="font-size: 0.75rem; font-weight: 700; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${title}">${title}</div>
-          <div style="font-size: 0.65rem; color: var(--md-sys-color-on-surface-variant);">${year || (isMovie ? 'Film' : 'Serial')}</div>
+          <div style="font-size: 0.75rem; font-weight: 700; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(title)}">${escapeHtml(title)}</div>
+          <div style="font-size: 0.65rem; color: var(--md-sys-color-on-surface-variant);">${escapeHtml(year) || (isMovie ? 'Film' : 'Serial')}</div>
         </div>
       </div>
     `;

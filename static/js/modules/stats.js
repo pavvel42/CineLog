@@ -2,7 +2,7 @@
 // CineLog - Analytics & Statistics Module
 // ==========================================================================
 
-import { state, formatWatchTimeMinutes, getGradientForTitle, saveLocalDatabase, generateUUID, normalizeTitleForLibrary } from './state.js';
+import { state, formatWatchTimeMinutes, getGradientForTitle, saveLocalDatabase, generateUUID, normalizeTitleForLibrary, escapeHtml, safeUrl } from './state.js';
 import { showToastNotification } from './ui.js';
 import { openMovieDetail, renderMovies } from './movies.js';
 import { TOP_DIRECTORS_CATALOG } from './directors_data.js';
@@ -593,9 +593,9 @@ function renderDirectorMasteryBadges() {
 
     card.innerHTML = `
       <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
-        <img src="${dir.avatar}" alt="${dir.name}" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid ${dir.badgeColor}; flex-shrink: 0; background: var(--md-sys-color-surface-container-highest);" data-fallback-src="static/icons/favicon.png">
+        <img src="${escapeHtml(safeUrl(dir.avatar))}" alt="${escapeHtml(dir.name)}" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid ${dir.badgeColor}; flex-shrink: 0; background: var(--md-sys-color-surface-container-highest);" data-fallback-src="static/icons/favicon.png">
         <div style="min-width: 0;">
-          <div style="font-weight: 700; font-size: 0.86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${dir.name}</div>
+          <div style="font-weight: 700; font-size: 0.86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(dir.name)}</div>
           <div style="font-size: 0.72rem; color: ${dir.badgeColor}; font-weight: 600;">${dir.badgeRank}</div>
         </div>
       </div>
@@ -750,7 +750,7 @@ function buildDirectorMovieCard(item, dir, activeTab) {
   itemCard.innerHTML = `
     ${buildDirectorPosterHtml(item)}
     <div style="padding: 6px 8px 0 8px;">
-      <div style="font-weight: 700; font-size: 0.78rem; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;" title="${item.title}">${item.title}</div>
+      <div style="font-weight: 700; font-size: 0.78rem; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
       <div style="font-size: 0.68rem; color: var(--md-sys-color-on-surface-variant); margin-top: 2px;">${item.year || ''}</div>
     </div>
     ${buildDirectorFooterHtml(item)}

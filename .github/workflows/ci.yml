@@ -70,6 +70,9 @@ jobs:
       - name: Static frontend checks (inline handlers, dead ids, unused imports)
         run: python scripts/check_frontend.py
 
+      - name: Static XSS checks (unescaped HTML injections)
+        run: python scripts/check_xss.py
+
       - name: Verify demo data mirrors are in sync (data/ vs static/data/)
         run: python scripts/check_data_sync.py
 

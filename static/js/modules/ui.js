@@ -2,7 +2,7 @@
 // CineLog - UI, Theming, Navigation & Modals Module
 // ==========================================================================
 
-import { state, isUserDatabaseDemo, getActiveEnvMode, fetchWithTimeout } from './state.js';
+import { state, isUserDatabaseDemo, getActiveEnvMode, fetchWithTimeout, escapeHtml } from './state.js';
 
 function hexToHsl(hex) {
   if (!hex || typeof hex !== "string") hex = "#9333ea";
@@ -105,7 +105,7 @@ export function showToastNotification(message, type = "success") {
 
   toast.innerHTML = `
     <span class="material-symbols-rounded m3-toast-icon" style="color: ${iconColor};">${iconName}</span>
-    <span class="m3-toast-message">${message}</span>
+    <span class="m3-toast-message">${escapeHtml(message)}</span>
   `;
 
   toast.classList.remove("show");
@@ -430,11 +430,11 @@ export function showM3ConfirmDialog({
         <div style="width: 48px; height: 48px; border-radius: 14px; background: ${iconBg}; color: ${iconFg}; display: flex; align-items: center; justify-content: center; margin-bottom: 14px;">
           <span class="material-symbols-rounded" style="font-size: 26px;">${icon}</span>
         </div>
-        <h3 class="m3-dialog-title">${title}</h3>
-        <div class="m3-dialog-message">${message}</div>
+        <h3 class="m3-dialog-title">${escapeHtml(title)}</h3>
+        <div class="m3-dialog-message">${escapeHtml(message)}</div>
         <div class="m3-dialog-actions">
-          <button type="button" class="m3-chip" id="m3-dialog-btn-cancel" style="padding: 10px 18px; font-weight: 700; border-radius: var(--md-corner-full);">${cancelText}</button>
-          <button type="button" class="m3-btn-action-primary" id="m3-dialog-btn-confirm" style="background: ${confirmBtnBg}; color: ${confirmBtnFg}; padding: 10px 22px; font-weight: 700; border-radius: var(--md-corner-full);">${confirmText}</button>
+          <button type="button" class="m3-chip" id="m3-dialog-btn-cancel" style="padding: 10px 18px; font-weight: 700; border-radius: var(--md-corner-full);">${escapeHtml(cancelText)}</button>
+          <button type="button" class="m3-btn-action-primary" id="m3-dialog-btn-confirm" style="background: ${confirmBtnBg}; color: ${confirmBtnFg}; padding: 10px 22px; font-weight: 700; border-radius: var(--md-corner-full);">${escapeHtml(confirmText)}</button>
         </div>
       </div>
     `;

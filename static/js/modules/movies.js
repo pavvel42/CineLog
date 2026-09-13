@@ -583,8 +583,8 @@ function renderMovieVodResults(vodData, refs) {
       badge.className = "m3-vod-logo-badge";
       badge.title = p.name;
       badge.innerHTML = `
-        ${p.logo_url ? `<img src="${p.logo_url}" alt="${p.name}">` : `<span class="material-symbols-rounded" style="font-size: 18px;">movie</span>`}
-        <span>${p.name}</span>
+        ${p.logo_url ? `<img src="${escapeHtml(safeUrl(p.logo_url))}" alt="${escapeHtml(p.name)}">` : `<span class="material-symbols-rounded" style="font-size: 18px;">movie</span>`}
+        <span>${escapeHtml(p.name)}</span>
       `;
       cont.appendChild(badge);
     });
@@ -902,19 +902,19 @@ export async function openRematchPicker(item, itemType = "movie") {
 
         card.innerHTML = `
           <div class="m3-rematch-poster">
-            ${pUrl ? `<img src="${pUrl}" alt="${it.title}" loading="lazy">` : `<span class="material-symbols-rounded" style="font-size: 26px; color: var(--md-sys-color-on-surface-variant);">${itemType === 'series' ? 'tv' : 'movie'}</span>`}
+            ${pUrl ? `<img src="${escapeHtml(safeUrl(pUrl))}" alt="${escapeHtml(it.title)}" loading="lazy">` : `<span class="material-symbols-rounded" style="font-size: 26px; color: var(--md-sys-color-on-surface-variant);">${itemType === 'series' ? 'tv' : 'movie'}</span>`}
           </div>
           <div class="m3-rematch-body">
             <div class="m3-rematch-title-row">
-              <span class="m3-rematch-card-title">${it.title}</span>
+              <span class="m3-rematch-card-title">${escapeHtml(it.title)}</span>
               ${isCurrentMatch ? `<span class="m3-meta-badge highlight" style="font-size: 0.68rem; padding: 2px 8px;"><span class="material-symbols-rounded" style="font-size: 13px;">check_circle</span> Aktualna wersja</span>` : ''}
             </div>
             <div class="m3-rematch-badges-row">
               ${yearStr ? `<span class="m3-meta-badge"><span class="material-symbols-rounded" style="font-size: 12px;">calendar_today</span> ${yearStr}</span>` : ''}
-              ${it.original_title && it.original_title !== it.title ? `<span class="m3-meta-badge">${it.original_title}</span>` : ''}
+              ${it.original_title && it.original_title !== it.title ? `<span class="m3-meta-badge">${escapeHtml(it.original_title)}</span>` : ''}
               ${it.vote_average && it.vote_average > 0 ? `<span class="m3-meta-badge tmdb-score"><span class="material-symbols-rounded" style="font-size: 12px;">star</span> ${Number(it.vote_average).toFixed(1)}</span>` : ''}
             </div>
-            <p class="m3-rematch-plot">${it.overview || it.plot || 'Brak opisu fabuły w bazie TMDb.'}</p>
+            <p class="m3-rematch-plot">${escapeHtml(it.overview || it.plot || 'Brak opisu fabuły w bazie TMDb.')}</p>
           </div>
           <button type="button" class="m3-rematch-select-btn ${isCurrentMatch ? 'is-current' : ''}">
             <span class="material-symbols-rounded" style="font-size: 16px;">${isCurrentMatch ? 'check' : 'sync'}</span>

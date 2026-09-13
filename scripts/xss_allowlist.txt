@@ -1,0 +1,12 @@
+# Świadome wyjątki dla scripts/check_xss.py.
+#
+# Każdy wpis to miejsce, w którym wstawienie danych z zewnątrz wprost do HTML jest
+# uznane za bezpieczne — dopisuj TU, nie wyłączaj reguły. Format:
+#     xss:<ścieżka względna>:<wyrażenie>
+# np.
+#     xss:static/js/modules/state.js:item.title
+#
+# Sprawdzacz raportuje wyłącznie interpolacje sięgające po pola tekstowe
+# (title, name, overview, poster_url, ...). Zmienne lokalne, które już zostały
+# escapowane wcześniej, nie są zgłaszane — ale też nie są automatycznie bezpieczne,
+# więc przy nowym kodzie nadal warto patrzeć na wynik `--verbose`.
