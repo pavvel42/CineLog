@@ -297,9 +297,28 @@ class GoogleDriveSync {
     return null;
   }
 
+  /**
+   * Zapisuje ustawienia VOD na Dysku Google.
+   *
+   * Jedna próba to za mało: zapisany identyfikator pliku (`gdrive_settings_file_id`)
+   * bywa nieaktualny — plik mógł zostać usunięty albo podmieniony w innej sesji —
+   * a Drive potrafi też odrzucić pojedyncze żądanie. Druga próba leci po skasowaniu
+   * identyfikatora, więc plik zostaje znaleziony po nazwie albo założony od nowa.
+   *
+   * @returns {Promise<boolean>} true, gdy ustawienia są na Dysku
+   */
   async uploadSettingsToDrive(country, subscriptions) {
     if (!this.isAuthorized()) return false;
 
+    if (await this._zapiszUstawieniaNaDysku(country, subscriptions)) return true;
+
+    console.warn("Pierwsza próba zapisu ustawień VOD nie powiodła się — ponawiam po odświeżeniu identyfikatora pliku.");
+    this.settingsFileId = null;
+    localStorage.removeItem("gdrive_settings_file_id");
+    return this._zapiszUstawieniaNaDysku(country, subscriptions);
+  }
+
+  async _zapiszUstawieniaNaDysku(country, subscriptions) {
     try {
       const payload = {
         app: "CineLog",
@@ -351,6 +370,7 @@ class GoogleDriveSync {
         localStorage.setItem("gdrive_settings_file_id", this.settingsFileId);
         return true;
       }
+      console.warn(`Zapis ustawień VOD na Dysku nieudany: HTTP ${res.status}`);
     } catch (err) {
       console.error("Error uploading settings to Drive:", err);
     }
