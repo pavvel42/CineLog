@@ -486,12 +486,76 @@ if (btnAiClear) {
 }
 }
 
+// Kształt identyfikatora klienta OAuth typu "Web application":
+// 1234567890-xxxxxxxx.apps.googleusercontent.com
+const GOOGLE_CLIENT_ID_RE = /^\d{6,}-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$/;
+
+/**
+ * Zwraca komunikat problemu z identyfikatorem klienta albo null, gdy wygląda poprawnie.
+ *
+ * Powód: bez tego dowolny ciąg (numer projektu, klucz API, obcięte wklejenie) szedł
+ * prosto do Google, a odpowiedź `401 invalid_client` („The OAuth client was not found")
+ * nic nie mówiła o tym, że problem jest w samej wartości.
+ */
+function zdiagnozujGoogleClientId(wartosc) {
+  if (/[\u200b-\u200f\u2028\u2029\ufeff\u00a0]/.test(wartosc)) {
+    return "Identyfikator zawiera niewidzialny znak (typowe przy kopiowaniu na telefonie) — wklej go ponownie.";
+  }
+  if (/\s/.test(wartosc)) {
+    return "Identyfikator nie może zawierać spacji — ma być jednym ciągiem znaków.";
+  }
+  if (!/\.apps\.googleusercontent\.com$/i.test(wartosc)) {
+    return "To nie jest identyfikator klienta: musi kończyć się na .apps.googleusercontent.com. Sprawdź, czy nie wkleiłeś numeru projektu, klucza API albo sekretu klienta.";
+  }
+  if (!GOOGLE_CLIENT_ID_RE.test(wartosc)) {
+    return "Nieprawidłowy kształt identyfikatora — oczekiwany format: 1234567890-xxxxxxxx.apps.googleusercontent.com.";
+  }
+  return null;
+}
+
+/**
+ * Krótki opis identyfikatora do porównania między urządzeniami.
+ *
+ * Numer projektu jest ten sam dla wszystkich klientów w projekcie, więc różnicę widać
+ * dopiero w części losowej po myślniku — stąd maskowanie tylko jej.
+ */
+function opisGoogleClientId(wartosc) {
+  const bezSufiksu = wartosc.replace(/\.apps\.googleusercontent\.com$/i, "");
+  const [projekt, losowa = ""] = bezSufiksu.split("-");
+  return `${projekt}-${losowa.slice(0, 6)}…${losowa.slice(-6)} (część losowa: ${losowa.length} znaków)`;
+}
+
 function initDriveSection() {
   // Zakładka "Dysk Google": connect/disconnect/pull oraz import z pliku.
 
 const inputClientId = document.getElementById("m3-gdrive-client-id");
 // Google Drive Connect
 const btnConnect = document.getElementById("m3-btn-gdrive-connect");
+const btnWyczyscId = document.getElementById("m3-gdrive-client-id-clear");
+if (btnWyczyscId) {
+  btnWyczyscId.addEventListener("click", () => {
+    // Czyścimy też identyfikatory plików i token: przy zmianie konta Google stare
+    // odwołania do cudzego Dysku nie mogą zostać w przeglądarce.
+    [
+      "gdrive_client_id",
+      "gdrive_access_token",
+      "gdrive_token_exp",
+      "gdrive_file_id",
+      "gdrive_settings_file_id",
+      "gdrive_last_sync",
+    ].forEach((klucz) => localStorage.removeItem(klucz));
+    if (inputClientId) inputClientId.value = "";
+    if (window.googleDriveSync) {
+      window.googleDriveSync.clientId = "";
+      window.googleDriveSync.accessToken = null;
+      window.googleDriveSync.tokenExpiresAt = 0;
+      window.googleDriveSync.databaseFileId = null;
+      window.googleDriveSync.settingsFileId = null;
+    }
+    showToastNotification("Wyczyszczono zapamiętany identyfikator i dane połączenia z Dysk Google.", "info");
+    updateDriveModalUI();
+  });
+}
 if (btnConnect) {
   btnConnect.addEventListener("click", () => {
     const inputId = inputClientId ? inputClientId.value.trim() : "";
@@ -503,6 +567,15 @@ if (btnConnect) {
       showToastNotification("Wymagany Google OAuth Client ID. Wklej go w sekcji 'Zaawansowane' lub w pliku config.js.", "warning");
       return;
     }
+
+    const problem = zdiagnozujGoogleClientId(clientId);
+    if (problem) {
+      showToastNotification(problem, "error");
+      return;
+    }
+
+    const zrodlo = inputId ? "pole w aplikacji" : (configId ? "config.js" : "zapamiętany w przeglądarce");
+    console.info(`[gdrive] identyfikator klienta: ${opisGoogleClientId(clientId)} — źródło: ${zrodlo}`);
 
     if (window.googleDriveSync) {
       window.googleDriveSync.connect(clientId, (movies, shows) => {
