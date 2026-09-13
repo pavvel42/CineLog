@@ -10,6 +10,7 @@
 
 <p align="center">
   <a href="https://pavvel42.github.io/CineLog/"><img src="https://img.shields.io/badge/Live_Demo-GitHub_Pages-9333ea?style=for-the-badge&logo=github&logoColor=white" alt="Live Demo"></a>
+  <a href="https://github.com/pavvel42/CineLog/actions/workflows/ci.yml"><img src="https://github.com/pavvel42/CineLog/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/PWA-Ready-10b981?style=for-the-badge&logo=pwa&logoColor=white" alt="PWA Ready">
   <img src="https://img.shields.io/badge/Material_3-Expressive-38bdf8?style=for-the-badge" alt="Material 3">
   <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="License">
@@ -68,23 +69,29 @@ git clone https://github.com/pavvel42/CineLog.git
 cd CineLog
 ```
 
-#### 2. Konfiguracja klucza TMDb API (.env)
+#### 2. Konfiguracja kluczy API (.env)
+Klucze są opcjonalne — aplikacja działa też bez nich, a każdy użytkownik może wpisać własny w interfejsie (*Chmura & Asystent AI* -> *Klucze API*). **Klucz podany w przeglądarce ma pierwszeństwo** nad tym z `.env`.
 1. Zarejestruj darmowe konto na [The Movie Database (TMDb)](https://www.themoviedb.org/).
-2. W [Ustawienia -> API](https://www.themoviedb.org/settings/api) wygeneruj darmowy klucz API (v3 auth).
-3. Skopiuj szablon konfiguracji:
+2. W [Ustawienia -> API](https://www.themoviedb.org/settings/api) wygeneruj darmowy klucz API (v3 auth) — odblokowuje wyszukiwarkę i metadane na żywo.
+3. Opcjonalnie wygeneruj darmowy 8-znakowy klucz [OMDb](https://www.omdbapi.com/apikey.aspx) — dociąga oceny IMDb i plakaty jako fallback.
+4. Skopiuj szablon konfiguracji i wpisz klucze:
    ```bash
    cp .env.example .env
+   chmod 600 .env   # plik z kluczami tylko dla Ciebie (.env jest ignorowany przez git)
    ```
-4. Wklej swój klucz w pliku `.env`:
    ```env
    TMDB_API_KEY=twoj_klucz_tmdb_tutaj
+   OMDB_API_KEY=twoj_klucz_omdb_tutaj   # opcjonalny
    ```
+   > Nazwy `IMDB_API_KEY` lepiej nie używać: to historyczny alias OMDb, honorowany tylko dla wartości 8-znakowej. Klucz TMDb wpisany w tym miejscu jest ignorowany z ostrzeżeniem w logu.
+
+Pozostałe zmienne (wszystkie opcjonalne): `HOST` (domyślnie `127.0.0.1`), `PORT` (domyślnie `5001`), `FLASK_DEBUG=1` oraz `DATA_DIR` (katalog plików JSON, przydatny do izolowanych testów).
 
 #### 3. Uruchomienie aplikacji
-Wymagany Python 3.9+:
+Wymagany Python 3.9+ (CI testuje na 3.12; lokalnie działa też 3.14):
 ```bash
-pip install flask
-python run.py
+pip install -r requirements.txt
+python3 run.py
 ```
 Aplikacja uruchomi się pod adresem: **`http://localhost:5001`**.
 
@@ -95,6 +102,14 @@ npm ci
 npm run build   # lub: npm run watch (przebudowa przy zapisie)
 ```
 CI weryfikuje, że zacommitowany bundle jest aktualny względem źródeł.
+
+#### 5. Pełna weryfikacja (testy i kontrole jakości)
+```bash
+pip install pytest mypy pyflakes
+npx playwright install chromium
+npm run verify   # pytest -> mypy -> pyflakes -> zgodność data/ -> kontrola frontendu -> e2e
+```
+Bramkę warto przepuścić także bez kluczy w środowisku (`TMDB_API_KEY= OMDB_API_KEY= npm run verify`) — testy nie mogą zależeć od Twojego `.env`.
 
 ---
 
@@ -109,6 +124,25 @@ CineLog został zaprojektowany w architekturze *Privacy-First* – to Ty decyduj
 | **Zarządzanie kopią zapasową** | Ręczny import (Filmweb, Letterboxd, IMDb, TV Time) oraz eksport JSON/CSV w dowolnym momencie. | Pełna, automatyczna synchronizacja w tle przy każdej zmianie na każdym urządzeniu. |
 | **Asystent AI & Oceny** | Własne klucze API (OpenAI, DeepSeek, darmowy Groq lub lokalny Ollama) zapisane w przeglądarce. | Te same klucze API bezpiecznie przechowywane na Twoim urządzeniu. |
 | **Migracja między trybami** | Możesz zacząć w 100% prywatnym trybie offline i w dowolnej chwili pobrać plik kopii zapasowej JSON. | **Bezproblemowa migracja:** Gdy zechcesz przejść z trybu prywatnego na wygodny – jedno kliknięcie *Zaloguj przez Google* w oknie *Chmura & Asystent AI* automatycznie wyeksportuje i zsynchronizuje całą Twoją dotychczasową lokalną bazę na Dysk Google bez utraty danych! |
+
+---
+
+## 🧭 Tryby biblioteki (klient / serwer Flask / demo)
+
+Okno **Tryb i Środowisko** pozwala wybrać, na jakiej bazie pracuje aplikacja — i żaden z tych trybów nie nadpisuje Twojej biblioteki po cichu:
+
+| Tryb | Na czym pracuje | Co to znaczy w praktyce |
+| :--- | :--- | :--- |
+| **Tryb klienta** | Biblioteka w przeglądarce (`LocalStorage`), opcjonalnie zsynchronizowana z Twoim Dyskiem Google. | Twoje dane są w 100% Twoje; działa też bez żadnego serwera (GitHub Pages). |
+| **Lokalny serwer Flask** | Pliki JSON na Twoim dysku (`data/`), czyli baza serwera. | Wyszukiwarka i metadane online. Serwer trzyma **osobną** bazę (`cinelog_database_server`), więc biblioteka z przeglądarki zostaje nietknięta. |
+| **Baza demonstracyjna (Demo)** | Wzorcowa kolekcja 50 filmów i 25 seriali. | Do bezpiecznego testowania funkcji bez ryzyka dla własnych danych. |
+
+Przy pierwszym uruchomieniu tryb wybiera się sam: działający backend -> serwer Flask, wcześniej zaimportowana biblioteka -> tryb klienta, nowy użytkownik bez importu -> demo. Wybór przypinasz w oknie **Tryb i Środowisko** i jest pamiętany w przeglądarce.
+
+Zasady, które temu pilnują:
+- **Przełączenie na tryb serwera pyta o zgodę** i nigdy nie kasuje biblioteki użytkownika — to dwie różne bazy.
+- **Każde nadpisanie bazy** (Pull z Dysku, scalanie, import, przełączenie trybu, reset demo) najpierw zapisuje kopię. Cofniesz to przyciskiem **Przywróć poprzednią bazę** w oknie *Tryb i Środowisko*.
+- **Autozapis na Google Drive działa tylko w trybie klienta** — sesja na serwerowym ziarnie danych nie wypchnie go do Twojej chmury.
 
 ---
 
@@ -152,6 +186,7 @@ CineLog oferuje dwa proste sposoby konfiguracji Google Drive:
 - **100% Prywatności:** Twoja biblioteka, oceny i historia oglądania nie trafiają na żaden zewnętrzny serwer śledzący.
 - **Brak trackerów i telemetrii:** Zero zewnętrznych skryptów analitycznych i reklamowych.
 - **Bezpieczeństwo kluczy:** Wszelkie klucze API (AI, TMDb, OMDb, Google OAuth) należą wyłącznie do Ciebie i nie opuszczają Twojego urządzenia.
+- **Klucze nie trafiają do adresów URL ani logów:** do własnego backendu wędrują wyłącznie w nagłówkach (`X-TMDB-Key`, `X-OMDb-Key`), a serwer maskuje ich wartości w logu dostępu. Pliki `.env` oraz `static/js/config.js` są ignorowane przez git — w repozytorium i w historii commitów nie ma żadnych kluczy.
 
 > [!NOTE]
 > **Baza demo:** katalogi `data/` oraz `static/data/` zawierają **próbkę 50 filmów i 25 seriali** utworzoną skryptem `scripts/make_demo_sample.py`: metadane tytułów (plakaty, sezony, identyfikatory TMDb) pochodzą z wcześniejszej bazy demonstracyjnej, natomiast cały behawior — oceny, statusy, daty i obejrzane odcinki — jest wygenerowany syntetycznie (deterministyczny seed). Wpisy mają nowe identyfikatory UUID i nie da się ich powiązać z żadnym rzeczywistym użytkownikiem. Twoja własna biblioteka tworzona w aplikacji pozostaje wyłącznie lokalnie na Twoim urządzeniu (lub w Twoim prywatnym Dysku Google) i nigdy nie jest nigdzie wysyłana.
