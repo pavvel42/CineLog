@@ -187,6 +187,53 @@ export function isRealDetail(body) {
   return Boolean(body) && !body.needs_key && body.found !== false;
 }
 
+/** Klucz TMDb użytkownika (BYOK) widoczny dla przeglądarki. */
+export function clientTmdbKey() {
+  return localStorage.getItem("cinelog_tmdb_key") || (window.CINELOG_CONFIG && window.CINELOG_CONFIG.TMDB_API_KEY) || "";
+}
+
+/**
+ * Wyszukiwanie w TMDb wprost z przeglądarki — dla trybu demo, backendu bez klucza
+ * oraz ponownego dopasowania wersji filmu z edytora.
+ *
+ * Backend bez klucza odpowiada `needs_key` (prośba o klucz, nie dane), więc gdy
+ * użytkownik ma własny klucz, szukamy nim u dostawcy zamiast pokazywać pustą listę.
+ *
+ * @param {string} query szukana fraza
+ * @param {string} type "movie" albo "series"
+ * @param {string} [lang] kod języka, np. "pl-PL"
+ * @returns {Promise<Array<object>|null>} wyniki w kształcie używanym przez UI; null = brak klucza/błąd
+ */
+export async function szukajWTmdbPoStronieKlienta(query, type, lang) {
+  const klucz = clientTmdbKey();
+  if (!klucz || !query) return null;
+
+  const endpoint = type === "series" ? "tv" : "movie";
+  try {
+    const res = await fetchWithTimeout(
+      `https://api.themoviedb.org/3/search/${endpoint}?api_key=${encodeURIComponent(klucz)}` +
+        `&query=${encodeURIComponent(query)}&language=${encodeURIComponent(lang || "pl-PL")}&include_adult=false`
+    );
+    if (!res.ok) return null;
+
+    const dane = await res.json();
+    return (dane.results || []).map((it) => ({
+      title: it.title || it.name || "",
+      original_title: it.original_title || it.original_name || "",
+      year: (it.release_date || it.first_air_date || "").slice(0, 4),
+      poster_url: it.poster_path ? `https://image.tmdb.org/t/p/w500${it.poster_path}` : "",
+      type: type === "series" ? "series" : "movie",
+      tmdb_id: tmdbIdOf(it.id),
+      plot: it.overview || "",
+      overview: it.overview || "",
+      vote_average: it.vote_average || 0,
+    }));
+  } catch (e) {
+    console.warn("Wyszukiwanie w TMDb po stronie klienta nie powiodło się:", e);
+    return null;
+  }
+}
+
 // Progressive rendering: append cards in chunks so large libraries don't freeze the UI.
 // A generation counter cancels pending chunks when a newer render starts.
 /**

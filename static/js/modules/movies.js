@@ -2,7 +2,7 @@
 // CineLog - Movies Management & Details Modal Module
 // ==========================================================================
 
-import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, apiFetch, isRealDetail } from './state.js';
+import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, apiFetch, isRealDetail, clientTmdbKey, szukajWTmdbPoStronieKlienta } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
@@ -843,13 +843,33 @@ export async function openRematchPicker(item, itemType = "movie") {
 
     try {
       const typeParam = itemType === "series" ? "series" : "movie";
-      const res = await apiFetch(`/api/search_preview?q=${encodeURIComponent(query)}&type=${typeParam}&lang=${getUserLanguage()}`);
+
+      let data = null;
+      try {
+        const res = await apiFetch(`/api/search_preview?q=${encodeURIComponent(query)}&type=${typeParam}&lang=${getUserLanguage()}`);
+        data = await res.json().catch(() => null);
+      } catch (err) {
+        // Backend niedostępny (tryb demo, offline) — poniżej spróbujemy kluczem z przeglądarki.
+        console.warn("Podgląd wersji z backendu nie odpowiedział:", err);
+      }
+
+      let results = (data && (data.results || (data.item ? [data.item] : []))) || [];
+
+      // Backend bez klucza odpowiada `needs_key` (prośba o klucz, nie dane) i nie zna
+      // innych wersji — a użytkownik może mieć własny klucz TMDb. Wtedy szukamy nim
+      // wprost u dostawcy, zamiast pokazywać „brak innych wersji”.
+      if (results.length === 0 && (!data || data.needs_key || data.key_rejected)) {
+        const wynikiKlienta = await szukajWTmdbPoStronieKlienta(query, typeParam, getUserLanguage());
+        if (wynikiKlienta) results = wynikiKlienta;
+      }
+
       loadingEl.style.display = "none";
 
-      const data = await res.json();
-      const results = data.results || (data.item ? [data.item] : []);
       if (results.length === 0) {
-        resultsContainer.innerHTML = `<div style="padding: 16px; text-align: center; color: var(--md-sys-color-on-surface-variant); font-size: 0.85rem;">Brak innych wersji pasujących do "${query}".</div>`;
+        const stronaBezKlucza = data && (data.needs_key || data.key_rejected) && !clientTmdbKey();
+        resultsContainer.innerHTML = stronaBezKlucza
+          ? `<div style="padding: 16px; text-align: center; color: var(--md-sys-color-on-surface-variant); font-size: 0.85rem;">Wyszukiwanie innych wersji wymaga klucza TMDb — dodaj go w sekcji „Klucze API”.</div>`
+          : `<div style="padding: 16px; text-align: center; color: var(--md-sys-color-on-surface-variant); font-size: 0.85rem;">Brak innych wersji pasujących do "${query}".</div>`;
         return;
       }
 
