@@ -13,7 +13,23 @@ import urllib.parse
 import urllib.request
 from datetime import datetime
 
+from services.security import mask_secret
+
 log = logging.getLogger("cinelog")
+
+
+def server_omdb_key() -> str:
+    """Klucz OMDb skonfigurowany na serwerze — jedno źródło dla wszystkich tras.
+
+    `IMDB_API_KEY` jest historycznym aliasem, nie osobnym dostawcą: IMDb nie
+    udostępnia własnego API, a dane IMDb w aplikacji pochodzą z OMDb, więc oba
+    warianty nazwy wskazują ten sam klucz. Wcześniej część tras czytała tylko
+    `OMDB_API_KEY`, a część dodatkowo `IMDB_API_KEY` — teraz robią to samo.
+    """
+    return (
+        os.environ.get("OMDB_API_KEY", "").strip()
+        or os.environ.get("IMDB_API_KEY", "").strip()
+    )
 
 
 def _omdb_exact(clean_title: str, media_type: str, api_key: str) -> dict | None:
@@ -24,7 +40,8 @@ def _omdb_exact(clean_title: str, media_type: str, api_key: str) -> dict | None:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=4) as resp:
             return json.loads(resp.read().decode("utf-8", errors="ignore"))
-    except Exception:
+    except Exception as e:
+        log.warning("OMDb (exact) lookup failed for %r: %s", clean_title, mask_secret(str(e), api_key))
         return None
 
 
@@ -38,7 +55,8 @@ def _omdb_search_first(clean_title: str, media_type: str, api_key: str) -> dict 
             data = json.loads(resp.read().decode("utf-8", errors="ignore"))
             results = data.get("Search") or []
             return results[0] if results else None
-    except Exception:
+    except Exception as e:
+        log.warning("OMDb (search) lookup failed for %r: %s", clean_title, mask_secret(str(e), api_key))
         return None
 
 
@@ -66,11 +84,7 @@ def fetch_online_metadata(title: str, media_type: str = "movie", omdb_key: str |
     poster_url = None
     release_date = None
     clean_title = re.sub(r"\s*\([^)]*\)", "", title).strip()
-    effective_omdb_key = (
-        omdb_key
-        or os.environ.get("OMDB_API_KEY", "").strip()
-        or os.environ.get("IMDB_API_KEY", "").strip()
-    )
+    effective_omdb_key = omdb_key or server_omdb_key()
 
     if effective_omdb_key:
         data = _omdb_exact(clean_title, media_type, effective_omdb_key)

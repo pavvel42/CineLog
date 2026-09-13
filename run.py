@@ -10,6 +10,7 @@ import shutil
 from pathlib import Path
 
 from app import app
+from services.access_log import SanitizedRequestHandler
 
 BASE_DIR = Path(__file__).resolve().parent
 FRONTEND_CONFIG_TEMPLATE = BASE_DIR / "static" / "js" / "config.example.js"
@@ -40,7 +41,8 @@ def main() -> None:
     port = int(os.environ.get("PORT", 5001))
     debug_mode = os.environ.get("FLASK_DEBUG", "0") == "1"
     print(f"[start] CineLog: http://{host}:{port}")
-    app.run(debug=debug_mode, host=host, port=port)
+    # Własny handler: access-log nie wypisuje wartości kluczy API z query stringa.
+    app.run(debug=debug_mode, host=host, port=port, request_handler=SanitizedRequestHandler)
 
 
 if __name__ == "__main__":

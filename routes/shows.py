@@ -260,7 +260,7 @@ def add_show() -> ResponseReturnValue:
 
     poster_url = data.get("poster_url")
     if not poster_url:
-        poster_url, _ = _app.fetch_online_metadata(title, "series")
+        poster_url, _ = _app.fetch_online_metadata(title, "series", client_keys.omdb_key())
         
     shows = _app.load_shows()
     

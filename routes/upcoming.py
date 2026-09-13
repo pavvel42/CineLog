@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 import re
 import logging
+import threading
+import urllib.error
 import urllib.request
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
@@ -24,6 +26,7 @@ from flask.typing import ResponseReturnValue
 import app as _app
 
 from services import client_keys
+from services.tmdb_client import KEY_REJECTED_MESSAGE, key_rejected
 
 log = logging.getLogger("cinelog")
 
@@ -33,6 +36,8 @@ bp = Blueprint("upcoming", __name__)
 def get_upcoming_schedule() -> ResponseReturnValue:
     force_refresh = request.args.get("refresh") == "1"
     effective_tmdb_key = client_keys.tmdb_key() or _app.TMDB_API_KEY
+    # Ustawiane w wątkach pobierających dane z TMDb (401/403 = klucz odrzucony)
+    awaria_klucza = threading.Event()
     movies = _app.load_movies()
     shows = _app.load_shows()
     
@@ -123,6 +128,10 @@ def get_upcoming_schedule() -> ResponseReturnValue:
             with urllib.request.urlopen(req_d, timeout=4) as r_d:
                 detail = json.loads(r_d.read().decode("utf-8", errors="ignore"))
                 return (k, detail, True)
+        except urllib.error.HTTPError as e:
+            if key_rejected(e):
+                awaria_klucza.set()
+            return (k, None, False)
         except Exception:
             return (k, None, False)
 
@@ -217,10 +226,14 @@ def get_upcoming_schedule() -> ResponseReturnValue:
 
     all_items.sort(key=lambda x: (x["days_left"], x["title"].lower()))
     
-    return jsonify({
+    response: dict = {
         "status": "ok",
         "total": len(all_items),
         "items": all_items
-    })
+    }
+    if awaria_klucza.is_set():
+        response["key_rejected"] = True
+        response["message"] = KEY_REJECTED_MESSAGE
+    return jsonify(response)
 
 # --- EXPORT & RESET ---

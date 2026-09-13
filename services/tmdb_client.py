@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -19,6 +20,20 @@ TMDB_BASE = "https://api.themoviedb.org/3"
 TMDB_IMG_POSTER = "https://image.tmdb.org/t/p/w500"
 TMDB_IMG_BACKDROP = "https://image.tmdb.org/t/p/w780"
 DEFAULT_TIMEOUT = 5
+
+KEY_REJECTED_MESSAGE = (
+    "Klucz API został odrzucony przez dostawcę (HTTP 401/403). "
+    "Sprawdź klucz w zakładce „Chmura & Asystent AI” → „Klucze API” lub w pliku .env."
+)
+
+
+def key_rejected(exc: Exception) -> bool:
+    """Czy wyjątek to odrzucenie klucza przez dostawcę (HTTP 401/403)?
+
+    Pozwala odróżnić „brak wyników” od „klucz nie działa” — bez tego odrzucony
+    klucz wygląda dla użytkownika jak pusta lista wyników.
+    """
+    return isinstance(exc, urllib.error.HTTPError) and exc.code in (401, 403)
 
 
 def tmdb_get(path: str, params: dict | None, api_key: str, timeout: int = DEFAULT_TIMEOUT) -> dict | None:

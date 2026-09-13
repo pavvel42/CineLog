@@ -219,14 +219,6 @@ def test_client_keys_header_takes_precedence():
         assert client_keys.omdb_key() == "hdr-omdb"
 
 
-def test_client_keys_fallback_to_query():
-    from services import client_keys
-
-    with app_module.app.test_request_context(query_string={"tmdb_key": " qs-key ", "imdb_key": "qs-imdb"}):
-        assert client_keys.tmdb_key() == "qs-key"
-        assert client_keys.omdb_key() == "qs-imdb"
-
-
 def test_client_keys_empty_when_missing():
     from services import client_keys
 

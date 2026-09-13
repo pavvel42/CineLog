@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import urllib.error
 import urllib.request
 import urllib.parse
 
@@ -19,10 +20,24 @@ from flask.typing import ResponseReturnValue
 import app as _app
 
 from services import client_keys
+from services.tmdb_client import KEY_REJECTED_MESSAGE, key_rejected
 
 log = logging.getLogger("cinelog")
 
 bp = Blueprint("recommendations", __name__)
+
+
+def _rec_response(formatted: list, key_odrzucony: bool) -> dict:
+    """Odpowiedź rekomendacji — przy odrzuconym kluczu mówi o tym wprost.
+
+    Bez tego odrzucony klucz (HTTP 401/403) wygląda jak „brak wyników”
+    (`status: ok`, 0 pozycji), czyli jak poprawna odpowiedź.
+    """
+    response: dict = {"status": "ok", "count": len(formatted), "results": formatted}
+    if key_odrzucony:
+        response["key_rejected"] = True
+        response["message"] = KEY_REJECTED_MESSAGE
+    return response
 
 @bp.route("/api/recommendations/for_item", methods=["GET"])
 def get_recommendations_for_item() -> ResponseReturnValue:
@@ -40,6 +55,8 @@ def get_recommendations_for_item() -> ResponseReturnValue:
     if not tmdb_key:
         return jsonify({"status": "no_key", "message": "Klucz TMDb API nie został skonfigurowany. Dodaj klucz w oknie Chmura & Asystent AI -> Klucze API.", "results": []})
 
+    key_odrzucony = False
+
     # 1. If tmdb_id not provided, search by title first
     if not tmdb_id and title:
         try:
@@ -51,10 +68,15 @@ def get_recommendations_for_item() -> ResponseReturnValue:
                 if res:
                     tmdb_id = str(res[0].get("id"))
         except Exception as e:
+            key_odrzucony = key_odrzucony or key_rejected(e)
             log.warning("Error searching TMDb ID for rec title %s: %s", title, e)
 
     if not tmdb_id:
-        return jsonify({"status": "error", "message": "Missing or unresolved TMDb ID", "results": []})
+        ratunek: dict = {"status": "error", "message": "Missing or unresolved TMDb ID", "results": []}
+        if key_odrzucony:
+            ratunek["key_rejected"] = True
+            ratunek["message"] = KEY_REJECTED_MESSAGE
+        return jsonify(ratunek)
 
     results_list = []
     try:
@@ -75,11 +97,12 @@ def get_recommendations_for_item() -> ResponseReturnValue:
                     if not any(r.get("id") == item.get("id") for r in results_list):
                         results_list.append(item)
     except Exception as e:
+        key_odrzucony = key_odrzucony or key_rejected(e)
         log.warning("Error fetching TMDb recommendations for %s %s: %s", tmdb_type, tmdb_id, e)
 
     formatted = [_app.format_tmdb_summary(it, tmdb_type) for it in results_list]
 
-    response_data = {"status": "ok", "count": len(formatted), "results": formatted}
+    response_data = _rec_response(formatted, key_odrzucony)
     _app.RECOMMENDATIONS_CACHE[cache_key] = response_data
     return jsonify(response_data)
 
@@ -112,6 +135,8 @@ def discover_recommendations() -> ResponseReturnValue:
     if not tmdb_key:
         return jsonify({"status": "no_key", "count": 0, "results": [], "message": "Brak klucza TMDb API. Skonfiguruj klucz w aplikacji."})
 
+    key_odrzucony = False
+
     url_discover = f"https://api.themoviedb.org/3/discover/{tmdb_type}?api_key={tmdb_key}&language={lang}&sort_by={sort_by}&vote_average.gte={min_vote_avg}&vote_count.gte={min_vote_count}&page=1"
     if with_watch_providers:
         url_discover += f"&with_watch_providers={urllib.parse.quote(with_watch_providers)}&watch_region={watch_region}&with_watch_monetization_types={urllib.parse.quote(with_watch_monetization_types)}"
@@ -143,9 +168,10 @@ def discover_recommendations() -> ResponseReturnValue:
             data = json.loads(resp.read().decode("utf-8"))
             formatted = [_app.format_tmdb_summary(it, tmdb_type) for it in data.get("results", [])]
     except Exception as e:
+        key_odrzucony = key_odrzucony or key_rejected(e)
         log.warning("Error in discover recommendations: %s", e)
 
-    response_data = {"status": "ok", "count": len(formatted), "results": formatted}
+    response_data = _rec_response(formatted, key_odrzucony)
     _app.RECOMMENDATIONS_CACHE[cache_key] = response_data
     return jsonify(response_data)
 
@@ -164,6 +190,8 @@ def get_trending_recommendations() -> ResponseReturnValue:
     if not tmdb_key:
         return jsonify({"status": "no_key", "count": 0, "results": [], "message": "Brak klucza TMDb API. Skonfiguruj klucz w aplikacji."})
 
+    key_odrzucony = False
+
     url_trending = f"https://api.themoviedb.org/3/trending/{media_type}/{time_window}?api_key={tmdb_key}&language={lang}"
     formatted = []
     try:
@@ -176,9 +204,10 @@ def get_trending_recommendations() -> ResponseReturnValue:
                     continue
                 formatted.append(_app.format_tmdb_summary(it, m_type))
     except Exception as e:
+        key_odrzucony = key_odrzucony or key_rejected(e)
         log.warning("Error in trending recommendations: %s", e)
 
-    response_data = {"status": "ok", "count": len(formatted), "results": formatted}
+    response_data = _rec_response(formatted, key_odrzucony)
     _app.RECOMMENDATIONS_CACHE[cache_key] = response_data
     return jsonify(response_data)
 
@@ -197,6 +226,8 @@ def get_person_recommendations() -> ResponseReturnValue:
 
     if not tmdb_key:
         return jsonify({"status": "no_key", "count": 0, "results": [], "message": "Brak klucza TMDb API."})
+
+    key_odrzucony = False
 
     formatted = []
     try:
@@ -248,9 +279,10 @@ def get_person_recommendations() -> ResponseReturnValue:
                             "job": it.get("job", "Twórca")
                         })
     except Exception as e:
+        key_odrzucony = key_odrzucony or key_rejected(e)
         log.warning("Error fetching person recommendations for %s: %s", name, e)
 
-    response_data = {"status": "ok", "count": len(formatted), "results": formatted}
+    response_data = _rec_response(formatted, key_odrzucony)
     _app.RECOMMENDATIONS_CACHE[cache_key] = response_data
     return jsonify(response_data)
 
@@ -282,6 +314,7 @@ def get_actor_details() -> ResponseReturnValue:
         }
         return jsonify(fallback_res)
 
+    key_odrzucony = False
     try:
         # If no numeric person_id, search for person by name
         if not person_id or not str(person_id).isdigit():
@@ -292,11 +325,11 @@ def get_actor_details() -> ResponseReturnValue:
                     results = sdata.get("results", [])
                     if results:
                         person_id = str(results[0].get("id"))
-            except Exception:
-                pass
+            except Exception as e:
+                key_odrzucony = key_odrzucony or key_rejected(e)
 
         if not person_id or not str(person_id).isdigit():
-            fallback_res = {
+            fallback_person: dict = {
                 "status": "ok",
                 "id": None,
                 "name": name,
@@ -308,8 +341,11 @@ def get_actor_details() -> ResponseReturnValue:
                 "known_for_department": "Film",
                 "filmography": []
             }
-            _app.RECOMMENDATIONS_CACHE[cache_key] = fallback_res
-            return jsonify(fallback_res)
+            if key_odrzucony:
+                fallback_person["key_rejected"] = True
+                fallback_person["message"] = KEY_REJECTED_MESSAGE
+            _app.RECOMMENDATIONS_CACHE[cache_key] = fallback_person
+            return jsonify(fallback_person)
 
         # Fetch person details & combined_credits
         url_person = f"https://api.themoviedb.org/3/person/{person_id}?api_key={tmdb_key}&language={lang}&append_to_response=combined_credits"
@@ -383,7 +419,7 @@ def get_actor_details() -> ResponseReturnValue:
             return jsonify(result)
     except Exception as e:
         log.warning("Error fetching actor details for id=%s, name=%s: %s", person_id, name, e)
-        return jsonify({
+        fallback: dict = {
             "status": "ok",
             "id": person_id if (person_id and str(person_id).isdigit()) else None,
             "name": name or "Twórca",
@@ -394,4 +430,8 @@ def get_actor_details() -> ResponseReturnValue:
             "profile_url": None,
             "known_for_department": "Film",
             "filmography": []
-        })
+        }
+        if key_rejected(e):
+            fallback["key_rejected"] = True
+            fallback["message"] = KEY_REJECTED_MESSAGE
+        return jsonify(fallback)

@@ -17,6 +17,8 @@ from flask.typing import ResponseReturnValue
 
 import app as _app
 
+from services import client_keys
+
 log = logging.getLogger("cinelog")
 
 bp = Blueprint("movies", __name__)
@@ -95,7 +97,9 @@ def add_movie() -> ResponseReturnValue:
     release_date = data.get("release_date")
 
     if not poster_url or not release_date:
-        fetched_poster, fetched_date = _app.fetch_online_metadata(title, "movie")
+        fetched_poster, fetched_date = _app.fetch_online_metadata(
+            title, "movie", client_keys.omdb_key()
+        )
         if not poster_url and fetched_poster:
             poster_url = fetched_poster
         if not release_date and fetched_date:

@@ -13,7 +13,6 @@ import logging
 import urllib.request
 import urllib.parse
 
-import os
 from flask import Blueprint, jsonify, request
 
 
@@ -22,6 +21,8 @@ from flask.typing import ResponseReturnValue
 import app as _app
 
 from services import client_keys
+from services.metadata import server_omdb_key
+from services.tmdb_client import KEY_REJECTED_MESSAGE, key_rejected
 
 log = logging.getLogger("cinelog")
 
@@ -39,7 +40,7 @@ def search_preview() -> ResponseReturnValue:
     clean_title = re.sub(r"\s*\([^)]*\)", "", title).strip()
     tmdb_type = "tv" if media_type == "series" else "movie"
     tmdb_key = client_keys.tmdb_key() or _app.TMDB_API_KEY
-    omdb_key = client_keys.omdb_key() or os.environ.get("OMDB_API_KEY", "").strip()
+    omdb_key = client_keys.omdb_key() or server_omdb_key()
     results_list = []
 
     # Without any API key, online search is impossible - guide the user instead of returning a dead end
@@ -94,6 +95,7 @@ def search_preview() -> ResponseReturnValue:
                 return jsonify({
                     "found": False,
                     "needs_key": True,
+                    "key_rejected": True,
                     "message": f"Klucz TMDb został odrzucony przez API (HTTP {e.code}). Sprawdź, czy klucz jest poprawny w zakładce „Chmura & Asystent AI” → „Klucze API”."
                 })
             log.warning("TMDb search preview error: %s", e)
@@ -144,6 +146,17 @@ def search_detail() -> ResponseReturnValue:
     media_type = request.args.get("type", "movie").strip()
     lang = request.args.get("lang", "pl-PL").strip()
     effective_tmdb_key = client_keys.tmdb_key() or _app.TMDB_API_KEY
+    effective_omdb_key = client_keys.omdb_key() or server_omdb_key()
+    key_odrzucony = False
+
+    # Bez żadnego klucza nie ma czego szukać — spójny kontrakt z /api/search_preview
+    # (wcześniej: 404 „nie udało się pobrać szczegółów”, nie do odróżnienia od braku trafień)
+    if not effective_tmdb_key and not effective_omdb_key:
+        return jsonify({
+            "found": False,
+            "needs_key": True,
+            "message": "Pobranie szczegółów wymaga klucza TMDb lub OMDb. Skonfiguruj go w zakładce „Chmura & Asystent AI” → „Klucze API” lub w pliku .env."
+        })
 
     poster_url_param = request.args.get("poster_url", "").strip()
 
@@ -247,7 +260,8 @@ def search_detail() -> ResponseReturnValue:
             with urllib.request.urlopen(req_d, timeout=4) as r_det:
                 det = json.loads(r_det.read().decode("utf-8", errors="ignore"))
                 return build_tmdb_response(det, tmdb_type)
-        except Exception:
+        except Exception as e:
+            key_odrzucony = key_odrzucony or key_rejected(e)
             # Try alternate type (tv vs movie)
             try:
                 alt_type = "movie" if tmdb_type == "tv" else "tv"
@@ -308,10 +322,10 @@ def search_detail() -> ResponseReturnValue:
                         det = json.loads(r_det.read().decode("utf-8", errors="ignore"))
                         return build_tmdb_response(det, tmdb_type)
         except Exception as e:
+            key_odrzucony = key_odrzucony or key_rejected(e)
             log.warning("TMDb detail fetch error: %s", e)
 
     # 2. Fallback to OMDb / TVmaze
-    effective_omdb_key = client_keys.omdb_key() or os.environ.get("OMDB_API_KEY", "").strip() or os.environ.get("IMDB_API_KEY", "").strip()
     if effective_omdb_key:
         try:
             if imdb_id:
@@ -339,7 +353,16 @@ def search_detail() -> ResponseReturnValue:
                         "type": data.get("Type")
                     })
         except Exception as e:
+            key_odrzucony = key_odrzucony or key_rejected(e)
             log.warning("OMDb detail fetch fallback error: %s", e)
+
+    if key_odrzucony:
+        return jsonify({
+            "found": False,
+            "needs_key": True,
+            "key_rejected": True,
+            "message": KEY_REJECTED_MESSAGE
+        })
 
     return jsonify({"found": False, "message": "Nie udało się pobrać szczegółów pozycji."}), 404
 

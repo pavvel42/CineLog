@@ -23,6 +23,7 @@ from flask import Blueprint, jsonify, request, Response, send_file
 from flask.typing import ResponseReturnValue
 
 from services.security import mask_secret
+from services.metadata import server_omdb_key
 
 import app as _app
 
@@ -92,7 +93,7 @@ def _error_message(label: str, exc: Exception, *secrets: str) -> str:
 def test_api_keys() -> ResponseReturnValue:
     data = request.get_json(silent=True) or {}
     tmdb_key = data.get("tmdb_key", "").strip() or _app.TMDB_API_KEY
-    omdb_key = data.get("omdb_key", "").strip() or os.environ.get("OMDB_API_KEY", "").strip()
+    omdb_key = data.get("omdb_key", "").strip() or server_omdb_key()
     
     results = {
         "tmdb": {"ok": False, "message": "Nie podano klucza TMDb"},

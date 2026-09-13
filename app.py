@@ -150,8 +150,13 @@ def load_vod_cache() -> dict:
 def save_vod_cache(cache_data: dict) -> bool:
     return svc_save_vod_cache(VOD_CACHE_FILE, cache_data)
 
-def fetch_live_watch_providers(clean_title: str, media_type: str, region: str, tmdb_id: str | None = None) -> dict:
-    return _svc_fetch_live_watch_providers(clean_title, media_type, region, TMDB_API_KEY, tmdb_id=tmdb_id)
+def fetch_live_watch_providers(clean_title: str, media_type: str, region: str,
+                               tmdb_id: str | None = None,
+                               tmdb_api_key: str | None = None) -> dict:
+    """Dostawcy VOD dla tytułu — klucz z żądania (BYOK) ma pierwszeństwo nad env."""
+    return _svc_fetch_live_watch_providers(
+        clean_title, media_type, region, tmdb_api_key or TMDB_API_KEY, tmdb_id=tmdb_id
+    )
 
 RECOMMENDATIONS_CACHE: dict[str, dict] = {}
 

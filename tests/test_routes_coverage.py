@@ -175,10 +175,18 @@ def test_actor_details_z_kluczem_zwraca_biografie_i_filmografie(client, klucz, m
 
 # ---------- wyszukiwanie szczegółów ----------
 
-def test_search_detail_bez_klucza_zwraca_jawny_brak_danych(client, bez_klucza):
-    body = client.get("/api/search_detail?title=Incepcja&year=2010&type=movie").get_json()
+def test_search_detail_bez_klucza_zwraca_prosbe_o_klucz(client, bez_klucza):
+    """F1: bez żadnego klucza trasa mówi wprost, że brakuje klucza.
+
+    Wcześniej zwracała 404 z „Nie udało się pobrać szczegółów” — nie do odróżnienia
+    od braku trafień, i niezgodnie z /api/search_preview (200 + needs_key).
+    """
+    res = client.get("/api/search_detail?title=Incepcja&year=2010&type=movie")
+    assert res.status_code == 200
+    body = res.get_json()
     assert body["found"] is False
-    assert "Nie udało się pobrać szczegółów" in body["message"]
+    assert body["needs_key"] is True
+    assert "klucza" in body["message"]
 
 
 def test_search_detail_z_klucza_zwraca_szczegoly_filmu(client, klucz, monkeypatch):
@@ -355,7 +363,7 @@ def test_watch_providers_z_tmdb_id_pomija_cache(client, monkeypatch):
     )
     wywolania: list[tuple] = []
 
-    def fake_live(clean_title, media_type, region, tmdb_id=None):
+    def fake_live(clean_title, media_type, region, tmdb_id=None, tmdb_api_key=None):
         wywolania.append((clean_title, media_type, region, tmdb_id))
         return {"found": True, "region": region, "providers": {"flatrate": [{"provider_name": "Ze świeżego zapytania"}]}}
 

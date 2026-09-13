@@ -17,6 +17,8 @@ from flask.typing import ResponseReturnValue
 
 import app as _app
 
+from services import client_keys
+
 log = logging.getLogger("cinelog")
 
 bp = Blueprint("vod", __name__)
@@ -47,7 +49,9 @@ def get_watch_providers() -> ResponseReturnValue:
             pass
 
     # Fetch live and update cache
-    fresh_data = _app.fetch_live_watch_providers(clean_title, media_type, region, tmdb_id=tmdb_id if tmdb_id else None)
+    fresh_data = _app.fetch_live_watch_providers(clean_title, media_type, region,
+                                                tmdb_id=tmdb_id if tmdb_id else None,
+                                                tmdb_api_key=client_keys.tmdb_key())
     if fresh_data.get("found") or not cached_entry:
         cache[cache_key] = fresh_data
         _app.save_vod_cache(cache)
@@ -99,7 +103,8 @@ def precache_vod_batch() -> ResponseReturnValue:
                     pass
 
             if needs_fetch:
-                res = _app.fetch_live_watch_providers(clean_t, m_type, region)
+                res = _app.fetch_live_watch_providers(clean_t, m_type, region,
+                                                     tmdb_api_key=client_keys.tmdb_key())
                 cache[k] = res
                 updated_count += 1
 
