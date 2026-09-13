@@ -2723,7 +2723,8 @@ body {
   text-align: center;
 }
 
-.m3-toast-notification.active {
+.m3-toast-notification.active,
+.m3-toast-notification.show {
   opacity: 1;
   transform: translateX(-50%) translateY(0) scale(1);
   pointer-events: auto;

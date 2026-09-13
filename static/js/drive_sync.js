@@ -73,49 +73,80 @@ class GoogleDriveSync {
   }
 
   initTokenClient(clientId, callback) {
-    if (!window.google || !window.google.accounts) {
+    if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) {
       console.warn("Google Identity Services script not loaded yet.");
-      return;
+      return false;
     }
 
     this.clientId = clientId;
     localStorage.setItem("gdrive_client_id", clientId);
 
-    this.tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: DRIVE_SCOPES,
-      callback: (tokenResponse) => {
-        if (tokenResponse.error !== undefined) {
-          console.error("Auth error:", tokenResponse);
+    try {
+      this.tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: DRIVE_SCOPES,
+        // Bez tego zamknięcie okna albo zablokowany popup kończyły się ciszą:
+        // kliknięcie „Zaloguj się przez konto Google” nie robiło nic widocznego.
+        error_callback: (err) => {
+          console.error("Auth error_callback:", err);
+          const powod = (err && err.type) ? err.type : "nieznany powód";
+          if (window.showToastNotification) {
+            window.showToastNotification(`Logowanie Google nie doszło do skutku (${powod}). Spróbuj ponownie, a jeśli okno się nie otwiera — sprawdź blokadę wyskakujących okien dla tej strony.`, "error");
+          }
           this.updateStatusUI("error", "Błąd autoryzacji Google");
-          return;
-        }
+        },
+        callback: (tokenResponse) => {
+          if (tokenResponse.error !== undefined) {
+            console.error("Auth error:", tokenResponse);
+            this.updateStatusUI("error", "Błąd autoryzacji Google");
+            if (window.showToastNotification) {
+              window.showToastNotification(`Google odrzuciło logowanie (${tokenResponse.error}).`, "error");
+            }
+            return;
+          }
 
-        this.accessToken = tokenResponse.access_token;
-        const expiresIn = (parseInt(tokenResponse.expires_in, 10) || 3600) * 1000;
-        this.tokenExpiresAt = Date.now() + expiresIn - 60000; // 1 min buffer
+          this.accessToken = tokenResponse.access_token;
+          const expiresIn = (parseInt(tokenResponse.expires_in, 10) || 3600) * 1000;
+          this.tokenExpiresAt = Date.now() + expiresIn - 60000; // 1 min buffer
 
-        localStorage.setItem("gdrive_access_token", this.accessToken);
-        localStorage.setItem("gdrive_token_exp", this.tokenExpiresAt.toString());
+          localStorage.setItem("gdrive_access_token", this.accessToken);
+          localStorage.setItem("gdrive_token_exp", this.tokenExpiresAt.toString());
 
-        this.updateStatusUI("connected", "Połączono z Google Drive");
-        if (window.updateDriveModalUI) window.updateDriveModalUI();
+          this.updateStatusUI("connected", "Połączono z Google Drive");
+          if (window.updateDriveModalUI) window.updateDriveModalUI();
 
-        if (this.onAuthSuccess) {
-          this.syncWithDrive(this.onAuthSuccess);
-        } else if (callback) {
-          callback();
-        }
-      }
-    });
+          if (this.onAuthSuccess) {
+            this.syncWithDrive(this.onAuthSuccess);
+          } else if (callback) {
+            callback();
+          }
+        },
+      });
+      return true;
+    } catch (e) {
+      // Np. identyfikator odrzucony przez samą bibliotekę: wyjątek leciał w górę
+      // i kończył się tym, że kliknięcie nie robiło nic widocznego.
+      console.error("initTokenClient failed:", e);
+      this.tokenClient = null;
+      return false;
+    }
   }
 
-  connect(clientId, onSuccess) {
+  connect(clientId, onSuccess, onError) {
     this.onAuthSuccess = onSuccess;
-    this.initTokenClient(clientId, () => {
+    const gotowy = this.initTokenClient(clientId, () => {
       this.syncWithDrive(onSuccess);
       if (window.updateDriveModalUI) window.updateDriveModalUI();
     });
+
+    if (!gotowy) {
+      // Biblioteka GIS bywa niedostępna (blokada rozszerzenia, filtr DNS, brak dostępu
+      // do accounts.google.com) — wcześniej kończyło się to tylko ostrzeżeniem w konsoli.
+      if (typeof onError === "function") {
+        onError("Biblioteka Google (Identity Services) nie została wczytana. Odśwież stronę i spróbuj ponownie; jeśli błąd wraca, sprawdź, czy blokada skryptów nie odcina accounts.google.com.");
+      }
+      return;
+    }
 
     if (this.tokenClient) {
       this.tokenClient.requestAccessToken({ prompt: "consent" });

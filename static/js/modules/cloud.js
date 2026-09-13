@@ -578,17 +578,28 @@ if (btnConnect) {
     console.info(`[gdrive] identyfikator klienta: ${opisGoogleClientId(clientId)} — źródło: ${zrodlo}`);
 
     if (window.googleDriveSync) {
-      window.googleDriveSync.connect(clientId, (movies, shows) => {
-        if (movies && movies.length > 0) zapiszKopieBazy("połączenie z Google Drive");
-        if (movies && movies.length > 0) state.movies = movies;
-        if (shows && shows.length > 0) state.shows = shows;
-        saveLocalDatabase();
-        markUserDatabaseCustom();
-        updateStats();
-        if (state.mode === "movies") renderMovies();
-        else renderShows();
-        updateDriveModalUI();
-      });
+      try {
+        window.googleDriveSync.connect(
+          clientId,
+          (movies, shows) => {
+            if (movies && movies.length > 0) zapiszKopieBazy("połączenie z Google Drive");
+            if (movies && movies.length > 0) state.movies = movies;
+            if (shows && shows.length > 0) state.shows = shows;
+            saveLocalDatabase();
+            markUserDatabaseCustom();
+            updateStats();
+            if (state.mode === "movies") renderMovies();
+            else renderShows();
+            updateDriveModalUI();
+          },
+          // Bez tego brak biblioteki Google albo wyjątek w bibliotece kończyły się tym,
+          // że kliknięcie „Zaloguj się przez konto Google" nie robiło nic widocznego.
+          (komunikat) => showToastNotification(komunikat, "error"),
+        );
+      } catch (e) {
+        console.error("[gdrive] nie udało się rozpocząć logowania:", e);
+        showToastNotification(`Nie udało się rozpocząć logowania Google: ${e && e.message ? e.message : "nieznany błąd"}.`, "error");
+      }
     }
   });
 }
