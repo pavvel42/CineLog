@@ -84,6 +84,13 @@ Klucze są opcjonalne — aplikacja działa też bez nich, a każdy użytkownik 
    OMDB_API_KEY=twoj_klucz_omdb_tutaj   # opcjonalny
    ```
    > Nazwy `IMDB_API_KEY` lepiej nie używać: to historyczny alias OMDb, honorowany tylko dla wartości 8-znakowej. Klucz TMDb wpisany w tym miejscu jest ignorowany z ostrzeżeniem w logu.
+5. **Google Drive (opcjonalnie):** identyfikator klienta OAuth to wartość publiczna (podróżuje w adresie przeglądarki), więc trzymamy go osobno od kluczy — ale tak samo w `.env`:
+
+   ```bash
+   GOOGLE_CLIENT_ID=1234567890-xxxxxxxx.apps.googleusercontent.com   # typ klienta: "Web application"
+   ```
+
+   Przy starcie `run.py` wpisuje tę wartość do `static/js/config.js`, więc nie musisz jej wklejać na każdym urządzeniu. Zaakceptowana jest też nazwa `ID_Project_Google_Cloud`. Wartość, która nie jest identyfikatorem klienta (np. numer projektu albo klucz API), jest odrzucana z ostrzeżeniem w logu — Google odpowiadał na nią mylącym błędem `401 invalid_client` („The OAuth client was not found"), który wygląda jak problem z uprawnieniami konta, a oznacza tylko nieznany identyfikator klienta.
 
 Pozostałe zmienne (wszystkie opcjonalne): `HOST` (domyślnie `127.0.0.1`), `PORT` (domyślnie `5001`), `FLASK_DEBUG=1` oraz `DATA_DIR` (katalog plików JSON, przydatny do izolowanych testów).
 
