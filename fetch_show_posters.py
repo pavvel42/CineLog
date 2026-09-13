@@ -4,6 +4,8 @@ import urllib.request
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from services.omdb_key import server_omdb_key
+
 SHOWS_FILE = os.path.join("data", "shows_parsed.json")
 BACKUP_FILE = os.path.join("data", "shows_backup.json")
 
@@ -19,7 +21,7 @@ def verify_url_live(url):
     except Exception:
         return False
 
-OMDB_API_KEY = os.environ.get("OMDB_API_KEY", "").strip() or os.environ.get("IMDB_API_KEY", "").strip()
+OMDB_API_KEY = server_omdb_key()
 
 def get_show_poster_omdb(title):
     if not OMDB_API_KEY:

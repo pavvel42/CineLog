@@ -7,29 +7,15 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 import urllib.parse
 import urllib.request
 from datetime import datetime
 
+from services.omdb_key import server_omdb_key  # noqa: F401  (re-eksport: trasy importują go z services.metadata)
 from services.security import mask_secret
 
 log = logging.getLogger("cinelog")
-
-
-def server_omdb_key() -> str:
-    """Klucz OMDb skonfigurowany na serwerze — jedno źródło dla wszystkich tras.
-
-    `IMDB_API_KEY` jest historycznym aliasem, nie osobnym dostawcą: IMDb nie
-    udostępnia własnego API, a dane IMDb w aplikacji pochodzą z OMDb, więc oba
-    warianty nazwy wskazują ten sam klucz. Wcześniej część tras czytała tylko
-    `OMDB_API_KEY`, a część dodatkowo `IMDB_API_KEY` — teraz robią to samo.
-    """
-    return (
-        os.environ.get("OMDB_API_KEY", "").strip()
-        or os.environ.get("IMDB_API_KEY", "").strip()
-    )
 
 
 def _omdb_exact(clean_title: str, media_type: str, api_key: str) -> dict | None:
