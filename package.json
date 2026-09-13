@@ -19,7 +19,8 @@
     "check:frontend": "python3 scripts/check_frontend.py",
     "check:xss": "python3 scripts/check_xss.py",
     "check:data": "python3 scripts/check_data_sync.py",
-    "verify": "npm run test:unit && npm run check:types && npm run check:data && npm run check:frontend && npm run check:xss && npm run test:e2e"
+    "check:version": "python3 scripts/sync_version.py check",
+    "verify": "npm run test:unit && npm run check:types && npm run check:data && npm run check:frontend && npm run check:xss && npm run check:version && npm run test:e2e"
   },
   "repository": {
     "type": "git",
