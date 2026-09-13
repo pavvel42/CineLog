@@ -2,7 +2,7 @@
 // CineLog - Movies Management & Details Modal Module
 // ==========================================================================
 
-import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, apiFetch } from './state.js';
+import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, apiFetch, isRealDetail } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
@@ -239,7 +239,8 @@ async function resolveMovieDetailOnline(movie) {
     let detail = null;
     const detailRes = await apiFetch(detailFetchUrl).catch(() => ({ ok: false }));
     if (detailRes && detailRes.ok) {
-      detail = await detailRes.json();
+      const body = await detailRes.json();
+      detail = isRealDetail(body) ? body : null;
     }
 
     // 1. Direct client TMDb lookup

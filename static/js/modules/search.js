@@ -1,4 +1,4 @@
-import { state, saveLocalDatabase, getGradientForTitle, findDuplicateInLibrary, normalizeTitleForLibrary, escapeHtml, safeUrl, apiFetch, fetchWithTimeout, tmdbIdOf } from './state.js';
+import { state, saveLocalDatabase, getGradientForTitle, findDuplicateInLibrary, normalizeTitleForLibrary, escapeHtml, safeUrl, apiFetch, fetchWithTimeout, tmdbIdOf, isRealDetail } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { getUserLanguage } from './vod.js';
@@ -194,7 +194,11 @@ async function fetchBackendProductionDetail(item) {
     });
     const res = await apiFetch(`/api/search_detail?${params.toString()}`);
     if (res.ok) {
-      return { detail: await res.json(), backendSuccess: true };
+      const body = await res.json();
+      // 200 z `needs_key` to prośba o klucz API, nie dane — nie blokuj fallbacku klienckiego
+      if (isRealDetail(body)) {
+        return { detail: body, backendSuccess: true };
+      }
     }
   } catch (e) {
     console.warn("Backend detail fetch error, trying client TMDb API:", e);
@@ -581,7 +585,8 @@ async function fetchAddSearchResults(query) {
   }
 
   // 2. Direct client-side TMDb API call (for GitHub Pages / offline mode)
-  if (!data && rawTmdbKey) {
+  // Also when the backend answered `needs_key` (tryb demo: klucz tylko w config.js)
+  if ((!data || data.needs_key) && rawTmdbKey) {
     try {
       const tmdbEndpoint = searchType === "series" ? "tv" : "movie";
       const res = await fetchWithTimeout(`https://api.themoviedb.org/3/search/${tmdbEndpoint}?api_key=${encodeURIComponent(rawTmdbKey)}&query=${encodeURIComponent(query)}&language=${getUserLanguage()}&include_adult=false`);
@@ -706,8 +711,11 @@ function handleAddSearchResponse(data, stepSearch, stepResults, resultsContainer
   if (data && data.found && data.results && data.results.length > 0) {
     showAddSearchResults(data, stepSearch, stepResults, resultsContainer);
   } else if (data && data.needs_key) {
-    // Backend has no TMDb/OMDb key configured - show the key setup panel
-    showSearchKeyErrorPanel("Wyszukiwanie online wymaga darmowego klucza TMDb API", searchError, searchErrorText);
+    // Backend nie ma klucza ALBO klucz został odrzucony — pokaż prawdziwy powód
+    const powod = data.key_rejected
+      ? (data.message || "Klucz TMDb API został odrzucony przez API. Sprawdź klucz w oknie „Chmura & Asystent AI” → „Klucze API”.")
+      : "Wyszukiwanie online wymaga darmowego klucza TMDb API";
+    showSearchKeyErrorPanel(powod, searchError, searchErrorText);
   } else if (data && !data.found) {
     if (searchErrorText) searchErrorText.innerText = "Nie znaleziono pozycji o podanym tytule. Sprawdź pisownię.";
     if (searchError) searchError.style.display = "flex";

@@ -2,7 +2,7 @@
 // CineLog - Universal Importer Module (Filmweb, Letterboxd, IMDb, JSON)
 // ==========================================================================
 
-import { state, saveLocalDatabase, isItemInLibrary, generateUUID, markUserDatabaseCustom, escapeHtml, apiFetch } from './state.js';
+import { state, saveLocalDatabase, isItemInLibrary, generateUUID, markUserDatabaseCustom, escapeHtml, apiFetch, isRealDetail } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { renderMovies } from './movies.js';
@@ -447,7 +447,10 @@ async function fetchImportDetailFromBackend(item, userLang) {
   if (window.location.protocol === "file:" || window.location.hostname.includes("github.io")) return null;
   try {
     const res = await apiFetch(`/api/search_detail?${buildImportDetailParams(item, userLang).toString()}`);
-    if (res.ok) return await res.json();
+    if (res.ok) {
+      const body = await res.json();
+      return isRealDetail(body) ? body : null;
+    }
   } catch (e) {
     console.warn("Failed detail fetch for", item.title, e);
   }

@@ -49,6 +49,15 @@ self.addEventListener("fetch", (evt) => {
     return;
   }
 
+  // Konfiguracja frontendu może nieść klucz API — nigdy nie trafia do Cache Storage
+  // (ani nie jest z niego serwowana), a kopia zapisana przez starsze wersje SW jest czyszczona.
+  if (url.pathname.endsWith("/config.js")) {
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.delete(evt.request, { ignoreSearch: true }))
+      .catch(() => {});
+    return; // bez respondWith: zwykłe żądanie sieciowe, bez zapisu w cache
+  }
+
   // Network-First for JS and APIs to ensure instant updates
   if (url.pathname.endsWith(".js") || url.pathname.startsWith("/api/")) {
     evt.respondWith(

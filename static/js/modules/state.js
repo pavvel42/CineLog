@@ -177,6 +177,16 @@ export async function apiFetch(path, options = {}) {
   return response;
 }
 
+/** Czy odpowiedź backendu zawiera realne dane (a nie prośbę o klucz API)?
+ *
+ * `/api/search_detail` zwraca 200 z `needs_key: true`, gdy backend nie ma
+ * żadnego klucza (albo klucz został odrzucony). Taka odpowiedź nie jest danymi —
+ * potraktowana jak sukces zablokowałaby fallback kliencki (tryb demo / GitHub Pages).
+ */
+export function isRealDetail(body) {
+  return Boolean(body) && !body.needs_key && body.found !== false;
+}
+
 // Progressive rendering: append cards in chunks so large libraries don't freeze the UI.
 // A generation counter cancels pending chunks when a newer render starts.
 /**
