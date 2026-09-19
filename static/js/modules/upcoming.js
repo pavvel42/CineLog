@@ -1,4 +1,4 @@
-import { state, getGradientForTitle, apiFetch } from './state.js';
+import { state, getGradientForTitle, apiFetch, wybierzTrafienieWTmdb } from './state.js';
 import { showToastNotification } from './ui.js';
 import { openMovieDetail } from './movies.js';
 import { openEpisodeTracker } from './shows.js';
@@ -86,10 +86,11 @@ export async function loadUpcomingData(forceRefresh = false) {
               const sRes = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${localKey}&query=${encodeURIComponent(cleanTitle)}&language=pl-PL`);
               if (sRes.ok) {
                 const sData = await sRes.json();
-                if (sData.results && sData.results.length > 0) {
-                  tmdbId = sData.results[0].id;
-                  s.tmdb_id = tmdbId;
-                }
+                // Tylko pewne trafienie (tytuł + rok). Wpisu biblioteki NIE nadpisujemy:
+                // podmiana identyfikatora na pierwszy lepszy wynik z wyszukiwania
+                // podstawiała później opis, obsadę i odcinki innego serialu.
+                const trafienie = wybierzTrafienieWTmdb(sData.results, s.title, s.year || s.release_year);
+                if (trafienie) tmdbId = trafienie.id;
               }
             }
             if (!tmdbId) return null;

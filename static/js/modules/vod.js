@@ -2,7 +2,7 @@
 // CineLog - VOD Watch Providers & Region Settings Module
 // ==========================================================================
 
-import { state, tmdbIdOf, apiFetch, escapeHtml, safeUrl } from './state.js';
+import { state, tmdbIdOf, apiFetch, escapeHtml, safeUrl, wybierzTrafienieWTmdb } from './state.js';
 import { showToastNotification } from './ui.js';
 
 export const TMDB_GLOBAL_VOD_MAP = {
@@ -748,9 +748,10 @@ export async function getWatchProvidersForTitle(title, mediaType, tmdbId = null)
         const searchRes = await fetch(`https://api.themoviedb.org/3/search/${tmdbType}?api_key=${encodeURIComponent(rawTmdbKey)}&query=${encodeURIComponent(cleanTitle)}&language=${getUserLanguage()}&include_adult=false`);
         if (searchRes.ok) {
           const searchJson = await searchRes.json();
-          if (searchJson.results && searchJson.results.length > 0) {
-            resolvedTmdbId = searchJson.results[0].id;
-          }
+          // Tylko pewne trafienie (tytuł, a gdy znany — rok). Inaczej dla "Biuro"
+          // można trafić w zupełnie inny serial i pokazać jego dostawców VOD.
+          const trafienie = wybierzTrafienieWTmdb(searchJson.results, cleanTitle, null);
+          if (trafienie) resolvedTmdbId = trafienie.id;
         }
       }
 

@@ -2,7 +2,7 @@
 // CineLog - Movies Management & Details Modal Module
 // ==========================================================================
 
-import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, apiFetch, isRealDetail, clientTmdbKey, szukajWTmdbPoStronieKlienta, localTimestamp, getActiveEnvMode } from './state.js';
+import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, apiFetch, isRealDetail, clientTmdbKey, szukajWTmdbPoStronieKlienta, localTimestamp, getActiveEnvMode, wybierzTrafienieWTmdb } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
@@ -65,7 +65,7 @@ export function sortItems(items, sortMode, type = "movie") {
       if (rA !== rB) return rA - rB;
       return (a.title || "").localeCompare(b.title || "", "pl");
     }
-    if (sortMode === "release_desc") {
+    if (sortMode === "year_desc" || sortMode === "release_desc") {
       const yA = a.release_date || (a.release_year ? `${a.release_year}-01-01` : "") || "";
       const yB = b.release_date || (b.release_year ? `${b.release_year}-01-01` : "") || "";
       if (yA && !yB) return -1;
@@ -73,12 +73,19 @@ export function sortItems(items, sortMode, type = "movie") {
       if (yA && yB && yA !== yB) return yB.localeCompare(yA);
       return (a.title || "").localeCompare(b.title || "", "pl");
     }
-    if (sortMode === "release_asc") {
+    if (sortMode === "year_asc" || sortMode === "release_asc") {
       const yA = a.release_date || (a.release_year ? `${a.release_year}-01-01` : "") || "";
       const yB = b.release_date || (b.release_year ? `${b.release_year}-01-01` : "") || "";
       if (yA && !yB) return -1;
       if (!yA && yB) return 1;
       if (yA && yB && yA !== yB) return yA.localeCompare(yB);
+      return (a.title || "").localeCompare(b.title || "", "pl");
+    }
+    if (sortMode === "episodes_desc" || sortMode === "episodes_asc") {
+      const liczba = (it) => (it.episodes_watched ? it.episodes_watched.length : 0);
+      const epA = liczba(a);
+      const epB = liczba(b);
+      if (epA !== epB) return sortMode === "episodes_desc" ? epB - epA : epA - epB;
       return (a.title || "").localeCompare(b.title || "", "pl");
     }
     return 0;
@@ -276,8 +283,11 @@ async function resolveMovieDetailOnline(movie) {
           const searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?${queryParams.toString()}`);
           if (searchRes.ok) {
             const sData = await searchRes.json();
-            if (sData.results && sData.results.length > 0) {
-              resolvedTmdbId = sData.results[0].id;
+            // Tylko pewne trafienie (tytuł + rok): pierwszy wynik z wyszukiwania mylił
+            // filmy o tym samym tytule (remaki, inne wersje) i podmieniał identyfikator.
+            const trafienie = wybierzTrafienieWTmdb(sData.results, movie.title, movieYear || movie.year);
+            if (trafienie) {
+              resolvedTmdbId = trafienie.id;
               movie.tmdb_id = resolvedTmdbId;
             }
           }
@@ -704,7 +714,10 @@ async function updateMovieStatus(uuid, status) {
   const prevWatchDate = found ? found.watch_date : null;
   if (found) {
     found.status = status;
-    if (status === "watched" && !found.watch_date) {
+    // Data obejrzenia jest odświeżana przy KAŻDYM oznaczeniu jako obejrzany.
+    // Warunek "tylko gdy pusta" zostawiał stare daty z importu TVTime, więc film
+    // oznaczony dzisiaj nadal sortował się według daty sprzed lat.
+    if (status === "watched") {
       found.watch_date = payload.watch_date;
     }
   }

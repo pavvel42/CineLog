@@ -288,6 +288,35 @@ export function normalizeTitleForLibrary(title) {
     .replace(/[^a-z0-9]/g, "");
 }
 
+// Dopasowanie wyniku wyszukiwania TMDb do wpisu biblioteki.
+// Nie wolno brać pierwszego wyniku "w ciemno": tytuł typu "Biuro" ma w TMDb po kilka
+// wersji (The Office US, The Office UK, seriale o biurach), a wtedy opis i obsada
+// pochodzą z jednego serialu, a odcinki z zupełnie innego.
+// Zwraca dopasowany wynik albo null, gdy nie ma wystarczającej pewności.
+export function wybierzTrafienieWTmdb(wyniki, tytul, rok) {
+  if (!Array.isArray(wyniki) || wyniki.length === 0) return null;
+  const cel = normalizeTitleForLibrary(tytul);
+  if (!cel) return null;
+  const rokCelu = parseInt(rok, 10) || null;
+
+  const zgodne = [];
+  for (const wynik of wyniki) {
+    const nazwy = [wynik.name, wynik.title, wynik.original_name, wynik.original_title]
+      .map(normalizeTitleForLibrary)
+      .filter(Boolean);
+    if (!nazwy.includes(cel)) continue;
+    const rokWyniku = parseInt(String(wynik.first_air_date || wynik.release_date || "").slice(0, 4), 10) || null;
+    // Rok znany po obu stronach musi się zgadzać; brak roku po którejkolwiek stronie
+    // nie dyskwalifikuje kandydata, ale nie pozwala też wybrać między kilkoma.
+    if (rokCelu && rokWyniku && Math.abs(rokWyniku - rokCelu) > 1) continue;
+    zgodne.push(wynik);
+  }
+
+  if (zgodne.length === 0) return null;
+  if (zgodne.length > 1 && !rokCelu) return null;
+  return zgodne[0];
+}
+
 function getTitleVariants(itemOrTitle) {
   if (!itemOrTitle) return [];
   const set = new Set();

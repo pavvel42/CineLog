@@ -2,7 +2,7 @@
 // CineLog - TV Shows Management & Episode Tracker Module
 // ==========================================================================
 
-import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, apiFetch, isRealDetail, generateUUID, recalculateShowProgress, localTimestamp } from './state.js';
+import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, apiFetch, isRealDetail, generateUUID, recalculateShowProgress, localTimestamp, wybierzTrafienieWTmdb } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
@@ -503,8 +503,11 @@ async function fetchTrackerData(show, gen = trackerGen) {
         const searchRes = await fetch(`https://api.themoviedb.org/3/search/tv?${queryParams.toString()}`);
         if (searchRes.ok) {
           const sData = await searchRes.json();
-          if (sData.results && sData.results.length > 0) {
-            resolvedTmdbId = sData.results[0].id;
+          // Tylko pewne trafienie (tytuł + rok). Pierwszy wynik z wyszukiwania trafiał
+          // w inną wersję serialu: opis i obsada były z jednego, a odcinki z drugiego.
+          const trafienie = wybierzTrafienieWTmdb(sData.results, show.title, showYear);
+          if (trafienie) {
+            resolvedTmdbId = trafienie.id;
             show.tmdb_id = resolvedTmdbId;
           }
         }
