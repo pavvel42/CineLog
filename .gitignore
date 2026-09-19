@@ -19,3 +19,7 @@ tmdb-cache.json
 
 # Eksport danych osobowych z TVTime (RODO/GDPR) — tokeny, IP, identyfikatory urządzeń
 gdpr-data/
+
+# Robocze pliki scalania biblioteki (dane użytkownika — nie na gita)
+scalanie/
+cinelog_scalone*.json
