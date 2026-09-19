@@ -11,10 +11,16 @@ import { sortItems } from './movies.js';
 import { openRematchPicker } from './movies.js';
 import { streamAiChat, buildSeriesSystemPrompt, formatAiMarkdown, isAiConfigured } from './ai.js';
 import { openCloudSyncModal } from './cloud.js';
+import { pobierzKolejnoscTvmaze, zbudujMapeOdcinkow, numerCzesci } from './episode-order.js';
 
 let selectedShow = null;
 let selectedSeason = 1;
 let currentShowMeta = {};
+// Numeracja odcinków zgodna z biblioteką (TVDB/TVmaze/Filmweb), używana tylko dla
+// sezonów, w których TMDb scala odcinki podwójne i ma ich mniej niż biblioteka.
+// null = nie sprawdzano / nie udało się pobrać.
+let numeracjaTvmaze = null;
+const sezonyWNumeracjiBiblioteki = new Set();
 // Licznik generacji trackera (wzorzec z renderListInChunks): każde otwarcie
 // trackera unieważnia wciąż lecące asynchroniczne odpowiedzi poprzedniego —
 // bez tego opóźnione metadane serialu A nadpisują tracker aktualnie
@@ -220,6 +226,8 @@ export async function openEpisodeTracker(show) {
   selectedShow = show;
   selectedSeason = Math.max(show.latest_season || 1, 1);
   currentShowMeta = {};
+  numeracjaTvmaze = null;
+  sezonyWNumeracjiBiblioteki.clear();
 
   document.getElementById("m3-ep-show-title").innerText = show.title;
   const progressText = show.latest_progress ? `Postęp: ${show.latest_progress} (${show.watched_count || 0} odcinków)` : "Brak obejrzanych odcinków";
@@ -605,6 +613,9 @@ async function fetchTrackerData(show, gen = trackerGen) {
     await ensureSeasonMeta(show.tmdb_id, selectedSeason, gen);
   }
 
+  // Sezon w numeracji biblioteki, gdy TMDb scala odcinki podwójne (patrz komentarz funkcji).
+  await ensureNumeracjaSezonu(show, selectedSeason, gen);
+
   if (gen !== trackerGen) return null;
   renderSeasonTabs();
   renderSeasonEpisodes(false);
@@ -713,6 +724,81 @@ async function ensureSeasonMeta(tmdbId, seasonNum, gen = trackerGen) {
 }
 
 /**
+ * Gdy biblioteka ma w sezonie więcej odcinków niż TMDb (odcinki podwójne liczone
+ * jako dwa — TVDB/TVmaze/Filmweb, a tak numeruje import z TVTime), przestawiamy
+ * sezon na numerację biblioteki: listę bierzemy z TVmaze, a polskie nazwy i opisy
+ * — z odcinka TMDb dopasowanego po nazwie. Bez tego obejrzane odcinki trafiają na
+ * cudze wiersze (The Office s5: przesunięcie o 1 od 3. odcinka, o 2 od 16.), a
+ * wiersze spoza TMDb nie mają opisu. Gdy dopasowanie nie jest pewne — nie ruszamy.
+ */
+async function ensureNumeracjaSezonu(show, seasonNum, gen = trackerGen) {
+  const wpisy = (show.episodes_watched || []).filter(ep => ep.season === seasonNum);
+  if (!wpisy.length) return;
+
+  const maxWpis = Math.max(...wpisy.map(ep => ep.episode));
+  const kluczeTmd = Object.keys(currentShowMeta).filter(k => parseInt(k.split("_")[0], 10) === seasonNum);
+  if (maxWpis <= kluczeTmd.length) return; // numeracje zgodne — nic do roboty
+
+  const lokalnyKlucz = localStorage.getItem("cinelog_tmdb_key");
+  if (!lokalnyKlucz || !show.tmdb_id) return;
+
+  if (!numeracjaTvmaze) {
+    numeracjaTvmaze = await pobierzKolejnoscTvmaze(show.title);
+  }
+  if (gen !== trackerGen) return;
+  if (!numeracjaTvmaze) return;
+
+  const odcinkiTvmaze = numeracjaTvmaze.get(seasonNum) || [];
+  if (odcinkiTvmaze.length < maxWpis) return; // TVmaze nie potwierdza numeracji biblioteki
+
+  // Angielskie nazwy TMDb: polskie są tłumaczone, więc po nich nie dopasujemy.
+  let odcinkiTmdEn = [];
+  try {
+    const url = `https://api.themoviedb.org/3/tv/${show.tmdb_id}/season/${seasonNum}?api_key=${lokalnyKlucz}&language=en-US`;
+    const res = await fetch(url);
+    if (gen !== trackerGen) return;
+    if (!res.ok) return;
+    odcinkiTmdEn = (await res.json()).episodes || [];
+  } catch (e) {
+    return;
+  }
+  if (gen !== trackerGen) return;
+
+  const { mapa, kompletne } = zbudujMapeOdcinkow(odcinkiTvmaze, odcinkiTmdEn);
+  if (!kompletne) return; // brak pewnego dopasowania — zostajemy przy TMDb
+
+  // Liczymy, ile odcinków TVmaze wskazuje na ten sam odcinek TMDb (połowy jednego).
+  const ileNaTmd = new Map();
+  mapa.forEach(nrTmd => ileNaTmd.set(nrTmd, (ileNaTmd.get(nrTmd) || 0) + 1));
+
+  // Nazwy i opisy TMDb czytamy ze stanu sprzed przepisania kluczy — inaczej odcinek
+  // 3 czytałby wpis „5_2” już nadpisany danymi odcinka 2 (kolejność pętli niżej).
+  const metaTmd = { ...currentShowMeta };
+
+  odcinkiTvmaze.forEach(odc => {
+    const nrTmd = mapa.get(odc.number);
+    const zTmd = nrTmd !== undefined ? metaTmd[`${seasonNum}_${nrTmd}`] : null;
+    // TMDb dla części odcinków nie ma przetłumaczonej nazwy („Odcinek 25”) — wtedy
+    // lepsza jest nazwa z TVmaze niż zaślepka.
+    const tmdUzyteczny = zTmd && zTmd.name && !/^Odcinek \d+$/.test(zTmd.name);
+    const czesc = ileNaTmd.get(nrTmd) > 1 ? numerCzesci(odc.name) : 0;
+    const nazwaBazowa = tmdUzyteczny ? zTmd.name : odc.name;
+    currentShowMeta[`${seasonNum}_${odc.number}`] = {
+      season: seasonNum,
+      episode: odc.number,
+      // Polskie dane TMDb dla tego samego odcinka; bez dopasowania — dane TVmaze.
+      name: czesc ? `${nazwaBazowa} — część ${czesc}` : nazwaBazowa,
+      airdate: (zTmd && zTmd.airdate) || odc.airdate,
+      runtime: (zTmd && zTmd.runtime) || odc.runtime,
+      summary: (zTmd && zTmd.summary) || odc.summary,
+      image: (zTmd && zTmd.image) || odc.image,
+    };
+  });
+
+  sezonyWNumeracjiBiblioteki.add(seasonNum);
+}
+
+/**
  * Jedno źródło prawdy dla wyświetlania sezonu: licznik badge'u "(x/y)"
  * i zakres renderowanych wierszy muszą się zgadzać (wcześniej dwie kopie
  * logiki z różnym traktowaniem ep0 i rozszerzenia klienta +3).
@@ -734,23 +820,30 @@ function getSeasonDisplayInfo(seasonNum) {
     }
   });
 
-  // Liczbę wierszy wyznaczają metadane (TMDb albo serwer), nie najwyższy numer
-  // wpisu: biblioteki z TVTime numerują odcinki podwójne jako dwa (porządek
-  // TVDB), więc wpisy sięgają dalej niż lista odcinków. Branie ich za liczbę
-  // odcinków dawało puste wiersze bez tytułu i opisu (The Office s5: 28 vs 26).
+  // Liczbę wierszy wyznacza lista odcinków, nie najwyższy numer wpisu w bibliotece:
+  // biblioteki (TVDB/TVmaze/Filmweb, a więc i import z TVTime) liczą odcinki
+  // podwójne jako dwa. Gdy TMDb ma ich mniej, sezon jest przestawiony na numerację
+  // biblioteki (ensureNumeracjaSezonu) — wtedy wierszy jest tyle, ile w tej
+  // numeracji, a obejrzane wpisy pasują do nich 1:1.
+  const odcinkiBiblioteki = sezonyWNumeracjiBiblioteki.has(seasonNum) && numeracjaTvmaze
+    ? numeracjaTvmaze.get(seasonNum) || []
+    : [];
+
   const liczbaZeWpisow = watchedSet.size > 0 ? Math.max(...watchedSet) : 0;
-  let epCountToRender = maxEpInSeason > 0 ? maxEpInSeason : Math.max(liczbaZeWpisow, 1);
-  if (!maxEpInSeason && !state.backendAvailable) {
+  let epCountToRender = odcinkiBiblioteki.length
+    ? odcinkiBiblioteki.length
+    : (maxEpInSeason > 0 ? maxEpInSeason : Math.max(liczbaZeWpisow, 1));
+  if (!odcinkiBiblioteki.length && !maxEpInSeason && !state.backendAvailable) {
     // Tryb klienta bez metadanych TMDb: pokaż kilka kolejnych odcinków,
     // żeby dało się klikać w przód poza ostatnio obejrzany odcinek.
     epCountToRender = Math.max(liczbaZeWpisow + 3, 1);
   }
 
-  // Wpisy poza listą odcinków nie tworzą wierszy i nie liczą się do licznika
-  // sezonu, ale nie znikają — pokazujemy je jako informację pod listą.
-  const wpisySpozaListy = [...watchedSet]
-    .filter(nr => nr > epCountToRender && nr !== 0)
-    .sort((a, b) => a - b);
+  // Wpisy poza listą odcinków zdarzają się tylko wtedy, gdy nie udało się ustalić
+  // numeracji biblioteki — wtedy ich nie renderujemy, ale mówimy o nich pod listą.
+  const wpisySpozaListy = odcinkiBiblioteki.length
+    ? []
+    : [...watchedSet].filter(nr => nr > epCountToRender && nr !== 0).sort((a, b) => a - b);
   const watchedInSeason = [...watchedSet].filter(nr => nr <= epCountToRender).length;
 
   // mianownik badge'u = liczba renderowanych wierszy (0..N przy ep0, inaczej 1..N)
@@ -795,6 +888,11 @@ function renderSeasonTabs() {
         if (gen !== trackerGen) return; // w międzyczasie otwarto inny serial
         renderSeasonEpisodes(false);
       }
+      // Ten sam sezon może wymagać numeracji biblioteki (odcinki podwójne w TMDb).
+      await ensureNumeracjaSezonu(selectedShow, s, gen);
+      if (gen !== trackerGen) return;
+      renderSeasonTabs();
+      renderSeasonEpisodes(false);
     });
 
     tabsContainer.appendChild(tabBtn);
@@ -976,7 +1074,7 @@ function renderSeasonEpisodes(shouldScroll = true) {
     const nota = document.createElement("div");
     nota.className = "m3-ep-extra-note";
     nota.style.cssText = "margin: 10px 4px 4px; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);";
-    nota.textContent = `Pominięto ${info.wpisySpozaListy.length} wpis(y) z importu (odc. ${info.wpisySpozaListy.join(", ")}) — stara numeracja liczyła odcinki podwójne jako dwa, a TMDb ma ich mniej w tym sezonie.`;
+    nota.textContent = `Nie udało się ustalić numeracji odcinków dla tego sezonu, więc ${info.wpisySpozaListy.length} wpis(y) z biblioteki (odc. ${info.wpisySpozaListy.join(", ")}) nie ma tu swojego wiersza. Odśwież widok, żeby spróbować ponownie.`;
     container.appendChild(nota);
   }
 
