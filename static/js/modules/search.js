@@ -885,7 +885,7 @@ async function saveMovieToBackend(payload) {
 }
 
 function buildLocalMovie(currentPreviewData, status, rating) {
-  return {
+  const movie = {
     uuid: `movie_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
     title: currentPreviewData.title,
     original_title: currentPreviewData.original_title || currentPreviewData.title,
@@ -901,8 +901,13 @@ function buildLocalMovie(currentPreviewData, status, rating) {
     tmdb_id: tmdbIdOf(currentPreviewData.tmdb_id) || tmdbIdOf(currentPreviewData.id),
     imdb_id: currentPreviewData.imdb_id || "",
     is_favorite: false,
-    user_date: localTimestamp().slice(0, 10)
+    user_date: localTimestamp().slice(0, 10),
+    // Data aktywności dla sortowania „Ostatnio dodane / aktywność" (serwer Flask
+    // nadaje follow_date sam — bez tego klient pokazywał nowy film na końcu listy).
+    follow_date: localTimestamp()
   };
+  if (movie.status === "watched") movie.watch_date = movie.follow_date;
+  return movie;
 }
 
 function upsertMovieInLibrary(savedMovie, sheetAdd) {
@@ -990,7 +995,9 @@ function buildLocalShow(currentPreviewData, status, rating, episodesList) {
     in_production: typeof currentPreviewData.in_production === "boolean" ? currentPreviewData.in_production : null,
     season_ep_counts: currentPreviewData.season_ep_counts || {},
     episodes_watched: episodesList,
-    user_date: localTimestamp().slice(0, 10)
+    user_date: localTimestamp().slice(0, 10),
+    // Jak dla filmów: data aktywności dla sortowania „Ostatnio dodane / aktywność".
+    follow_date: localTimestamp()
   };
 }
 

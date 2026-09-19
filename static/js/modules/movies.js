@@ -10,7 +10,9 @@ import { renderCastRail } from './cast.js';
 
 function getItemWatchDate(item, type) {
   if (type === "movie") {
-    return item.watch_date || item.follow_date || item.created_at || "";
+    // user_date to data dodania z wpisów zapisanych przed poprawką (tylko ona była
+    // nadawana klientowi) — bez niej takie wpisy sortowały się na końcu listy.
+    return item.watch_date || item.follow_date || item.created_at || item.updated_at || item.user_date || "";
   } else {
     if (item.episodes_watched && item.episodes_watched.length > 0) {
       let maxEpDate = "";
@@ -21,7 +23,7 @@ function getItemWatchDate(item, type) {
       }
       if (maxEpDate) return maxEpDate;
     }
-    return item.updated_at || item.created_at || "";
+    return item.updated_at || item.created_at || item.follow_date || item.user_date || "";
   }
 }
 

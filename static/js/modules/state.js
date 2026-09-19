@@ -540,8 +540,14 @@ export function buildLocalLibraryEntry(previewData, type, status = "watchlist", 
     tmdb_id: previewData.tmdb_id || previewData.id,
     imdb_id: previewData.imdb_id || "",
     is_favorite: false,
-    user_date: localTimestamp().slice(0, 10)
+    user_date: localTimestamp().slice(0, 10),
+    // Data aktywności: sortowanie „Ostatnio dodane / aktywność" liczy z
+    // watch_date || follow_date || created_at, więc wpis bez żadnej z nich ląduje na
+    // KOŃCU listy — dokładnie tak zgłosił to użytkownik. Serwer Flask nadaje
+    // follow_date przy dodaniu (routes/movies.py), klient musi robić to samo.
+    follow_date: localTimestamp()
   };
+  if (entry.status === "watched") entry.watch_date = entry.follow_date;
   if (type === "series" || type === "tv") {
     entry.total_seasons = previewData.total_seasons || 1;
     entry.total_episodes = previewData.total_episodes || 0;
