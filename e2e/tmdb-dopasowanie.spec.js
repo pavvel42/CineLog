@@ -60,3 +60,39 @@ test.describe("Dopasowanie tytułu do TMDb", () => {
     expect(await dopasuj(page, [PRAWDZIWY], "The Office", "2005")).toBe(2316);
   });
 });
+
+test.describe("Import nie wpisuje identyfikatora z pierwszego wyniku", () => {
+  test.use({ serviceWorkers: "block" });
+
+  const zaimportujId = (page) =>
+    page.evaluate(async () => {
+      const { resolveImportTmdbId } = await import("/static/js/modules/importer.js");
+      return resolveImportTmdbId({ title: "Biuro", year: "2005" }, true, "klucz-testowy", "pl-PL");
+    });
+
+  test("odrzuca pierwszą lepszą produkcję o innym roku i nie pasujący tytuł", async ({ page }) => {
+    await przygotuj(page);
+    await page.route("https://api.themoviedb.org/3/search/tv?**", (r) =>
+      r.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ results: [ZUPEŁNIE_INNY, TA_SAMA_NAZWA_INNY_ROK] }),
+      })
+    );
+
+    expect(await zaimportujId(page)).toBeFalsy();
+  });
+
+  test("przyjmuje właściwą wersję serialu, gdy jest na liście wyników", async ({ page }) => {
+    await przygotuj(page);
+    await page.route("https://api.themoviedb.org/3/search/tv?**", (r) =>
+      r.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ results: [ZUPEŁNIE_INNY, TA_SAMA_NAZWA_INNY_ROK, PRAWDZIWY] }),
+      })
+    );
+
+    expect(await zaimportujId(page)).toBe(2316);
+  });
+});

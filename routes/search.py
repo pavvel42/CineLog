@@ -21,6 +21,7 @@ from flask.typing import ResponseReturnValue
 import app as _app
 
 from services import client_keys
+from services.dopasowanie import wybierz_zgodny
 from services.metadata import server_omdb_key
 from services.tmdb_client import KEY_REJECTED_MESSAGE, key_rejected
 
@@ -314,7 +315,15 @@ def search_detail() -> ResponseReturnValue:
                         return score
 
                     results.sort(key=score_result, reverse=True)
-                    chosen = results[0]
+                    # Wybieramy wyłącznie spośród wyników o ZGODNYM tytule (i roku): ocena punktowa
+                    # premiuje popularność, więc bez tego przy braku trafienia wygrywał dowolny film
+                    # o podobnym tytule i do podglądu trafiały dane cudzej produkcji.
+                    chosen = wybierz_zgodny(results, clean_title, year)
+                    if not chosen:
+                        return jsonify({
+                            "found": False,
+                            "message": "Nie znalazłem pozycji o tym tytule.",
+                        }), 404
 
                     target_id = chosen["id"]
                     url_detail = f"https://api.themoviedb.org/3/{tmdb_type}/{target_id}?api_key={effective_tmdb_key}&language={lang}&append_to_response=credits"

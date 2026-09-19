@@ -117,7 +117,9 @@ def get_upcoming_schedule() -> ResponseReturnValue:
                             top = r
                             break
                     if not top:
-                        top = results[0]
+                        # Bez zgodnego tytułu nie ma danych platformy — wcześniej brany był pierwszy
+                        # wynik, więc harmonogram dostawał odcinki innego serialu o podobnej nazwie.
+                        return (k, None, False)
                     tv_id = top.get("id")
 
             if not tv_id:

@@ -1,4 +1,4 @@
-import { state, saveLocalDatabase, getGradientForTitle, findDuplicateInLibrary, normalizeTitleForLibrary, escapeHtml, safeUrl, apiFetch, fetchWithTimeout, tmdbIdOf, isRealDetail, localTimestamp } from './state.js';
+import { state, saveLocalDatabase, getGradientForTitle, findDuplicateInLibrary, normalizeTitleForLibrary, escapeHtml, safeUrl, apiFetch, fetchWithTimeout, tmdbIdOf, isRealDetail, localTimestamp, wybierzTrafienieWTmdb } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { getUserLanguage } from './vod.js';
@@ -232,7 +232,9 @@ async function resolveTmdbProductionId(item, tmdbType, localTmdbKey) {
       const sRes = await fetchWithTimeout(sUrl);
       if (sRes.ok) {
         const sData = await sRes.json();
-        if (sData.results && sData.results.length > 0) tmdbId = sData.results[0].id;
+        // Tylko pewne trafienie (tytuł + rok) — pierwszy wynik bywa inną produkcją o podobnym tytule.
+        const trafienie = wybierzTrafienieWTmdb(sData.results, item.title || cleanTitle, item.year || (item.release_date || "").slice(0, 4));
+        if (trafienie) tmdbId = trafienie.id;
       }
     } catch(e) {}
   }
@@ -457,7 +459,7 @@ async function diagnoseSearchFlow(query = "Kiedy nikt nie patrzy") {
     return steps;
   }
 
-  const target = data.results.length === 1 ? data.results[0] : data.results[0];
+  const target = data.results[0];
 
   const capturedErrors = [];
   const origConsoleError = console.error;

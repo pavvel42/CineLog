@@ -2,7 +2,7 @@
 // CineLog - Cast, Crew & Actor Profile Explorer Module
 // ==========================================================================
 
-import { state, getGradientForTitle, isItemInLibrary, saveLocalDatabase, escapeHtml, safeUrl, apiFetch, buildLocalLibraryEntry, getActiveEnvMode } from './state.js';
+import { state, getGradientForTitle, isItemInLibrary, saveLocalDatabase, escapeHtml, safeUrl, apiFetch, buildLocalLibraryEntry, getActiveEnvMode, normalizeTitleForLibrary } from './state.js';
 import { showToastNotification } from './ui.js';
 import { getUserLanguage } from './vod.js';
 
@@ -181,7 +181,11 @@ async function resolveTmdbPersonId(personId, personName, rawTmdbKey) {
   const sRes = await fetch(`https://api.themoviedb.org/3/search/person?api_key=${encodeURIComponent(rawTmdbKey)}&query=${encodeURIComponent(personName)}&language=${getUserLanguage()}`);
   if (!sRes.ok) return null;
   const sData = await sRes.json();
-  return sData.results && sData.results.length > 0 ? sData.results[0].id : null;
+  // Osoba musi się nazywać tak, jak jej szukamy — pierwszy wynik bywa inną osobą,
+  // przez co przy nazwisku aktora pokazywało się zdjęcie i filmografia kogoś innego.
+  const cel = normalizeTitleForLibrary(personName);
+  const trafienie = (sData.results || []).find((osoba) => normalizeTitleForLibrary(osoba.name) === cel);
+  return trafienie ? trafienie.id : null;
 }
 
 async function fetchActorProfileFromTmdb(personId, personName, rawTmdbKey) {

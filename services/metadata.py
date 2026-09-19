@@ -12,6 +12,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime
 
+from services.data_store import normalize_title
 from services.omdb_key import server_omdb_key  # noqa: F401  (re-eksport: trasy importują go z services.metadata)
 from services.security import mask_secret
 
@@ -32,6 +33,12 @@ def _omdb_exact(clean_title: str, media_type: str, api_key: str) -> dict | None:
 
 
 def _omdb_search_first(clean_title: str, media_type: str, api_key: str) -> dict | None:
+    """Pierwszy wynik wyszukiwania OMDb O ZGODNYM tytule (inaczej zwracamy None).
+
+    Wyszukiwanie OMDb sortuje po trafności, nie po tożsamości — pierwszy wynik bywa
+    innym filmem o podobnym tytule, więc bez sprawdzenia tytułu do biblioteki trafiał
+    plakat i data premiery cudzej produkcji.
+    """
     url = f"https://www.omdbapi.com/?apikey={api_key}&s={urllib.parse.quote(clean_title)}"
     if media_type == "series":
         url += "&type=series"
@@ -40,14 +47,20 @@ def _omdb_search_first(clean_title: str, media_type: str, api_key: str) -> dict 
         with urllib.request.urlopen(req, timeout=4) as resp:
             data = json.loads(resp.read().decode("utf-8", errors="ignore"))
             results = data.get("Search") or []
-            return results[0] if results else None
+            cel = normalize_title(clean_title)
+            for wynik in results:
+                if cel and normalize_title(wynik.get("Title")) == cel:
+                    return wynik
+            return None
     except Exception as e:
         log.warning("OMDb (search) lookup failed for %r: %s", clean_title, mask_secret(str(e), api_key))
         return None
 
 
 def _itunes_lookup(clean_title: str, media_type: str) -> dict | None:
+    """Wynik iTunes o zgodnym tytule (inaczej None) — pierwszy wynik bywa innym tytułem."""
     itunes_media = "tvShow" if media_type == "series" else "movie"
+    cel = normalize_title(clean_title)
     for country in ("US", "PL", "GB"):
         url = (
             f"https://itunes.apple.com/search?term={urllib.parse.quote(clean_title)}"
@@ -58,8 +71,10 @@ def _itunes_lookup(clean_title: str, media_type: str) -> dict | None:
             with urllib.request.urlopen(req, timeout=3) as resp:
                 data = json.loads(resp.read().decode("utf-8", errors="ignore"))
                 results = data.get("results") or []
-                if results:
-                    return results[0]
+                for wynik in results:
+                    nazwa = wynik.get("trackName") or wynik.get("collectionName") or ""
+                    if cel and normalize_title(nazwa) == cel:
+                        return wynik
         except Exception:
             continue
     return None

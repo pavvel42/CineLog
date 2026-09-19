@@ -404,3 +404,30 @@ def test_service_worker_jest_serwowany_jako_javascript(client):
     assert res.status_code == 200
     assert "javascript" in res.headers["Content-Type"]
     assert b"addEventListener" in res.get_data(), "to musi być skrypt service workera, nie strona HTML"
+
+def test_search_detail_nie_bierze_wyniku_o_innym_tytule(client, klucz, monkeypatch):
+    """Gdy żaden wynik nie ma zgodnego tytułu, lepszy brak danych niż dane cudzej produkcji.
+
+    Wcześniej wybierany był pierwszy wynik sortowania „po trafności" (popularność i liczba
+    głosów), więc podgląd potrafił pokazać zupełnie inny film o podobnym tytule.
+    """
+    upstream = _Upstream({
+        "/search/movie": {
+            "results": [
+                {
+                    "id": 999,
+                    "title": "Zupełnie inny film",
+                    "original_title": "A Totally Different Movie",
+                    "release_date": "1999-01-01",
+                    "vote_count": 99999,
+                    "popularity": 500.0,
+                }
+            ]
+        }
+    })
+    monkeypatch.setattr(urllib.request, "urlopen", upstream)
+
+    res = client.get("/api/search_detail?title=Nieistniejacy%20tytul&year=2010&type=movie")
+
+    assert res.status_code == 404
+    assert res.get_json()["found"] is False

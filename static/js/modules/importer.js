@@ -2,7 +2,7 @@
 // CineLog - Universal Importer Module (Filmweb, Letterboxd, IMDb, JSON)
 // ==========================================================================
 
-import { state, saveLocalDatabase, isItemInLibrary, generateUUID, markUserDatabaseCustom, escapeHtml, apiFetch, isRealDetail, zapiszKopieBazy, localTimestamp, recalculateShowProgress } from './state.js';
+import { state, saveLocalDatabase, isItemInLibrary, generateUUID, markUserDatabaseCustom, escapeHtml, apiFetch, isRealDetail, zapiszKopieBazy, localTimestamp, recalculateShowProgress, wybierzTrafienieWTmdb } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { renderMovies } from './movies.js';
@@ -465,7 +465,7 @@ async function fetchImportDetailFromBackend(item, userLang) {
   return null;
 }
 
-async function resolveImportTmdbId(item, isSeries, localTmdb, userLang) {
+export async function resolveImportTmdbId(item, isSeries, localTmdb, userLang) {
   let resolvedTid = item.tmdb_id;
 
   if (!resolvedTid && item.imdb_id) {
@@ -485,7 +485,12 @@ async function resolveImportTmdbId(item, isSeries, localTmdb, userLang) {
     const sRes = await fetch(sUrl);
     if (sRes.ok) {
       const sData = await sRes.json();
-      if (sData.results && sData.results.length > 0) resolvedTid = sData.results[0].id;
+      // Tylko pewne trafienie. Wcześniej wpisywany był PIERWSZY wynik wyszukiwania, przez co
+      // biblioteka dostawała identyfikatory innych produkcji („Biuro" → chiński serial 1995):
+      // opis z jednej wersji, odcinki z innej. Gdy nie ma pewności — lepiej nie mieć identyfikatora.
+      const rokZrodla = item.year || (item.release_date || "").slice(0, 4);
+      const trafienie = wybierzTrafienieWTmdb(sData.results, item.title || cleanTitle, rokZrodla);
+      if (trafienie) resolvedTid = trafienie.id;
     }
   }
 

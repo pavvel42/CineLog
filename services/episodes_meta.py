@@ -12,6 +12,7 @@ import re
 import urllib.parse
 import urllib.request
 
+from .data_store import normalize_title
 from .tmdb_client import tmdb_get
 
 log = logging.getLogger("cinelog")
@@ -33,18 +34,15 @@ def fetch_episodes_meta(clean_title: str, show_id: int | str | None, lang: str,
                     timeout=4,
                 )
                 results = (s_data or {}).get("results") or []
-
-                def score(r):
-                    pts = 0.0
-                    rn = (r.get("name") or "").lower().strip()
-                    ron = (r.get("original_name") or "").lower().strip()
-                    ct = clean_title.lower()
-                    if rn == ct or ron == ct:
-                        pts += 100.0
-                    return pts
-
-                results.sort(key=score, reverse=True)
-                show_id = results[0]["id"] if results else None
+                cel = normalize_title(clean_title)
+                # Tytuł musi się zgadzać — wcześniej brany był pierwszy wynik sortowania bez sprawdzenia,
+                # czy w ogóle pasuje. Skutek bywał taki, że serial dostawał odcinki innej produkcji
+                # (opis i obsada z jednej wersji, odcinki z drugiej). Wolimy brak odcinków niż cudze.
+                dopasowane = [
+                    r for r in results
+                    if cel and cel in {normalize_title(r.get("name")), normalize_title(r.get("original_name"))}
+                ]
+                show_id = str(dopasowane[0]["id"]) if dopasowane else None
 
             if show_id:
                 det = tmdb_get(f"/tv/{show_id}", {"language": lang}, api_key=tmdb_api_key, timeout=4) or {}
