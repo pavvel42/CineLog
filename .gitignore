@@ -11,3 +11,8 @@ __pycache__/
 .venv/
 test-results/
 playwright-report/
+
+# Eksport TVTime i wyniki konwersji do importu (dane użytkownika — nie na gita)
+*tvtime-export-*/
+cinelog-import-*.json
+tmdb-cache.json
