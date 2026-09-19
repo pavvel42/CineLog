@@ -734,17 +734,28 @@ function getSeasonDisplayInfo(seasonNum) {
     }
   });
 
-  const maxWatchedEp = watchedSet.size > 0 ? Math.max(...watchedSet) : 0;
-  let epCountToRender = Math.max(maxEpInSeason, maxWatchedEp, 1);
+  // Liczbę wierszy wyznaczają metadane (TMDb albo serwer), nie najwyższy numer
+  // wpisu: biblioteki z TVTime numerują odcinki podwójne jako dwa (porządek
+  // TVDB), więc wpisy sięgają dalej niż lista odcinków. Branie ich za liczbę
+  // odcinków dawało puste wiersze bez tytułu i opisu (The Office s5: 28 vs 26).
+  const liczbaZeWpisow = watchedSet.size > 0 ? Math.max(...watchedSet) : 0;
+  let epCountToRender = maxEpInSeason > 0 ? maxEpInSeason : Math.max(liczbaZeWpisow, 1);
   if (!maxEpInSeason && !state.backendAvailable) {
     // Tryb klienta bez metadanych TMDb: pokaż kilka kolejnych odcinków,
     // żeby dało się klikać w przód poza ostatnio obejrzany odcinek.
-    epCountToRender = Math.max(maxWatchedEp + 3, 1);
+    epCountToRender = Math.max(liczbaZeWpisow + 3, 1);
   }
 
+  // Wpisy poza listą odcinków nie tworzą wierszy i nie liczą się do licznika
+  // sezonu, ale nie znikają — pokazujemy je jako informację pod listą.
+  const wpisySpozaListy = [...watchedSet]
+    .filter(nr => nr > epCountToRender && nr !== 0)
+    .sort((a, b) => a - b);
+  const watchedInSeason = [...watchedSet].filter(nr => nr <= epCountToRender).length;
+
   // mianownik badge'u = liczba renderowanych wierszy (0..N przy ep0, inaczej 1..N)
-  const totalEps = Math.max(epCountToRender + (hasEp0 ? 1 : 0), watchedSet.size);
-  return { watchedSet, hasEp0, epCountToRender, watchedInSeason: watchedSet.size, totalEps };
+  const totalEps = Math.max(epCountToRender + (hasEp0 ? 1 : 0), watchedInSeason);
+  return { watchedSet, hasEp0, epCountToRender, watchedInSeason, totalEps, wpisySpozaListy };
 }
 
 function renderSeasonTabs() {
@@ -957,6 +968,16 @@ function renderSeasonEpisodes(shouldScroll = true) {
     if (targetDesc) targetDesc.addEventListener("click", toggleExpansion);
 
     container.appendChild(epRow);
+  }
+
+  if (info.wpisySpozaListy.length) {
+    // Widoczna informacja zamiast pustych wierszy: to wpisy z importu w starej
+    // numeracji (odcinki podwójne liczone jako dwa), nie brakujące opisy.
+    const nota = document.createElement("div");
+    nota.className = "m3-ep-extra-note";
+    nota.style.cssText = "margin: 10px 4px 4px; font-size: 0.75rem; color: var(--md-sys-color-on-surface-variant);";
+    nota.textContent = `Pominięto ${info.wpisySpozaListy.length} wpis(y) z importu (odc. ${info.wpisySpozaListy.join(", ")}) — stara numeracja liczyła odcinki podwójne jako dwa, a TMDb ma ich mniej w tym sezonie.`;
+    container.appendChild(nota);
   }
 
   if (shouldScroll && targetElementId) {
