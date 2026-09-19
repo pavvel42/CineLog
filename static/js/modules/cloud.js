@@ -775,6 +775,18 @@ if (btnImportTrigger && fileInput) {
 const btnRestoreBackup = document.getElementById("m3-btn-restore-backup");
 const hintRestoreBackup = document.getElementById("m3-restore-backup-hint");
 
+function zbudujPayloadEksportu(movies, shows) {
+  const teraz = new Date();
+  const dwoj = (n) => String(n).padStart(2, "0");
+  return {
+    // Ten sam kształt co /api/export, żeby pliki były wymienne.
+    exported_at: `${teraz.getFullYear()}-${dwoj(teraz.getMonth() + 1)}-${dwoj(teraz.getDate())} ` +
+      `${dwoj(teraz.getHours())}:${dwoj(teraz.getMinutes())}:${dwoj(teraz.getSeconds())}`,
+    movies,
+    shows
+  };
+}
+
 function updateKopiaBazyHint() {
   if (!hintRestoreBackup) return;
   const kopia = pobierzKopieBazy();
@@ -818,8 +830,35 @@ if (btnRestoreBackup) {
   });
 }
 
+// Pobieranie kopii biblioteki wprost z przeglądarki. Serwerowy /api/export działa
+// tylko z backendem (na GitHub Pages prowadził do 404 → "plik nie był dostępny
+// w witrynie"), a w trybie klienta zwracał bazę serwera, nie bibliotekę użytkownika.
+const btnExportBackup = document.getElementById("m3-btn-export-backup");
+
+if (btnExportBackup) {
+  btnExportBackup.addEventListener("click", (evt) => {
+    evt.preventDefault();
+    if (!state.movies.length && !state.shows.length) {
+      showToastNotification("Biblioteka jest pusta — nie ma czego zapisywać.", "warning");
+      return;
+    }
+    const eksport = zbudujPayloadEksportu(state.movies, state.shows);
+    const blob = new Blob([JSON.stringify(eksport, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cinelog_export_${eksport.exported_at.replace(/:/g, "-").replace(" ", "_")}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    showToastNotification(`Pobrano kopię: ${state.movies.length} filmów i ${state.shows.length} seriali.`, "success");
+  });
+}
+
 window.openCloudSyncModal = openCloudSyncModal;
 window.updateDriveModalUI = updateDriveModalUI;
 window.updateApiKeysUI = updateApiKeysUI;
 window.updateAiSettingsUI = updateAiSettingsUI;
+window.updateKopiaBazyHint = updateKopiaBazyHint;
 }

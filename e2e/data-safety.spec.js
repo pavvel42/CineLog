@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import fs from "node:fs";
 
 // Regresja (audyt D6): przełączenie na "Serwer Flask" nadpisywało bibliotekę użytkownika
 // bez ostrzeżenia, a pierwsza edycja w tym trybie wypychała bazę serwera do Google Drive,
@@ -139,5 +140,49 @@ test.describe("Bezpieczeństwo danych przy zmianie trybu", () => {
     const stan = await stanLokalny(page);
     expect(stan.biblioteka.movies.map((m) => m.title)).toEqual(["Mój film A", "Mój film B"]);
     expect(stan.kopia, "kopia jest jednorazowa — po przywróceniu znika").toBeNull();
+  });
+});
+
+// Regresja: przycisk "Pobierz kopię JSON" był zwykłym linkiem do /api/export,
+// więc na hostingu statycznym (GitHub Pages) prowadził do 404 i przeglądarka
+// pokazywała "plik nie był dostępny w witrynie", a przy działającym backendzie
+// pobierał bazę serwera zamiast biblioteki użytkownika.
+test.describe("Kopia biblioteki: pobieranie i podpowiedź", () => {
+  test.use({ serviceWorkers: "block" });
+
+  test("pobranie kopii JSON daje bibliotekę użytkownika, nie bazę serwera", async ({ page }) => {
+    await przygotujBiblioteke(page);
+
+    const pobraniePromise = page.waitForEvent("download", { timeout: 15000 });
+    await page.evaluate(() => {
+      // Przycisk siedzi w arkuszu chmury — otwieramy go tak, jak użytkownik.
+      if (typeof window.openCloudSyncModal === "function") window.openCloudSyncModal();
+      document.getElementById("m3-btn-export-backup").click();
+    });
+    const pobranie = await pobraniePromise;
+
+    expect(pobranie.suggestedFilename()).toMatch(/^cinelog_export_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.json$/);
+    const zawartosc = JSON.parse(fs.readFileSync(await pobranie.path(), "utf-8"));
+    expect(zawartosc.movies.map((m) => m.title)).toEqual(["Mój film A", "Mój film B"]);
+    expect(zawartosc.shows).toHaveLength(1);
+    expect(typeof zawartosc.exported_at).toBe("string");
+  });
+
+  test("po imporcie z pliku podpowiedź pokazuje zapisaną kopię", async ({ page }, testInfo) => {
+    await przygotujBiblioteke(page);
+
+    const plik = testInfo.outputPath("do-importu.json");
+    fs.writeFileSync(plik, JSON.stringify({ movies: [{ uuid: "import-1", title: "Z importu" }], shows: [] }));
+
+    await page.setInputFiles("#m3-importer-file-input", plik);
+    await expect
+      .poll(async () => (await stanLokalny(page)).kopia?.movies?.length ?? -1, { timeout: 10000 })
+      .toBe(2);
+
+    const podpowiedz = await page.evaluate(
+      () => (document.getElementById("m3-restore-backup-hint") || {}).textContent || ""
+    );
+    expect(podpowiedz).toMatch(/Kopia z/);
+    expect(podpowiedz).toContain("2 filmów");
   });
 });

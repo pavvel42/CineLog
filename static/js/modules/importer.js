@@ -315,6 +315,9 @@ export function handleImportFile(file) {
           if (kopiaZapisana) {
             showToastNotification("Poprzednia biblioteka zapisana jako kopia (sekcja „Kopia i Import z pliku”).", "info");
           }
+          // Odśwież podpowiedź pod przyciskiem przywracania — inaczej dalej twierdzi,
+          // że kopii nie ma, mimo że właśnie ją zapisaliśmy.
+          if (typeof window.updateKopiaBazyHint === "function") window.updateKopiaBazyHint();
 
           const sheetCloud = document.getElementById("m3-sheet-cloud-sync");
           if (sheetCloud) sheetCloud.classList.remove("active");
