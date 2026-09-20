@@ -830,10 +830,18 @@ function getSeasonDisplayInfo(seasonNum) {
     : [];
 
   const liczbaZeWpisow = watchedSet.size > 0 ? Math.max(...watchedSet) : 0;
+  // Lista odcinków sezonu z metadanych serialu (TMDb, zapisana przy dodawaniu):
+  // bez niej świeżo dodany serial pokazywał jeden wiersz na sezon, choć sezon ma
+  // np. 23 odcinki — i nie dało się odhaczać kolejnych odcinków.
+  const liczbaZListySezonu = parseInt((selectedShow.season_ep_counts || {})[String(seasonNum)], 10);
   let epCountToRender = odcinkiBiblioteki.length
     ? odcinkiBiblioteki.length
-    : (maxEpInSeason > 0 ? maxEpInSeason : Math.max(liczbaZeWpisow, 1));
-  if (!odcinkiBiblioteki.length && !maxEpInSeason && !state.backendAvailable) {
+    : (maxEpInSeason > 0
+      ? maxEpInSeason
+      : (Number.isFinite(liczbaZListySezonu) && liczbaZListySezonu > 0
+        ? liczbaZListySezonu
+        : Math.max(liczbaZeWpisow, 1)));
+  if (!odcinkiBiblioteki.length && !maxEpInSeason && !Number.isFinite(liczbaZListySezonu) && !state.backendAvailable) {
     // Tryb klienta bez metadanych TMDb: pokaż kilka kolejnych odcinków,
     // żeby dało się klikać w przód poza ostatnio obejrzany odcinek.
     epCountToRender = Math.max(liczbaZeWpisow + 3, 1);
@@ -858,7 +866,16 @@ function renderSeasonTabs() {
 
   const latestSeason = selectedShow.latest_season || 1;
 
-  let totalSeasons = Math.max(latestSeason, 1);
+  // Liczba zakładek sezonów musi brać pod uwagę metadane serialu — bez tego świeżo
+  // dodany serial pokazywał jeden sezon (z ostatnio obejrzanego odcinka), choć
+  // w metadanych jest ich 9. Metadane odcinków (currentShowMeta) to ostatni
+  // krok, bo dla nowo dodanego serialu bywają jeszcze nie wczytane.
+  const zadeklarowaneSezony = parseInt(selectedShow.total_seasons, 10) || 0;
+  const sezonyZListyOdcinkow = Object.keys(selectedShow.season_ep_counts || {})
+    .map(k => parseInt(k, 10))
+    .filter(n => n > 0);
+
+  let totalSeasons = Math.max(latestSeason, zadeklarowaneSezony, ...sezonyZListyOdcinkow, 1);
   Object.keys(currentShowMeta).forEach(key => {
     const sNum = parseInt(key.split("_")[0]);
     if (sNum > totalSeasons) totalSeasons = sNum;

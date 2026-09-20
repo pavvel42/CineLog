@@ -211,6 +211,17 @@ def search_detail() -> ResponseReturnValue:
                     season_ep_counts[s_num] = cnt
                     total_episodes += cnt
 
+        # Liczba sezonów jest potrzebna oknu dodawania (zakładki sezonów) i wpisowi
+        # w bibliotece — bez niej frontend robił `total_seasons || 1` i serial z 9
+        # sezonami pokazywał jedną zakładkę. Bierzemy number_of_seasons od TMDb,
+        # a gdy go nie ma, liczymy z najwyższego numeru sezonu (sezon 0 = dodatki).
+        total_seasons = 0
+        if current_type == "tv":
+            podane = det.get("number_of_seasons")
+            total_seasons = int(podane) if isinstance(podane, (int, float)) and podane > 0 else 0
+            if not total_seasons:
+                total_seasons = max(season_ep_counts) if season_ep_counts else 1
+
         cast_list = []
         if "credits" in det and "cast" in det["credits"]:
             for c in det["credits"]["cast"][:10]:
@@ -248,6 +259,7 @@ def search_detail() -> ResponseReturnValue:
             "tmdb_id": det.get("id"),
             "status": det.get("status"),
             "season_ep_counts": season_ep_counts,
+            "total_seasons": total_seasons,
             "total_episodes": total_episodes if total_episodes > 0 else det.get("number_of_episodes"),
             "source": "tmdb",
             "type": "series" if current_type == "tv" else "movie"

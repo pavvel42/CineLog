@@ -258,6 +258,40 @@ def test_search_detail_seriala_liczy_odcinki_w_sezonach(client, klucz, monkeypat
     # Klucze JSON są tekstami ({"1": 10}); frontend indeksuje obiekt numerem sezonu,
     # a JavaScript i tak rzutuje 1 -> "1", więc kontrakt jest spójny.
     assert body["season_ep_counts"] == {"1": 10, "2": 8}
+    # Liczba sezonów MUSI być w odpowiedzi: okno dodawania buduje zakładki sezonów
+    # z `detail.total_seasons || 1`, więc bez tego pola serial z 9 sezonami pokazywał
+    # jedną zakładkę („mam do dyspozycji tylko jeden sezon i 6 odcinków"), a wpis
+    # w bibliotece zapisywał total_seasons = 1. TMDb nie podał tu number_of_seasons,
+    # więc liczymy z najwyższego numeru sezonu (sezon 0 to dodatki, nie liczy się).
+    assert body["total_seasons"] == 2
+
+
+def test_search_detail_seriala_bierze_liczbe_sezonow_z_tmdb(client, klucz, monkeypatch):
+    """Gdy TMDb podaje number_of_seasons, używamy jej wprost (zawiera sezon 0)."""
+    upstream = _Upstream(
+        {
+            "/tv/2316": {
+                "id": 2316,
+                "name": "Biuro",
+                "overview": "Opis.",
+                "first_air_date": "2005-03-24",
+                "number_of_seasons": 9,
+                "seasons": [
+                    {"season_number": 0, "episode_count": 106},
+                    {"season_number": 1, "episode_count": 6},
+                    {"season_number": 9, "episode_count": 23},
+                ],
+                "number_of_episodes": 186,
+                "credits": {"cast": [], "crew": []},
+            }
+        }
+    )
+    monkeypatch.setattr(urllib.request, "urlopen", upstream)
+
+    body = client.get("/api/search_detail?tmdb_id=2316&type=series").get_json()
+
+    assert body["total_seasons"] == 9
+    assert body["season_ep_counts"] == {"1": 6, "9": 23}
 
 
 # ---------- odcinki serialu ----------
@@ -267,6 +301,36 @@ def _show(client, **extra) -> str:
     res = client.post("/api/shows", json=payload)
     assert res.status_code in (200, 201)
     return res.get_json()["uuid"]
+
+
+def test_post_shows_zapisuje_liczbe_odcinkow_w_sezonach(client):
+    """Lista odcinków sezonu musi trafić do biblioteki.
+
+    Tracker serialu bierze z niej liczbę wierszy sezonu (sezon 1 „Biura" ma 6
+    odcinków). Bez zapisanej listy pokazywał jeden wiersz na sezon, choć w oknie
+    dodawania zaznaczono odcinki z kilku sezonów.
+    """
+    _show(client, tmdb_id=2316, season_ep_counts={"1": 6, "2": 22, "9": 23})
+
+    zapisany = next(s for s in client.get("/api/shows").get_json() if s.get("tmdb_id") == 2316)
+    assert zapisany["season_ep_counts"] == {"1": 6, "2": 22, "9": 23}
+
+
+def test_post_shows_nie_przepuszcza_smieciowej_listy_sezonow(client):
+    """Sezon 0, klucze nienumeryczne i liczby <= 0 nie mogą trafić do biblioteki."""
+    _show(client, tmdb_id=2317, season_ep_counts={"1": 6, "0": 5, "x": 3, "2": "dużo", "-1": 4, "3": 0})
+
+    zapisany = next(s for s in client.get("/api/shows").get_json() if s.get("tmdb_id") == 2317)
+    assert zapisany.get("season_ep_counts", {}) == {"1": 6}
+
+
+def test_post_shows_nie_kasuje_listy_sezonow_pustym_zadaniem(client):
+    """Ponowny zapis bez listy sezonów nie może wyczyścić znanej listy."""
+    _show(client, tmdb_id=2318, season_ep_counts={"1": 6})
+    _show(client, tmdb_id=2318, season_ep_counts={})
+
+    zapisany = next(s for s in client.get("/api/shows").get_json() if s.get("tmdb_id") == 2318)
+    assert zapisany["season_ep_counts"] == {"1": 6}
 
 
 def test_toggle_episode_dodaje_i_usuwa_odcinek(client):

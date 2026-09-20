@@ -268,7 +268,9 @@ function mapTmdbDetailToPreview(tData, item, tmdbType, imdbId, plot) {
     plot: plot || "Brak opisu.",
     runtime: tData.runtime ? `${tData.runtime} min` : (tData.episode_run_time && tData.episode_run_time[0] ? `${tData.episode_run_time[0]} min` : ""),
     poster_url: tData.poster_path ? `https://image.tmdb.org/t/p/w500${tData.poster_path}` : (item.poster_url || ""),
-    total_seasons: tData.number_of_seasons || 1,
+    // 0 = TMDb nie podał liczby sezonów; nie zmyślamy tu „1” (to dawało jedną
+    // zakładkę sezonu w oknie dodawania) — uzupełnia to ustalLiczbeSezonow().
+    total_seasons: tData.number_of_seasons || 0,
     total_episodes: tData.number_of_episodes || 0,
     // TMDb podaje status emisji ("Returning Series", "Ended", "Canceled") oraz
     // flagę in_production - bez nich nie da się odróżnić serialu obejrzanego do
@@ -327,6 +329,16 @@ async function applyOmdbFallback(item, detail, localOmdbKey) {
     return merged;
   } catch(e) {}
   return detail;
+}
+
+function ustalLiczbeSezonow(detail) {
+  if (!detail) return 1;
+  const podane = parseInt(detail.total_seasons, 10) || parseInt(detail.totalSeasons, 10) || parseInt(detail.number_of_seasons, 10) || 0;
+  if (podane > 0) return podane;
+  const zListy = Object.keys(detail.season_ep_counts || {})
+    .map(k => parseInt(k, 10))
+    .filter(n => n > 0);
+  return zListy.length ? Math.max(...zListy) : 1;
 }
 
 function setPreviewConfirmState(detail, detectedType) {
@@ -410,6 +422,12 @@ export async function selectProductionDetail(item) {
 
     // Direct client OMDb fallback
     detail = await applyOmdbFallback(item, detail, localOmdbKey);
+
+    // Liczba sezonów musi być odporna na kształt odpowiedzi: backend zwraca
+    // total_seasons, TMDb number_of_seasons, OMDb totalSeasons (tekst). Bez tego
+    // okno dodawania brało `total_seasons || 1` i serial z 9 sezonami pokazywał
+    // jedną zakładkę, a wpis w bibliotece zapisywał 1 sezon.
+    detail.total_seasons = ustalLiczbeSezonow(detail);
 
     currentPreviewData = detail;
 
@@ -1042,6 +1060,9 @@ async function addShowFromPreview(currentPreviewData, status, rating, preAddWatc
     // i "serial wciąż w emisji" (/api/shows/verify_completion).
     total_seasons: currentPreviewData.total_seasons || 1,
     total_episodes: currentPreviewData.total_episodes || 0,
+    // Lista odcinków sezonów: tracker liczy z niej liczbę wierszy sezonu. Bez niej
+    // świeżo dodany serial miał w trackerze jeden wiersz na sezon.
+    season_ep_counts: currentPreviewData.season_ep_counts || {},
     series_status: currentPreviewData.series_status || null,
     in_production: typeof currentPreviewData.in_production === "boolean" ? currentPreviewData.in_production : null
   };

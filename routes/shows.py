@@ -345,6 +345,21 @@ def add_show() -> ResponseReturnValue:
     raw_in_production = data.get("in_production")
     in_production: bool | None = None if raw_in_production is None else bool(raw_in_production)
 
+    # Lista odcinków w sezonach (z TMDb) — tracker liczy z niej liczbę wierszy sezonu,
+    # więc bez niej nowo dodany serial pokazywał jeden wiersz na sezon. Przyjmujemy
+    # tylko sensowne pary: sezon > 0 i liczba odcinków > 0 (sezon 0 to dodatki).
+    raw_counts = data.get("season_ep_counts")
+    season_ep_counts: dict[str, int] = {}
+    if isinstance(raw_counts, dict):
+        for klucz, wartosc in raw_counts.items():
+            try:
+                sezon_nr = int(klucz)
+                liczba_odc = int(wartosc)
+            except (TypeError, ValueError):
+                continue
+            if sezon_nr > 0 and liczba_odc > 0:
+                season_ep_counts[str(sezon_nr)] = liczba_odc
+
     def _apply_series_metadata(show: dict[str, Any]) -> None:
         """Uzupełnia metadane serialu; nie nadpisuje znanych wartości zerem ani pustką."""
         if total_seasons > 0:
@@ -355,6 +370,8 @@ def add_show() -> ResponseReturnValue:
             show["series_status"] = series_status
         if in_production is not None:
             show["in_production"] = in_production
+        if season_ep_counts:
+            show["season_ep_counts"] = season_ep_counts
 
     with _app.DATA_LOCK:
         shows = _app.load_shows()
