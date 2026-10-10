@@ -2,9 +2,9 @@
 // CineLog - Cast, Crew & Actor Profile Explorer Module
 // ==========================================================================
 
-import { state, getGradientForTitle, isItemInLibrary, saveLocalDatabase, escapeHtml, safeUrl, apiFetch, buildLocalLibraryEntry, getActiveEnvMode, normalizeTitleForLibrary } from './state.js';
-import { showToastNotification } from './ui.js';
+import { state, getGradientForTitle, isItemInLibrary, escapeHtml, safeUrl, apiFetch, normalizeTitleForLibrary } from './state.js';
 import { getUserLanguage } from './vod.js';
+import { dodajDoKolejki } from './quick-add.js';
 
 function normalizeTitleForMatch(str) {
   if (!str) return "";
@@ -114,7 +114,7 @@ async function fetchActorProfileFromBackend(personId, personName) {
   try {
     const res = await apiFetch(`/api/actor/details?id=${personId || ''}&name=${encodeURIComponent(personName)}&lang=${getUserLanguage()}`);
     if (res.ok) return await res.json();
-  } catch (e) {}
+  } catch (e) { console.debug("CineLog: profil aktora z backendu niedostępny — próbuję TMDb", e); }
   return null;
 }
 
@@ -172,7 +172,7 @@ async function fetchActorBioFallbackEn(resolvedId, rawTmdbKey) {
       const pDataEn = await pResEn.json();
       return pDataEn.biography || "";
     }
-  } catch(e) {}
+  } catch (e) { console.debug("CineLog: angielska biografia aktora z TMDb niedostępna", e); }
   return "";
 }
 
@@ -325,7 +325,7 @@ function buildActorRecommendationCard(rec) {
     e.stopPropagation();
     addBtn.disabled = true;
     addBtn.innerHTML = `<span class="material-symbols-rounded" style="font-size: 14px; animation: spin 1s linear infinite;">sync</span> Dodaję...`;
-    await quickAddToWatchlist(rec, addBtn);
+    await dodajDoKolejki(rec);
     addBtn.innerHTML = `<span class="material-symbols-rounded" style="font-size: 14px; color: #10b981;">check</span> Dodano!`;
     addBtn.style.background = "rgba(16, 185, 129, 0.2)";
     addBtn.style.color = "#10b981";
@@ -456,50 +456,3 @@ function createActorLibCard(item) {
   return card;
 }
 
-async function quickAddToWatchlist(item) {
-  const isShow = item.type === "tv" || item.type === "series";
-  const payload = {
-    title: item.title,
-    type: isShow ? "series" : "movie",
-    status: "watchlist",
-    rating: null,
-    tmdb_id: item.tmdb_id || item.id,
-    poster_url: item.poster_url || "",
-    release_date: item.release_date || (item.year ? `${item.year}-01-01` : "")
-  };
-
-  const finishAdd = (added) => {
-    if (isShow) {
-      state.shows.unshift(added);
-    } else {
-      state.movies.unshift(added);
-    }
-    saveLocalDatabase();
-    showToastNotification(`Dodano "${item.title}" do listy Do obejrzenia! 🎬`);
-  };
-
-  try {
-    const endpoint = isShow ? "/api/shows" : "/api/movies";
-    const res = await apiFetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    if (res.ok) {
-      finishAdd(await res.json());
-    } else {
-      // Tryb klienta (GitHub Pages / offline): zapis lokalny zamiast cichej porażki.
-      finishAdd(buildLocalLibraryEntry(item, isShow ? "series" : "movie", "watchlist"));
-    }
-  } catch (err) {
-    console.error("Error quick adding to watchlist:", err);
-    // Tryb klienta (GitHub Pages / offline) albo odrzucony zapis: pozycja zostaje
-    // lokalnie, żeby kliknięcie nie przepadło. W trybie serwera Flask mówimy wprost,
-    // że pozycja jest tylko w przeglądarce — inaczej byłby to cichy sukces.
-    finishAdd(buildLocalLibraryEntry(item, isShow ? "series" : "movie", "watchlist"));
-    if (getActiveEnvMode() === "flask") {
-      showToastNotification("Nie udało się zapisać na serwerze — pozycja jest tylko w tej przeglądarce.", "error");
-    }
-  }
-}

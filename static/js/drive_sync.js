@@ -157,7 +157,7 @@ class GoogleDriveSync {
     if (this.accessToken && window.google && window.google.accounts) {
       try {
         google.accounts.oauth2.revoke(this.accessToken, () => {});
-      } catch (e) {}
+      } catch (e) { console.debug("CineLog: Drive: odwołanie tokenu Google nie powiodło się", e); }
     }
     this.accessToken = null;
     this.tokenExpiresAt = 0;

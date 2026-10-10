@@ -452,7 +452,8 @@ const KLUCZ_KOPII_BAZY = "cinelog_database_backup";
 
 /**
  * Zapisuje kopię bazy użytkownika przed operacją, która ma ją zastąpić
- * (Pull z Dysku, scalanie, import z pliku, przełączenie na serwer/demo).
+ * (Pull z Dysku, scalanie, przełączenie na serwer/demo). Import z pliku kopii
+ * nie robi — to świadoma wymiana biblioteki, kopię pobiera się przyciskiem eksportu.
  * Kopia jest jednopoziomowa: trzyma ostatnią wersję sprzed nadpisania.
  * @param {string} [zrodlo=""] Krótki opis operacji (do komunikatu w UI).
  * @returns {boolean} true, jeśli kopię udało się zapisać
@@ -700,7 +701,7 @@ export async function resetToDemoDatabase() {
         shows = await rs.json();
         break;
       }
-    } catch (e) {}
+    } catch (e) { console.debug("CineLog: baza demo niedostępna pod tą ścieżką — próbuję następną", e); }
   }
 
   state.movies = Array.isArray(movies) ? movies : [];

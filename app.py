@@ -31,8 +31,8 @@ log = logging.getLogger("cinelog")
 __all__ = [
     "app",
     "TMDB_API_KEY",
-    "DATA_DIR", "MOVIES_FILE", "MOVIES_BACKUP_FILE",
-    "SHOWS_FILE", "SHOWS_BACKUP_FILE", "UPCOMING_CACHE_FILE", "VOD_CACHE_FILE",
+    "DATA_DIR", "MOVIES_FILE",
+    "SHOWS_FILE", "UPCOMING_CACHE_FILE", "VOD_CACHE_FILE",
     "EPISODES_CACHE", "RECOMMENDATIONS_CACHE", "DATA_LOCK",
     "load_movies", "save_movies", "load_shows", "save_shows",
     "load_vod_cache", "save_vod_cache", "fetch_live_watch_providers",
@@ -72,7 +72,7 @@ def _guard_cross_origin_writes() -> ResponseReturnValue | None:
 
     Backend działa lokalnie i bez uwierzytelniania, więc bez tej bramki
     dowolna strona otwarta w przeglądarce mogła wysłać żądanie modyfikujące
-    dane (np. wyzerować bibliotekę przez POST /api/movies/reset).
+    dane (np. podmienić całą bibliotekę przez POST /api/import).
     """
     if is_allowed_write(
         request.method,
@@ -98,9 +98,7 @@ def _guard_cross_origin_writes() -> ResponseReturnValue | None:
 # DATA_DIR (env) pozwala wskazać katalog tymczasowy, np. dla izolowanych testów e2e.
 DATA_DIR = os.environ.get("DATA_DIR") or ("data" if os.path.isdir("data") else "export data")
 MOVIES_FILE = os.path.join(DATA_DIR, "movies_parsed.json")
-MOVIES_BACKUP_FILE = os.path.join(DATA_DIR, "movies_backup.json")
 SHOWS_FILE = os.path.join(DATA_DIR, "shows_parsed.json")
-SHOWS_BACKUP_FILE = os.path.join(DATA_DIR, "shows_backup.json")
 UPCOMING_CACHE_FILE = os.path.join(DATA_DIR, "upcoming_cache.json")
 
 EPISODES_CACHE: dict[str, tuple[float, dict]] = {}

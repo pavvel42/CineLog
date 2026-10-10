@@ -20,18 +20,37 @@ applyMaterial3Theme();
 async function loadData(targetMode = null) {
   const currentMode = targetMode || getActiveEnvMode();
 
-  if (currentMode === "flask" && state.backendAvailable) {
-    try {
-      const [resMovies, resShows] = await Promise.all([
-        apiFetch("/api/movies"),
-        apiFetch("/api/shows")
-      ]);
-      if (resMovies.ok && resShows.ok) {
+  if (currentMode === "flask") {
+    // Tryb serwera nigdy nie spada do biblioteki klienta ani do demo: wcześniej
+    // niedostępny (albo jeszcze nie sprawdzony) backend kończył w gałęzi klienta,
+    // a ta bez lokalnej bazy przełączała aplikację na demo.
+    let wczytanoZSerwera = false;
+    if (state.backendAvailable) {
+      try {
+        const [resMovies, resShows] = await Promise.all([
+          apiFetch("/api/movies"),
+          apiFetch("/api/shows")
+        ]);
         state.movies = await resMovies.json();
         state.shows = await resShows.json();
         saveLocalDatabase(true);
+        wczytanoZSerwera = true;
+      } catch (e) {
+        console.warn("Nie udało się wczytać bazy z serwera Flask:", e);
       }
-    } catch (e) {}
+    }
+    if (!wczytanoZSerwera) {
+      try {
+        const kopiaSerwera = JSON.parse(localStorage.getItem("cinelog_database_server") || "null");
+        state.movies = Array.isArray(kopiaSerwera?.movies) ? kopiaSerwera.movies : [];
+        state.shows = Array.isArray(kopiaSerwera?.shows) ? kopiaSerwera.shows : [];
+      } catch (e) {
+        console.warn("Uszkodzona lokalna kopia bazy serwera:", e);
+        state.movies = [];
+        state.shows = [];
+      }
+      showToastNotification("Serwer Flask jest niedostępny — pokazuję ostatnio wczytaną bazę serwera.", "warning");
+    }
   } else if (currentMode === "demo") {
     await resetToDemoDatabase();
   } else {
@@ -42,7 +61,7 @@ async function loadData(targetMode = null) {
         const parsed = JSON.parse(localSaved);
         if (parsed.movies && Array.isArray(parsed.movies)) state.movies = parsed.movies;
         if (parsed.shows && Array.isArray(parsed.shows)) state.shows = parsed.shows;
-      } catch(e){}
+      } catch (e) { console.warn("CineLog: uszkodzona lokalna baza w localStorage — pomijam", e); }
     } else {
       await resetToDemoDatabase();
     }
@@ -55,10 +74,10 @@ async function loadData(targetMode = null) {
       if (state.mode === "movies") renderMovies();
       else renderShows();
     });
-  } catch (e) {}
+  } catch (e) { console.warn("CineLog: pasek filtrów VOD nie został wyrenderowany", e); }
   try {
     hydrateVodCache();
-  } catch (e) {}
+  } catch (e) { console.debug("CineLog: cache VOD z localStorage pominięty", e); }
 
   setMode(state.mode);
 
@@ -76,7 +95,7 @@ async function loadData(targetMode = null) {
         saveLocalDatabase();
         updateDemoBannerVisibility();
       });
-    } catch (e) {}
+    } catch (e) { console.warn("CineLog: automatyczna synchronizacja z Dyskiem nie wystartowała", e); }
   }
 
   updateDemoBannerVisibility();
@@ -561,7 +580,7 @@ function handlePwaShareTarget() {
         window.openAddModalWithQuery(query || sharedUrl);
       }
     }
-  } catch (e) {}
+  } catch (e) { console.debug("CineLog: nie udało się odczytać treści udostępnionej do aplikacji", e); }
 }
 
 function initApp() {
@@ -589,14 +608,19 @@ function initApp() {
   handlePwaShareTarget();
 
   if (window.googleDriveSync) {
-    try { window.googleDriveSync.init(); } catch (e) {}
+    try { window.googleDriveSync.init(); } catch (e) { console.warn("CineLog: inicjalizacja synchronizacji z Dyskiem Google nie powiodła się", e); }
   }
-
-  detectBackendEnvironment(false);
 
   setMode(state.mode);
 
-  loadData();
+  // W trybie serwera bazę można wczytać dopiero po sondzie backendu — bez
+  // czekania loadData() widział backendAvailable=false i omijał serwer.
+  const sondaBackendu = detectBackendEnvironment(false);
+  if (getActiveEnvMode() === "flask") {
+    sondaBackendu.then(() => loadData());
+  } else {
+    loadData();
+  }
 }
 
 /**

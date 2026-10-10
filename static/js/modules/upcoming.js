@@ -35,7 +35,7 @@ export async function loadUpcomingData(forceRefresh = false) {
           const data = await res.json();
           items = data.items || [];
         }
-      } catch (e) {}
+      } catch (e) { console.debug("CineLog: radar premier z backendu niedostępny", e); }
 
       // 2. Always ensure all watchlist movies from client state.movies are present (e.g. Avatar 4, 5, etc.)
       const existingMovieIds = new Set(items.filter(i => i.media_type === "movie").map(i => i.id || i.title));
@@ -65,7 +65,7 @@ export async function loadUpcomingData(forceRefresh = false) {
                   my_status: m.status
                 });
               }
-            } catch (err) {}
+            } catch (err) { console.debug("CineLog: radar premier: nieprawidłowa data premiery", err); }
           }
         }
       });

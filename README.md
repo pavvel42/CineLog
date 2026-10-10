@@ -34,8 +34,9 @@
   - 🎬 **Filmweb** (eksport CSV)
   - 💚 **Letterboxd** (eksport CSV)
   - ⭐ **IMDb** (eksport CSV)
-  - ⏱️ **TV Time** (pliki JSON / eksport GDPR)
+  - ⏱️ **TV Time** — eksport TV Time (lub dane RODO) najpierw zamieniasz na plik CineLog JSON skryptem `scripts/tvtime_to_cinelog.py` / `scripts/tvtime_gdpr_to_cinelog.py`; importer w aplikacji nie czyta surowych plików TV Time
   - 📦 **CineLog JSON** (pełna kopia zapasowa)
+  - ⚠️ **Import zastępuje całą bibliotekę** zawartością pliku — w każdym trybie, także na serwerze Flask. Obecną bibliotekę zachowasz, pobierając wcześniej kopię JSON.
 - 🤖 **Filmowy Asystent AI (BYOK – Bring Your Own Key)**:
   - Bezpieczny czat strumieniowy z modelem AI analizującym Twój gust filmowy i historię ocen.
   - Obsługa wiodących dostawców: **OpenAI**, **DeepSeek**, **Groq** (darmowy i błyskawiczny), **OpenRouter** oraz lokalnego **Ollama** (100% offline).
@@ -43,7 +44,7 @@
 - ☁️ **Kopia i synchronizacja Google Drive**: Pełna, automatyczna synchronizacja biblioteki z Twoim prywatnym Dyskiem Google (bez zewnętrznych serwerów bazodanowych).
 - 📊 **Statystyki & Osiągnięcia**: Wykresy czasu spędzonego przed ekranem, ulubione dekady i gatunki, katalog reżyserów oraz odznaki kinomana.
 - 📺 **Filtry Platform VOD**: Błyskawiczne filtrowanie filmów pod kątem dostępności na platformach streamingowych (Netflix, HBO Max, Disney+, Prime Video, SkyShowtime, Apple TV, CANAL+ i inne).
-- 📅 **Eksport Kalendarza & Danych**: Pobieranie kopii JSON/CSV oraz eksport premier do kalendarza `.ics` (Google Calendar, Apple Calendar, Outlook).
+- 📅 **Eksport Kalendarza & Danych**: Pobieranie kopii JSON (przycisk **Pobierz kopię JSON**) oraz eksport premier do kalendarza `.ics` (Google Calendar, Apple Calendar, Outlook).
 - 📱 **Progresywna Aplikacja Webowa (PWA)**: Możliwość instalacji na telefonie (iOS / Android) lub pulpicie z pełnym dostępem offline.
 
 ---
@@ -54,7 +55,7 @@
 
 CineLog działa od razu w przeglądarce bez konieczności uruchamiania serwera!
 1. Otwórz stronę projektu na **GitHub Pages** (lub uruchom lokalny plik `index.html`).
-2. Zaimportuj swoją historię filmową z Filmweba, TV Time lub Letterboxd za pomocą *Uniwersalnego Importera*.
+2. Zaimportuj swoją historię filmową z Filmweba, IMDb, Letterboxd albo pliku CineLog JSON (np. po konwersji eksportu TV Time) za pomocą *Uniwersalnego Importera*.
 3. Wszystkie Twoje dane będą bezpiecznie przechowywane lokalnie w pamięci Twojej przeglądarki (`localStorage`).
 
 ---
@@ -128,7 +129,7 @@ CineLog został zaprojektowany w architekturze *Privacy-First* – to Ty decyduj
 | :--- | :--- | :--- |
 | **Gdzie przechowywana jest baza?** | Wyłącznie lokalnie w pamięci Twojej przeglądarki (`LocalStorage`). | Bezpośrednio w prywatnym pliku `cinelog_database.json` na Twoim Dysku Google. |
 | **Wymagane logowanie / konta?** | **Brak.** Zero rejestracji, brak logowania, brak zewnętrznych serwerów. | Jednorazowe logowanie przez oficjalne Google OAuth (bez pośredników). |
-| **Zarządzanie kopią zapasową** | Ręczny import (Filmweb, Letterboxd, IMDb, TV Time) oraz eksport JSON/CSV w dowolnym momencie. | Pełna, automatyczna synchronizacja w tle przy każdej zmianie na każdym urządzeniu. |
+| **Zarządzanie kopią zapasową** | Ręczny import (Filmweb, Letterboxd, IMDb, CineLog JSON; TV Time przez skrypt konwersji) oraz eksport JSON w dowolnym momencie. | Pełna, automatyczna synchronizacja w tle przy każdej zmianie na każdym urządzeniu. |
 | **Asystent AI & Oceny** | Własne klucze API (OpenAI, DeepSeek, darmowy Groq lub lokalny Ollama) zapisane w przeglądarce. | Te same klucze API bezpiecznie przechowywane na Twoim urządzeniu. |
 | **Migracja między trybami** | Możesz zacząć w 100% prywatnym trybie offline i w dowolnej chwili pobrać plik kopii zapasowej JSON. | **Bezproblemowa migracja:** Gdy zechcesz przejść z trybu prywatnego na wygodny – jedno kliknięcie *Zaloguj przez Google* w oknie *Chmura & Asystent AI* automatycznie wyeksportuje i zsynchronizuje całą Twoją dotychczasową lokalną bazę na Dysk Google bez utraty danych! |
 
@@ -148,7 +149,8 @@ Przy pierwszym uruchomieniu tryb wybiera się sam: działający backend -> serwe
 
 Zasady, które temu pilnują:
 - **Przełączenie na tryb serwera pyta o zgodę** i nigdy nie kasuje biblioteki użytkownika — to dwie różne bazy.
-- **Każde nadpisanie bazy** (Pull z Dysku, scalanie, import, przełączenie trybu, reset demo) najpierw zapisuje kopię. Cofniesz to przyciskiem **Przywróć poprzednią bazę** w oknie *Tryb i Środowisko*.
+- **Pull z Dysku, scalanie, przełączenie trybu i reset demo** najpierw zapisują kopię biblioteki z przeglądarki. Cofniesz to przyciskiem **Przywróć poprzednią bazę** w oknie *Tryb i Środowisko*.
+- **Import z pliku to świadoma wymiana biblioteki** i kopii nie robi — kopię pobierasz sam przyciskiem **Pobierz kopię JSON**. W trybie serwera import trafia do bazy serwera (`data/`), w trybie demo przełącza aplikację na tryb klienta.
 - **Autozapis na Google Drive działa tylko w trybie klienta** — sesja na serwerowym ziarnie danych nie wypchnie go do Twojej chmury.
 
 ---

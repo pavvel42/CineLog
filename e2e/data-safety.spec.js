@@ -147,7 +147,7 @@ test.describe("Bezpieczeństwo danych przy zmianie trybu", () => {
 // więc na hostingu statycznym (GitHub Pages) prowadził do 404 i przeglądarka
 // pokazywała "plik nie był dostępny w witrynie", a przy działającym backendzie
 // pobierał bazę serwera zamiast biblioteki użytkownika.
-test.describe("Kopia biblioteki: pobieranie i podpowiedź", () => {
+test.describe("Kopia biblioteki: pobieranie", () => {
   test.use({ serviceWorkers: "block" });
 
   test("pobranie kopii JSON daje bibliotekę użytkownika, nie bazę serwera", async ({ page }) => {
@@ -166,23 +166,5 @@ test.describe("Kopia biblioteki: pobieranie i podpowiedź", () => {
     expect(zawartosc.movies.map((m) => m.title)).toEqual(["Mój film A", "Mój film B"]);
     expect(zawartosc.shows).toHaveLength(1);
     expect(typeof zawartosc.exported_at).toBe("string");
-  });
-
-  test("po imporcie z pliku podpowiedź pokazuje zapisaną kopię", async ({ page }, testInfo) => {
-    await przygotujBiblioteke(page);
-
-    const plik = testInfo.outputPath("do-importu.json");
-    fs.writeFileSync(plik, JSON.stringify({ movies: [{ uuid: "import-1", title: "Z importu" }], shows: [] }));
-
-    await page.setInputFiles("#m3-importer-file-input", plik);
-    await expect
-      .poll(async () => (await stanLokalny(page)).kopia?.movies?.length ?? -1, { timeout: 10000 })
-      .toBe(2);
-
-    const podpowiedz = await page.evaluate(
-      () => (document.getElementById("m3-restore-backup-hint") || {}).textContent || ""
-    );
-    expect(podpowiedz).toMatch(/Kopia z/);
-    expect(podpowiedz).toContain("2 filmów");
   });
 });

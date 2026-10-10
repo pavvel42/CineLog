@@ -44,7 +44,7 @@ jobs:
         run: python -m mypy
 
       - name: Lint (pyflakes)
-        run: python -m pyflakes services routes scripts app.py run.py tests/
+        run: python -m pyflakes $(git ls-files '*.py')
 
   frontend-static:
     runs-on: ubuntu-latest

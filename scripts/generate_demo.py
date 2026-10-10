@@ -453,14 +453,9 @@ def main() -> None:
     movies = [make_movie(rng, e) for e in movie_entries]
     shows = [make_series(rng, e) for e in series_entries]
 
-    movies_backup = json.loads(json.dumps(movies, ensure_ascii=False))
-    shows_backup = json.loads(json.dumps(shows, ensure_ascii=False))
-
     outputs = {
         ROOT / "data" / "movies_parsed.json": movies,
         ROOT / "data" / "shows_parsed.json": shows,
-        ROOT / "data" / "movies_backup.json": movies_backup,
-        ROOT / "data" / "shows_backup.json": shows_backup,
         ROOT / "data" / "vod_cache.json": {},
         ROOT / "data" / "upcoming_cache.json": {},
         ROOT / "static" / "data" / "movies_parsed.json": movies,

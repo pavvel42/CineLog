@@ -153,27 +153,6 @@ def test_odpowiedzi_api_nie_zawieraja_klucza_serwera(client, monkeypatch):
     """Klucz serwera nie może pojawić się w żadnej odpowiedzi API."""
     sentinel = "SENTINEL-TMDB-KEY-1234567890"
     monkeypatch.setattr(app_module, "TMDB_API_KEY", sentinel)
-    for path in ("/api/movies", "/api/shows", "/api/data", "/api/export"):
+    for path in ("/api/movies", "/api/shows", "/api/export"):
         res = client.get(path)
         assert sentinel not in res.get_data(as_text=True), f"wyciek klucza w {path}"
-
-
-def test_test_kluczy_nie_ujawnia_klucza_w_komunikacie_bledu(client, monkeypatch):
-    """Biblioteki HTTP potrafią wkleić cały adres żądania do treści wyjątku,
-    a adres zawiera klucz API - komunikat dla klienta nie może go przenosić."""
-    sentinel = "SENTINEL-OMDB-KEY-0987654321"
-    monkeypatch.setattr(app_module, "TMDB_API_KEY", sentinel)
-
-    def failing_urlopen(req, timeout=None):
-        raise RuntimeError(f"<urlopen error> Get {req.full_url}: connection timed out")
-
-    monkeypatch.setattr("routes.system.urllib.request.urlopen", failing_urlopen)
-
-    res = client.post("/api/keys/test", json={"tmdb_key": sentinel})
-    assert res.status_code == 200
-    body = res.get_data(as_text=True)
-    assert sentinel not in body, "klucz API wyciekł w komunikacie błędu"
-    message = res.get_json()["tmdb"]["message"]
-    assert "Błąd TMDb" in message  # diagnostyka nadal jest, tylko bez klucza
-    assert "***" in message
-

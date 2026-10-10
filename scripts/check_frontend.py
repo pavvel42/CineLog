@@ -12,6 +12,9 @@ dla przeglądarki do momentu, gdy funkcja przestanie działać:
    w JS (literówka albo element usunięty z widoku).
 3. ``unused_import`` — nazwy zaimportowane z modułu ES i nigdzie nieużyte.
 4. ``missing_import`` — wołanie funkcji eksportowanej z innego modułu bez importu.
+5. ``empty_catch`` — pusty blok ``catch``: błąd znika bez śladu, więc „przycisk nic
+   nie robi” nie zostawia żadnej wskazówki w konsoli. Obsłuż błąd albo napisz
+   komentarzem, dlaczego jest oczekiwany.
 
 Użycie:
     python3 scripts/check_frontend.py           # exit 1 gdy są problemy
@@ -35,6 +38,7 @@ ID_LOOKUP_RE = re.compile(r"""getElementById\(\s*["']([^"']+)["']|querySelector(
 ID_DEFINITION_RE = re.compile(r"""id\s*[:=]\s*["']([^"']+)["']|\bid\s*=\s*["']([^"']+)["']""")
 IMPORT_RE = re.compile(r"""import\s*\{([^}]*)\}\s*from\s*["'][^"']+["']""")
 EXPORT_RE = re.compile(r"export\s+(?:async\s+)?(?:function|const|let|var|class)\s+([A-Za-z_$][\w$]*)")
+EMPTY_CATCH_RE = re.compile(r"catch\s*(?:\([^)]*\))?\s*\{\s*\}")
 LOCAL_DEFINITION_RE = re.compile(
     r"(?:^|[\s;{}])(?:export\s+)?(?:async\s+)?(?:function|const|let|var|class)\s+([A-Za-z_$][\w$]*)"
 )
@@ -190,6 +194,24 @@ def check_missing_imports(repo_root: Path, allowlist: set[str]) -> list[str]:
     return findings
 
 
+def check_empty_catches(repo_root: Path, allowlist: set[str]) -> list[str]:
+    findings = []
+    for path in iter_frontend_files(repo_root):
+        if path.suffix != ".js":
+            continue
+        rel = path.relative_to(repo_root)
+        content = path.read_text(encoding="utf-8")
+        for match in EMPTY_CATCH_RE.finditer(content):
+            number = content.count("\n", 0, match.start()) + 1
+            if f"empty_catch:{rel}:{number}" in allowlist:
+                continue
+            findings.append(
+                f"empty_catch     {rel}:{number}  pusty catch połyka błąd — "
+                f"obsłuż go albo opisz komentarzem, dlaczego jest oczekiwany"
+            )
+    return findings
+
+
 def run(repo_root: Path, allowlist: set[str] | None = None) -> list[str]:
     entries = load_allowlist(ALLOWLIST_PATH) if allowlist is None else allowlist
     return (
@@ -197,6 +219,7 @@ def run(repo_root: Path, allowlist: set[str] | None = None) -> list[str]:
         + check_dead_ids(repo_root, entries)
         + check_unused_imports(repo_root, entries)
         + check_missing_imports(repo_root, entries)
+        + check_empty_catches(repo_root, entries)
     )
 
 
@@ -216,7 +239,7 @@ def main(argv: list[str] | None = None) -> int:
         for finding in findings:
             print(f"  {finding}")
         return 1
-    print("Frontend bez zastrzeżeń (inline handlery, martwe id, nieużywane importy, brakujące importy).")
+    print("Frontend bez zastrzeżeń (inline handlery, martwe id, nieużywane importy, brakujące importy, puste catch).")
     return 0
 
 

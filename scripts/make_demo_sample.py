@@ -189,8 +189,6 @@ def main() -> None:
     outputs = {
         ROOT / "data" / "movies_parsed.json": movies,
         ROOT / "data" / "shows_parsed.json": series,
-        ROOT / "data" / "movies_backup.json": json.loads(json.dumps(movies, ensure_ascii=False)),
-        ROOT / "data" / "shows_backup.json": json.loads(json.dumps(series, ensure_ascii=False)),
         ROOT / "data" / "vod_cache.json": {},
         ROOT / "data" / "upcoming_cache.json": {},
         ROOT / "static" / "data" / "movies_parsed.json": movies,

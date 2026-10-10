@@ -40,7 +40,6 @@ def test_spojne_dane_nie_zglaszaja_problemow(dirs):
     for name in ("movies_parsed.json", "shows_parsed.json"):
         _write(data_dir / name, [{"title": "Film"}])
         _write(static_dir / name, [{"title": "Film"}])
-    _write(data_dir / "movies_backup.json", [])
 
     problems, notes = check_data_sync.check(data_dir, static_dir)
     assert problems == []

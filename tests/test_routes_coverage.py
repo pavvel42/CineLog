@@ -91,7 +91,6 @@ def bez_klucza(monkeypatch):
     [
         "/api/recommendations/trending?media_type=movie&time_window=week",
         "/api/recommendations/for_item?title=Incepcja&media_type=movie",
-        "/api/recommendations/person?name=Christopher%20Nolan",
         "/api/recommendations/discover?media_type=movie&genres=18",
     ],
 )
@@ -449,20 +448,6 @@ def test_watch_providers_z_tmdb_id_pomija_cache(client, monkeypatch):
 
 # ---------- system ----------
 
-def test_reset_all_przywraca_dane_z_kopii(client):
-    client.post("/api/movies", json={"title": "Film do usunięcia"})
-    client.post("/api/shows", json={"title": "Serial do usunięcia"})
-    app_module.save_json(app_module.MOVIES_BACKUP_FILE, [{"uuid": "m1", "title": "Film z kopii"}])
-    app_module.save_json(app_module.SHOWS_BACKUP_FILE, [{"uuid": "s1", "title": "Serial z kopii"}])
-
-    assert client.post("/api/movies/reset").get_json() == {"status": "reset_complete"}
-
-    movies = client.get("/api/movies").get_json()
-    shows = client.get("/api/shows").get_json()
-    assert [m["title"] for m in movies] == ["Film z kopii"]
-    assert [s["title"] for s in shows] == ["Serial z kopii"]
-
-
 def test_service_worker_jest_serwowany_jako_javascript(client):
     res = client.get("/sw.js")
     assert res.status_code == 200
@@ -495,3 +480,22 @@ def test_search_detail_nie_bierze_wyniku_o_innym_tytule(client, klucz, monkeypat
 
     assert res.status_code == 404
     assert res.get_json()["found"] is False
+
+
+@pytest.mark.parametrize(
+    ("metoda", "sciezka"),
+    [
+        ("get", "/api/data"),
+        ("post", "/api/reset"),
+        ("post", "/api/movies/reset"),
+        ("post", "/api/keys/test"),
+        ("post", "/api/vod_precache"),
+        ("get", "/api/recommendations/person?name=Nolan"),
+        ("get", "/api/shows/dowolny-uuid"),
+        ("get", "/m3"),
+    ],
+)
+def test_usuniete_martwe_trasy_nie_wracaja(client, metoda, sciezka):
+    """Audyt: trasy bez żadnego wywołania z aplikacji zostały usunięte (M2)."""
+    response = getattr(client, metoda)(sciezka)
+    assert response.status_code in (404, 405)

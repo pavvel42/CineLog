@@ -18,9 +18,7 @@ def client(tmp_path, monkeypatch):
     """Izolowana aplikacja: wszystkie pliki danych wskazują na tmp_path."""
     files = {
         "MOVIES_FILE": tmp_path / "movies.json",
-        "MOVIES_BACKUP_FILE": tmp_path / "movies_backup.json",
         "SHOWS_FILE": tmp_path / "shows.json",
-        "SHOWS_BACKUP_FILE": tmp_path / "shows_backup.json",
         "UPCOMING_CACHE_FILE": tmp_path / "upcoming_cache.json",
         "VOD_CACHE_FILE": tmp_path / "vod_cache.json",
     }
@@ -278,18 +276,6 @@ def test_client_keys_ignoruja_klucz_z_query_stringu():
     ):
         assert client_keys.tmdb_key() == ""
         assert client_keys.omdb_key() == ""
-
-
-def test_vod_precache_limit_enforced(client):
-    items = [{"title": f"x{i}", "type": "movie"} for i in range(51)]
-    r = client.post("/api/vod_precache", json={"items": items})
-    assert r.status_code == 400
-
-
-def test_vod_precache_empty_ok(client):
-    r = client.post("/api/vod_precache", json={"items": []})
-    assert r.status_code == 200
-    assert r.get_json()["updated"] == 0
 
 
 def test_upcoming_without_tmdb_key_returns_200(client, monkeypatch):

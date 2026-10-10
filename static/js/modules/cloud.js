@@ -770,7 +770,7 @@ if (btnImportTrigger && fileInput) {
 }
 
 
-// Przywracanie kopii bazy sprzed ostatniego nadpisania (Pull, scalanie, import, tryb serwera).
+// Przywracanie kopii bazy sprzed ostatniego nadpisania (Pull, scalanie, tryb serwera, reset demo).
 // Kopię zapisuje funkcja zapiszKopieBazy() z state.js — tu tylko UI i wywołanie.
 const btnRestoreBackup = document.getElementById("m3-btn-restore-backup");
 const hintRestoreBackup = document.getElementById("m3-restore-backup-hint");

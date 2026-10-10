@@ -704,7 +704,7 @@ export async function hydrateVodCache() {
         state.vodCache[key] = data[key];
       });
     }
-  } catch(e){}
+  } catch (e) { console.debug("CineLog: zbiorczy cache VOD z backendu niedostępny", e); }
 }
 
 export async function getWatchProvidersForTitle(title, mediaType, tmdbId = null) {
@@ -734,7 +734,7 @@ export async function getWatchProvidersForTitle(title, mediaType, tmdbId = null)
           return data;
         }
       }
-    } catch (e) {}
+    } catch (e) { console.debug("CineLog: dostępność VOD z backendu niedostępna — próbuję TMDb", e); }
   }
 
   // 2. Direct client-side TMDb Watch Providers API (GitHub Pages / Client mode)

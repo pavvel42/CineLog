@@ -1,4 +1,4 @@
-"""CineLog - trasy system: strona główna, export/reset biblioteki, test kluczy API.
+"""CineLog - trasy system: strona główna, PWA, eksport i import biblioteki.
 
 Współdzielone zasoby (stałe plików, cache, klucz TMDb, akcesory biblioteki)
 są odczytywane z modułu aplikacji przez późne wiązanie (_app.X w czasie żądania),
@@ -9,21 +9,14 @@ from __future__ import annotations
 
 import json
 import logging
-import shutil
-import urllib.request
-import urllib.parse
+import uuid
 from datetime import datetime
-
-import os
 from pathlib import Path
+from typing import Any
 
 from flask import Blueprint, jsonify, request, Response, send_file
 
-
 from flask.typing import ResponseReturnValue
-
-from services.security import mask_secret
-from services.metadata import server_omdb_key
 
 import app as _app
 
@@ -35,8 +28,12 @@ INDEX_HTML = Path(__file__).resolve().parent.parent / "index.html"
 SW_JS = Path(__file__).resolve().parent.parent / "sw.js"
 MANIFEST_JSON = Path(__file__).resolve().parent.parent / "manifest.json"
 
+# Górna granica jednej listy w imporcie. Realna biblioteka to setki pozycji,
+# limit chroni tylko przed przypadkowym albo spreparowanym plikiem.
+IMPORT_MAX_ITEMS = 20_000
+
+
 @bp.route("/")
-@bp.route("/m3")
 def index():
     return send_file(INDEX_HTML)
 
@@ -48,15 +45,7 @@ def service_worker():
 def web_manifest():
     return send_file(MANIFEST_JSON, mimetype="application/manifest+json")
 
-# --- MULTI-RESULT LIVE SEARCH API ---
-@bp.route("/api/data", methods=["GET"])
-def get_all_data() -> ResponseReturnValue:
-    return jsonify({
-        "movies": _app.load_movies(),
-        "shows": _app.load_shows()
-    })
-
-# --- MOVIES API ---
+# --- EKSPORT I IMPORT BIBLIOTEKI ---
 @bp.route("/api/export", methods=["GET"])
 def export_data() -> ResponseReturnValue:
     movies = _app.load_movies()
@@ -75,59 +64,66 @@ def export_data() -> ResponseReturnValue:
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
-@bp.route("/api/movies/reset", methods=["POST"])
-@bp.route("/api/reset", methods=["POST"])
-def reset_all() -> ResponseReturnValue:
-    if os.path.exists(_app.MOVIES_BACKUP_FILE):
-        shutil.copy(_app.MOVIES_BACKUP_FILE, _app.MOVIES_FILE)
-    if os.path.exists(_app.SHOWS_BACKUP_FILE):
-        shutil.copy(_app.SHOWS_BACKUP_FILE, _app.SHOWS_FILE)
-    return jsonify({"status": "reset_complete"})
 
-# --- API KEYS VERIFICATION ---
-def _error_message(label: str, exc: Exception, *secrets: str) -> str:
-    """Komunikat błędu bez wartości kluczy API.
+class NieprawidlowyImport(ValueError):
+    """Treść importu nie przeszła walidacji — komunikat trafia do użytkownika (HTTP 400)."""
 
-    Biblioteki HTTP potrafią wkleić cały adres żądania (z kluczem w parametrze
-    `api_key`) do treści wyjątku, dlatego każdy użyty klucz maskujemy.
+
+def _wpisy_importu(raw: object, pole: str) -> list[dict[str, Any]]:
+    """Waliduje jedną listę importu i nadaje brakujące lub zdublowane `uuid`.
+
+    Trasy PUT/DELETE adresują wpisy po `uuid`, więc wpis bez niego (albo z
+    identyfikatorem powtórzonym w pliku) byłby po imporcie nieedytowalny.
     """
-    return f"Błąd {label}: {mask_secret(str(exc), *secrets)}"
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise NieprawidlowyImport(f"Pole „{pole}” musi być listą.")
+    if len(raw) > IMPORT_MAX_ITEMS:
+        raise NieprawidlowyImport(
+            f"Za dużo pozycji w „{pole}” ({len(raw)}), limit to {IMPORT_MAX_ITEMS}."
+        )
+    wynik: list[dict[str, Any]] = []
+    uzyte: set[str] = set()
+    for nr, wpis in enumerate(raw, start=1):
+        if not isinstance(wpis, dict):
+            raise NieprawidlowyImport(f"Pozycja {nr} w „{pole}” nie jest obiektem.")
+        tytul = str(wpis.get("title") or "").strip()
+        if not tytul:
+            raise NieprawidlowyImport(f"Pozycja {nr} w „{pole}” nie ma tytułu.")
+        kopia = dict(wpis)
+        kopia["title"] = tytul
+        identyfikator = str(kopia.get("uuid") or "").strip()
+        if not identyfikator or identyfikator in uzyte:
+            identyfikator = str(uuid.uuid4())
+        kopia["uuid"] = identyfikator
+        uzyte.add(identyfikator)
+        wynik.append(kopia)
+    return wynik
 
 
-@bp.route("/api/keys/test", methods=["POST"])
-def test_api_keys() -> ResponseReturnValue:
-    data = request.get_json(silent=True) or {}
-    tmdb_key = data.get("tmdb_key", "").strip() or _app.TMDB_API_KEY
-    omdb_key = data.get("omdb_key", "").strip() or server_omdb_key()
-    
-    results = {
-        "tmdb": {"ok": False, "message": "Nie podano klucza TMDb"},
-        "omdb": {"ok": False, "message": "Nie podano klucza OMDb"}
-    }
-    
-    if tmdb_key:
-        try:
-            url = f"https://api.themoviedb.org/3/authentication?api_key={tmdb_key}"
-            req = urllib.request.Request(url, headers={"User-Agent": "CineLog/1.0"})
-            with urllib.request.urlopen(req, timeout=4) as resp:
-                if resp.status == 200:
-                    results["tmdb"] = {"ok": True, "message": "Połączono pomyślnie z TMDb API (v3)"}
-        except Exception as e:
-            results["tmdb"] = {"ok": False, "message": _error_message("TMDb", e, tmdb_key)}
-            
-    if omdb_key:
-        try:
-            url = f"https://www.omdbapi.com/?apikey={omdb_key}&s=Inception"
-            req = urllib.request.Request(url, headers={"User-Agent": "CineLog/1.0"})
-            with urllib.request.urlopen(req, timeout=4) as resp:
-                odata = json.loads(resp.read().decode("utf-8", errors="ignore"))
-                if odata.get("Response") == "True":
-                    results["omdb"] = {"ok": True, "message": "Połączono pomyślnie z OMDb (IMDb data)"}
-                else:
-                    results["omdb"] = {"ok": False, "message": odata.get("Error", "Błąd klucza OMDb")}
-        except Exception as e:
-            results["omdb"] = {"ok": False, "message": _error_message("OMDb", e, omdb_key)}
-            
-    return jsonify(results)
+@bp.route("/api/import", methods=["POST"])
+def import_library() -> ResponseReturnValue:
+    """Import = WYMIANA całej biblioteki serwera na zawartość pliku.
 
-# --- RECOMMENDATIONS & DISCOVERY API (TMDB POWERED) ---
+    Kopii poprzedniej bazy nie robimy — kopię użytkownik pobiera sam przyciskiem
+    eksportu. Pusty import jest odrzucany, żeby przypadkowe żądanie nie wyczyściło bazy.
+    """
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "Oczekiwano obiektu JSON z polami movies i shows."}), 400
+    try:
+        movies = _wpisy_importu(data.get("movies"), "movies")
+        shows = _wpisy_importu(data.get("shows"), "shows")
+    except NieprawidlowyImport as e:
+        return jsonify({"error": str(e)}), 400
+    if not movies and not shows:
+        return jsonify({"error": "Import nie zawiera żadnych pozycji."}), 400
+
+    with _app.DATA_LOCK:
+        if not (_app.save_movies(movies) and _app.save_shows(shows)):
+            log.error("Import biblioteki: zapis na dysk nie powiódł się")
+            return jsonify({"error": "Nie udało się zapisać bazy."}), 500
+
+    log.info("Import biblioteki: %d filmów, %d seriali", len(movies), len(shows))
+    return jsonify({"movies": movies, "shows": shows})

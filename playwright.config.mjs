@@ -15,7 +15,7 @@ export default defineConfig({
     // nie mutowały committowanego demo w data/ ani static/data/.
     command:
       "mkdir -p /tmp/cinelog-e2e-data && " +
-      "cp data/movies_parsed.json data/shows_parsed.json data/movies_backup.json data/shows_backup.json /tmp/cinelog-e2e-data/ && " +
+      "cp data/movies_parsed.json data/shows_parsed.json /tmp/cinelog-e2e-data/ && " +
       'echo "{}" > /tmp/cinelog-e2e-data/vod_cache.json && echo "{}" > /tmp/cinelog-e2e-data/upcoming_cache.json && ' +
       "PORT=5599 DATA_DIR=/tmp/cinelog-e2e-data python3 run.py",
     url: "http://localhost:5599/api/movies",

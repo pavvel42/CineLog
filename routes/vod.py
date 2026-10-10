@@ -70,47 +70,4 @@ def get_all_vod_cache() -> ResponseReturnValue:
             
     return jsonify(region_cache)
 
-@bp.route("/api/vod_precache", methods=["POST"])
-def precache_vod_batch() -> ResponseReturnValue:
-    data = request.json or {}
-    items = data.get("items", [])
-    region = data.get("region", "PL").strip().upper()
-
-    # Hard cap to prevent abuse / TMDb rate-limit exhaustion via huge batches
-    MAX_PRECACHE_ITEMS = 50
-    if not isinstance(items, list):
-        return jsonify({"error": "Invalid items payload"}), 400
-    if len(items) > MAX_PRECACHE_ITEMS:
-        return jsonify({"error": f"Too many items ({len(items)}). Limit is {MAX_PRECACHE_ITEMS} per request."}), 400
-
-    with _app.DATA_LOCK:
-        cache = _app.load_vod_cache()
-        updated_count = 0
-
-        for it in items:
-            title = it.get("title", "").strip()
-            m_type = "tv" if it.get("type") in ["series", "tv"] else "movie"
-            clean_t = re.sub(r"\s*\([^)]*\)", "", title).strip().lower()
-            k = f"{m_type}_{region}_{clean_t}"
-
-            needs_fetch = True
-            if k in cache and "expires_at" in cache[k]:
-                try:
-                    exp = datetime.strptime(cache[k]["expires_at"], "%Y-%m-%d %H:%M:%S")
-                    if datetime.now() < exp:
-                        needs_fetch = False
-                except Exception:
-                    pass
-
-            if needs_fetch:
-                res = _app.fetch_live_watch_providers(clean_t, m_type, region,
-                                                     tmdb_api_key=client_keys.tmdb_key())
-                cache[k] = res
-                updated_count += 1
-
-        if updated_count:
-            _app.save_vod_cache(cache)
-
-        return jsonify({"status": "ok", "updated": updated_count, "total": len(items)})
-
 # --- UPCOMING & RELEASE RADAR API ---

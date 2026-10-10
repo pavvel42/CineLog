@@ -1,10 +1,10 @@
-import { state, isItemInLibrary, saveLocalDatabase, getGradientForTitle, escapeHtml, safeUrl, apiFetch, buildLocalLibraryEntry, getActiveEnvMode } from './state.js';
+import { state, isItemInLibrary, getGradientForTitle, escapeHtml, safeUrl, apiFetch } from './state.js';
 import { showToastNotification } from './ui.js';
-import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, TMDB_GLOBAL_VOD_MAP, getCountryDisplayName } from './vod.js';
-import { renderMovies, openMovieDetail } from './movies.js';
-import { renderShows, openEpisodeTracker } from './shows.js';
+import { openMovieDetail } from './movies.js';
+import { openEpisodeTracker } from './shows.js';
 import { selectProductionDetail } from './search.js';
+import { dodajDoKolejki } from './quick-add.js';
 import { 
   streamAiChat, 
   buildCuratorSystemPrompt, 
@@ -230,68 +230,11 @@ async function quickAddToWatchlist(item, btnElement) {
     btnElement.disabled = true;
     btnElement.innerHTML = `<span class="material-symbols-rounded" style="font-size: 18px; animation: spin 1s linear infinite;">sync</span>`;
   }
-
-  const isShow = item.type === "series" || item.media_type === "tv";
-  const endpoint = isShow ? "/api/shows" : "/api/movies";
-  const payload = isShow ? {
-    title: item.title,
-    poster_url: item.poster_url,
-    status: "watchlist",
-    rating: null,
-    tmdb_id: item.tmdb_id || item.id,
-    episodes_watched: []
-  } : {
-    title: item.title,
-    poster_url: item.poster_url,
-    release_date: item.release_date || (item.year ? `${item.year}-01-01` : null),
-    status: "watchlist",
-    rating: null,
-    tmdb_id: item.tmdb_id || item.id,
-    is_favorite: false
-  };
-
-  const finishAdd = (addedItem) => {
-    if (isShow) {
-      state.shows.unshift(addedItem);
-      renderShows();
-    } else {
-      state.movies.unshift(addedItem);
-      renderMovies();
-    }
-    updateStats();
-    saveLocalDatabase();
-
-    if (btnElement) {
-      btnElement.classList.add("added");
-      btnElement.innerHTML = `<span class="material-symbols-rounded" style="font-size: 18px;">check</span>`;
-      btnElement.title = "Dodano do listy Do obejrzenia!";
-    }
-    showToastNotification(`Dodano "${item.title}" do listy Do obejrzenia! 🔖`);
-  };
-
-  try {
-    const res = await apiFetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    if (res.ok) {
-      const addedItem = await res.json();
-      finishAdd(addedItem);
-    } else {
-      // Tryb klienta (GitHub Pages / offline): zapis lokalny zamiast błędu.
-      finishAdd(buildLocalLibraryEntry(item, isShow ? "series" : "movie", "watchlist"));
-    }
-  } catch (err) {
-    console.error("Error adding rec item:", err);
-    // Pozycja zostaje w bibliotece lokalnie (tryb klienta / offline). W trybie serwera
-    // Flask mówimy wprost, że zapis nie doszedł — przycisk pokazuje wtedy „dodano”,
-    // więc cicha porażka myliłaby.
-    finishAdd(buildLocalLibraryEntry(item, isShow ? "series" : "movie", "watchlist"));
-    if (getActiveEnvMode() === "flask") {
-      showToastNotification("Nie udało się zapisać na serwerze — pozycja jest tylko w tej przeglądarce.", "error");
-    }
+  await dodajDoKolejki(item);
+  if (btnElement) {
+    btnElement.classList.add("added");
+    btnElement.innerHTML = `<span class="material-symbols-rounded" style="font-size: 18px;">check</span>`;
+    btnElement.title = "Dodano do listy Do obejrzenia!";
   }
 }
 
@@ -1045,7 +988,7 @@ async function fetchRecSection(key, apiPath, tmdbPath, tmdbParams = {}) {
         return { key, ...data };
       }
     }
-  } catch (e) {}
+  } catch (e) { console.debug("CineLog: sekcja rekomendacji z backendu niedostępna — próbuję TMDb", e); }
 
   // 2. Direct TMDb Client Fetch Fallback
   if (localKey && tmdbPath) {

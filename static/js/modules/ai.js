@@ -63,7 +63,7 @@ export function getAiConfig() {
     if (raw) {
       return JSON.parse(raw);
     }
-  } catch (e) {}
+  } catch (e) { console.debug("CineLog: uszkodzona historia czatu AI — zaczynam od pustej", e); }
 
   return {
     provider: "openai",
@@ -154,7 +154,7 @@ export async function testAiConnection(config) {
         if (errJson.error && errJson.error.message) {
           errDetail = errJson.error.message;
         }
-      } catch (e) {}
+      } catch (e) { console.debug("CineLog: odpowiedź błędu AI bez treści JSON", e); }
       return { success: false, error: errDetail, elapsed };
     }
 
@@ -210,7 +210,7 @@ export async function streamAiChat({ messages, temperature = 0.7, max_tokens = 2
     try {
       const err = await res.json();
       if (err.error && err.error.message) msg = err.error.message;
-    } catch (e) {}
+    } catch (e) { console.debug("CineLog: odpowiedź błędu AI bez treści JSON", e); }
     throw new Error(msg);
   }
 

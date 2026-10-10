@@ -2,7 +2,7 @@
 // CineLog - Universal Importer Module (Filmweb, Letterboxd, IMDb, JSON)
 // ==========================================================================
 
-import { state, saveLocalDatabase, isItemInLibrary, generateUUID, markUserDatabaseCustom, escapeHtml, apiFetch, isRealDetail, zapiszKopieBazy, localTimestamp, recalculateShowProgress, wybierzTrafienieWTmdb } from './state.js';
+import { state, saveLocalDatabase, generateUUID, markUserDatabaseCustom, escapeHtml, apiFetch, isRealDetail, localTimestamp, recalculateShowProgress, wybierzTrafienieWTmdb, getActiveEnvMode, normalizeTitleForLibrary } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { renderMovies } from './movies.js';
@@ -13,6 +13,63 @@ let parsedImportCandidates = [];
 let detectedFormat = null;
 let isImporting = false;
 let shouldCancelImport = false;
+
+/**
+ * Import = WYMIANA całej biblioteki na zawartość pliku — w każdym trybie i bez
+ * automatycznej kopii (kopię użytkownik pobiera sam przyciskiem „Pobierz kopię JSON”).
+ *
+ * - tryb serwera: biblioteka trafia do bazy serwera przez POST /api/import, a stan
+ *   aplikacji bierzemy z odpowiedzi (serwer nadaje identyfikatory),
+ * - tryb klienta i demo: biblioteka trafia do przeglądarki, a tryb demo przechodzi
+ *   na klienta — inaczej odświeżenie strony wczytałoby demo zamiast importu.
+ * @param {object[]} movies
+ * @param {object[]} shows
+ * @returns {Promise<void>} odrzuca, gdy serwer nie przyjął importu (biblioteka bez zmian)
+ */
+async function zastapBiblioteke(movies, shows) {
+  if (getActiveEnvMode() === "flask") {
+    const res = await apiFetch("/api/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ movies, shows }),
+      timeoutMs: 60000
+    });
+    const zapisane = await res.json();
+    state.movies = zapisane.movies;
+    state.shows = zapisane.shows;
+  } else {
+    state.movies = movies;
+    state.shows = shows;
+    markUserDatabaseCustom();
+    const demoBanner = document.getElementById("m3-demo-notice-banner");
+    if (demoBanner) demoBanner.style.display = "none";
+  }
+  saveLocalDatabase();
+  updateStats();
+  if (state.mode === "movies") renderMovies();
+  else renderShows();
+}
+
+/** Wpisy z pliku CineLog JSON: tylko obiekty z tytułem, każdy z własnym `uuid`. */
+function przygotujWpisyZPliku(lista) {
+  const uzyte = new Set();
+  return (Array.isArray(lista) ? lista : [])
+    .filter(wpis => wpis && typeof wpis === "object" && String(wpis.title || "").trim())
+    .map(wpis => {
+      const kopia = { ...wpis, title: String(wpis.title).trim() };
+      if (!kopia.uuid || uzyte.has(kopia.uuid)) kopia.uuid = generateUUID();
+      uzyte.add(kopia.uuid);
+      return kopia;
+    });
+}
+
+/** Klucz pozycji w obrębie jednego pliku importu (wykrywanie powtórzeń w pliku). */
+function kluczPozycjiImportu(item) {
+  const typ = item.type === "series" ? "series" : "movie";
+  if (item.tmdb_id) return `${typ}:tmdb:${item.tmdb_id}`;
+  if (item.imdb_id) return `${typ}:imdb:${item.imdb_id}`;
+  return `${typ}:tytul:${normalizeTitleForLibrary(item.title || "")}:${item.year || ""}`;
+}
 
 /**
  * Universal CSV Parser handling quotes, commas, semicolons, and CRLF
@@ -71,6 +128,21 @@ function parseCSV(text) {
   }
 
   return results;
+}
+
+/**
+ * Ocena z pliku w skali biblioteki (1–5 gwiazdek).
+ * IMDb i Filmweb oceniają w skali 1–10, Letterboxd 0,5–5 — bez przeliczenia
+ * do biblioteki trafiały „8/5”, a serwer odrzucał takie oceny przy edycji.
+ * @param {string|number} wartosc ocena z pliku
+ * @param {number} skala maksimum skali źródła (10 albo 5)
+ * @returns {number|null}
+ */
+export function ocenaWSkaliPieciu(wartosc, skala) {
+  const liczba = parseFloat(String(wartosc ?? "").replace(",", "."));
+  if (!Number.isFinite(liczba) || liczba <= 0) return null;
+  const naPiec = skala === 10 ? liczba / 2 : liczba;
+  return Math.min(5, Math.max(1, Math.round(naPiec)));
 }
 
 /**
@@ -140,8 +212,7 @@ function detectAndNormalizeFile(filename, content) {
       const imdbId = r["const"] || "";
       const title = r["title"] || r["original title"] || "";
       const year = r["year"] || (r["release date"] ? r["release date"].split("-")[0] : "");
-      let rating = parseInt(r["your rating"]);
-      if (isNaN(rating) || rating <= 0) rating = null;
+      const rating = ocenaWSkaliPieciu(r["your rating"], 10);
       const watchDate = r["date rated"] || "";
 
       return {
@@ -166,12 +237,8 @@ function detectAndNormalizeFile(filename, content) {
     const candidates = rows.map(r => {
       const title = r["name"] || "";
       const year = r["year"] || "";
-      let ratingRaw = parseFloat(r["rating"]);
-      let rating = null;
-      if (!isNaN(ratingRaw) && ratingRaw > 0) {
-        // Letterboxd is 0.5 - 5.0 stars, scale to 1-10
-        rating = Math.round(ratingRaw * 2);
-      }
+      // Letterboxd: 0,5–5 gwiazdek, czyli już skala biblioteki.
+      const rating = ocenaWSkaliPieciu(r["rating"], 5);
       const watchDate = r["watched date"] || r["date"] || "";
 
       return {
@@ -197,8 +264,7 @@ function detectAndNormalizeFile(filename, content) {
       const title = r["tytuł"] || r["tytul"] || r["title"] || "";
       const originalTitle = r["oryginalny tytuł"] || r["oryginalny tytul"] || r["original title"] || title;
       const year = r["rok"] || r["year"] || "";
-      let rating = parseInt(r["ocena"] || r["rating"]);
-      if (isNaN(rating) || rating <= 0) rating = null;
+      const rating = ocenaWSkaliPieciu(r["ocena"] || r["rating"], 10);
       const watchDate = r["data"] || r["data obejrzenia"] || r["date"] || "";
       const typ = (r["typ"] || r["type"] || "").toLowerCase();
       const isSeries = typ.includes("serial") || typ.includes("series") || typ.includes("tv");
@@ -223,8 +289,9 @@ function detectAndNormalizeFile(filename, content) {
   const candidates = rows.map(r => {
     const title = r["title"] || r["name"] || r["tytuł"] || r["tytul"] || Object.values(r)[0] || "";
     const year = r["year"] || r["rok"] || "";
-    let rating = parseInt(r["rating"] || r["ocena"]);
-    if (isNaN(rating) || rating <= 0) rating = null;
+    // Nieznane źródło: oceny powyżej 5 traktujemy jako skalę 1–10.
+    const surowa = parseFloat(String(r["rating"] || r["ocena"] || "").replace(",", "."));
+    const rating = ocenaWSkaliPieciu(surowa, surowa > 5 ? 10 : 5);
 
     return {
       type: "movie",
@@ -294,38 +361,30 @@ export function handleImportFile(file) {
     try {
       const content = e.target.result;
 
-      // 1. Direct CineLog JSON Import check
+      // 1. Plik CineLog JSON (kopia / eksport) — wymiana biblioteki bez wzbogacania z TMDb.
+      let json = null;
       try {
-        const json = JSON.parse(content);
-        const importedMovies = json.movies && Array.isArray(json.movies) ? json.movies : (Array.isArray(json) ? json : []);
-        const importedShows = json.shows && Array.isArray(json.shows) ? json.shows : [];
-
+        json = JSON.parse(content);
+      } catch (errJson) {
+        json = null; // to nie JSON — dalej próbujemy formatów CSV
+      }
+      if (json) {
+        const importedMovies = przygotujWpisyZPliku(Array.isArray(json) ? json : json.movies);
+        const importedShows = przygotujWpisyZPliku(json.shows);
         if (importedMovies.length > 0 || importedShows.length > 0) {
-          // Import zastępuje bibliotekę — najpierw kopia poprzedniej wersji.
-          const kopiaZapisana = zapiszKopieBazy("import z pliku");
-          if (importedMovies.length > 0) state.movies = importedMovies;
-          if (importedShows.length > 0) state.shows = importedShows;
-
-          updateStats();
-          if (state.mode === "movies") renderMovies();
-          else renderShows();
-
-          saveLocalDatabase();
-          showToastNotification(`🎉 Wczytano kopię CineLog: ${importedMovies.length} filmów i ${importedShows.length} seriali!`, "success");
-          if (kopiaZapisana) {
-            showToastNotification("Poprzednia biblioteka zapisana jako kopia (sekcja „Kopia i Import z pliku”).", "info");
-          }
-          // Odśwież podpowiedź pod przyciskiem przywracania — inaczej dalej twierdzi,
-          // że kopii nie ma, mimo że właśnie ją zapisaliśmy.
-          if (typeof window.updateKopiaBazyHint === "function") window.updateKopiaBazyHint();
-
-          const sheetCloud = document.getElementById("m3-sheet-cloud-sync");
-          if (sheetCloud) sheetCloud.classList.remove("active");
-          closeImporterModal();
+          zastapBiblioteke(importedMovies, importedShows)
+            .then(() => {
+              showToastNotification(`🎉 Wczytano kopię CineLog: ${importedMovies.length} filmów i ${importedShows.length} seriali!`, "success");
+              const sheetCloud = document.getElementById("m3-sheet-cloud-sync");
+              if (sheetCloud) sheetCloud.classList.remove("active");
+              closeImporterModal();
+            })
+            .catch((err) => {
+              console.error("Import CineLog JSON nie powiódł się:", err);
+              showToastNotification("Import nie powiódł się — biblioteka bez zmian.", "error");
+            });
           return;
         }
-      } catch (errJson) {
-        // Not a direct CineLog JSON, proceed to CSV format parser
       }
 
       // 2. CSV Parser (Filmweb, Letterboxd, IMDb)
@@ -336,9 +395,11 @@ export function handleImportFile(file) {
         return;
       }
 
+      // Najpierw okno (jego otwarcie czyści stan importera), dopiero potem pozycje —
+      // w odwrotnej kolejności podgląd CSV zawsze pokazywał 0 pozycji.
+      openImporterModal();
       detectedFormat = format;
       parsedImportCandidates = candidates;
-      openImporterModal();
       renderImportPreview();
     } catch (err) {
       console.error("Import file error:", err);
@@ -363,14 +424,13 @@ function renderImportPreview() {
   let newShows = 0;
   let duplicates = 0;
 
+  // Import wymienia bibliotekę, więc „duplikat” to powtórzenie w samym pliku,
+  // a nie pozycja, która już jest w bibliotece.
+  const widziane = new Set();
   parsedImportCandidates.forEach(cand => {
-    const exists = isItemInLibrary({
-      title: cand.title,
-      type: cand.type,
-      tmdb_id: cand.tmdb_id,
-      imdb_id: cand.imdb_id,
-      year: cand.year
-    });
+    const klucz = kluczPozycjiImportu(cand);
+    const exists = widziane.has(klucz);
+    widziane.add(klucz);
 
     if (exists) {
       duplicates++;
@@ -398,7 +458,7 @@ function renderImportPreview() {
       row.style.cssText = "display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: var(--md-sys-color-surface-container); border-radius: 8px; font-size: 0.78rem; gap: 8px;";
       
       const starHtml = item.rating 
-        ? `<span style="color: var(--md-sys-color-primary); font-weight: 700;">★ ${escapeHtml(item.rating)}/10</span>` 
+        ? `<span style="color: var(--md-sys-color-primary); font-weight: 700;">★ ${escapeHtml(item.rating)}/5</span>` 
         : `<span style="color: var(--md-sys-color-outline-variant);">Brak oceny</span>`;
 
       const dupBadge = item._isDuplicate 
@@ -431,7 +491,7 @@ function renderImportPreview() {
   previewBox.style.display = "flex";
   if (btnStart) {
     const countToImport = parsedImportCandidates.filter(c => !c._isDuplicate).length;
-    btnStart.innerText = `Rozpocznij import (${countToImport} pozycji)`;
+    btnStart.innerText = `Zastąp bibliotekę (${countToImport} pozycji)`;
     btnStart.style.display = "flex";
   }
 }
@@ -476,7 +536,7 @@ export async function resolveImportTmdbId(item, isSeries, localTmdb, userLang) {
         const resArr = isSeries ? findJson.tv_results : findJson.movie_results;
         if (resArr && resArr.length > 0) resolvedTid = resArr[0].id;
       }
-    } catch(e) {}
+    } catch (e) { console.debug("CineLog: import: TMDb /find po IMDb ID nie odpowiedział", e); }
   }
 
   if (!resolvedTid) {
@@ -504,7 +564,7 @@ async function fetchImportPlotEn(resolvedTid, isSeries, localTmdb) {
       const dDataEn = await dResEn.json();
       return dDataEn.overview || "";
     }
-  } catch(e) {}
+  } catch (e) { console.debug("CineLog: import: angielski opis z TMDb niedostępny", e); }
   return "";
 }
 
@@ -521,6 +581,11 @@ function mapTmdbImportDetail(dData, item) {
     runtime: dData.runtime || (dData.episode_run_time ? dData.episode_run_time[0] : 0),
     vote_average: dData.vote_average || 0,
     total_seasons: dData.number_of_seasons || (dData.seasons ? dData.seasons.filter(s => s.season_number > 0).length : 1),
+    total_episodes: dData.number_of_episodes || 0,
+    // Liczba odcinków w sezonach — bez niej tracker serialu pokazuje jeden sezon.
+    season_ep_counts: Object.fromEntries((dData.seasons || [])
+      .filter(s => s.season_number > 0 && s.episode_count > 0)
+      .map(s => [s.season_number, s.episode_count])),
     cast: (dData.credits && dData.credits.cast) ? dData.credits.cast.slice(0, 10).map(c => ({
       id: c.id,
       name: c.name,
@@ -547,7 +612,7 @@ async function fetchImportDetailFromTmdb(item, localTmdb, userLang) {
       detail.plot = await fetchImportPlotEn(resolvedTid, isSeries, localTmdb);
     }
     return detail;
-  } catch(e) {}
+  } catch (e) { console.debug("CineLog: import: szczegóły TMDb niedostępne — wpis z danych pliku", e); }
   return null;
 }
 
@@ -561,7 +626,11 @@ async function fetchImportDetail(item, userLang) {
   return detail;
 }
 
-function addImportedItemToLibrary(detail, item) {
+/**
+ * Buduje wpis biblioteki z pozycji importu (i metadanych TMDb, jeśli są).
+ * @returns {{series: boolean, entry: object}}
+ */
+function zbudujWpisImportu(detail, item) {
   const finalTitle = (detail && detail.title) || item.title;
   const finalYear = (detail && detail.year) || item.year || "";
   const finalGenre = (detail && detail.genre) || (item.type === "series" ? "Serial" : "Film");
@@ -600,12 +669,12 @@ function addImportedItemToLibrary(detail, item) {
       plot: finalOverview,
       cast: finalCast,
       total_seasons: (detail && detail.total_seasons) || 1,
+      total_episodes: (item.raw && item.raw.total_episodes) || (detail && detail.total_episodes) || 0,
       season_ep_counts: (item.raw && item.raw.season_ep_counts) || (detail && detail.season_ep_counts) || {},
       episodes_watched: importedEps
     };
     if (importedEps.length > 0) recalculateShowProgress(newShow);
-    state.shows.unshift(newShow);
-    return;
+    return { series: true, entry: newShow };
   }
 
   const newMovie = {
@@ -626,25 +695,20 @@ function addImportedItemToLibrary(detail, item) {
     cast: finalCast,
     director: finalDirector
   };
-  state.movies.unshift(newMovie);
+  return { series: false, entry: newMovie };
 }
 
-function finalizeBatchImport(successCount) {
-  // Finalize
-  markUserDatabaseCustom();
-  const demoBanner = document.getElementById("m3-demo-notice-banner");
-  if (demoBanner) demoBanner.style.display = "none";
-
-  saveLocalDatabase();
-  updateStats();
-  if (state.mode === "movies") renderMovies();
-  else renderShows();
-
-  if (window.googleDriveSync && window.googleDriveSync.isAuthorized()) {
-    window.googleDriveSync.uploadToDrive(state.movies, state.shows);
+async function finalizeBatchImport(movies, shows) {
+  try {
+    await zastapBiblioteke(movies, shows);
+  } catch (err) {
+    console.error("Import nie powiódł się:", err);
+    showToastNotification("Import nie powiódł się — biblioteka bez zmian.", "error");
+    isImporting = false;
+    resetImporterUI();
+    return;
   }
-
-  showToastNotification(`🎉 Sukces! Pomyślnie zaimportowano ${successCount} pozycji do Twojej biblioteki.`, "success");
+  showToastNotification(`🎉 Sukces! Biblioteka zastąpiona importem: ${movies.length} filmów i ${shows.length} seriali.`, "success");
   closeImporterModal();
 }
 
@@ -668,7 +732,8 @@ async function executeBatchImport() {
   const itemsToProcess = parsedImportCandidates.filter(c => !c._isDuplicate);
   const total = itemsToProcess.length;
   let processed = 0;
-  let successCount = 0;
+  const noweFilmy = [];
+  const noweSeriale = [];
 
   const userLang = getUserLanguage();
 
@@ -684,14 +749,22 @@ async function executeBatchImport() {
       // 1. Fetch metadata from TMDb
       const detail = await fetchImportDetail(item, userLang);
 
-      addImportedItemToLibrary(detail, item);
-      successCount++;
+      const { series, entry } = zbudujWpisImportu(detail, item);
+      (series ? noweSeriale : noweFilmy).push(entry);
     } catch (err) {
       console.error("Error importing item:", item.title, err);
     }
   }
 
-  finalizeBatchImport(successCount);
+  // Przerwany import (zamknięte okno) niczego nie zmienia — połowa pliku
+  // nie może zastąpić całej biblioteki.
+  if (shouldCancelImport) {
+    isImporting = false;
+    showToastNotification("Import przerwany — biblioteka bez zmian.", "info");
+    return;
+  }
+
+  await finalizeBatchImport(noweFilmy, noweSeriale);
 }
 
 /**

@@ -268,7 +268,7 @@ async function resolveMovieDetailOnline(movie) {
                 movie.tmdb_id = resolvedTmdbId;
               }
             }
-          } catch(e) {}
+          } catch (e) { console.debug("CineLog: szczegóły filmu: TMDb /find po IMDb ID nie odpowiedział", e); }
         }
 
         // Lookup by Title + Year
@@ -308,7 +308,7 @@ async function resolveMovieDetailOnline(movie) {
                   const tDataEn = await tmdbResEn.json();
                   plot = tDataEn.overview || "";
                 }
-              } catch(e) {}
+              } catch (e) { console.debug("CineLog: szczegóły filmu: angielski opis z TMDb niedostępny", e); }
             }
 
             detail = {
@@ -332,7 +332,7 @@ async function resolveMovieDetailOnline(movie) {
             };
           }
         }
-      } catch(e) {}
+      } catch (e) { console.debug("CineLog: szczegóły filmu: angielski opis z TMDb niedostępny", e); }
     }
 
     // 2. Direct client OMDb API fallback
@@ -367,7 +367,7 @@ async function resolveMovieDetailOnline(movie) {
             }
           }
         }
-      } catch(e) {}
+      } catch (e) { console.debug("CineLog: szczegóły filmu: OMDb niedostępny", e); }
     }
 
   return detail;
@@ -827,7 +827,7 @@ async function deleteMovie(itemOrUuid) {
         saveLocalDatabase(true);
         updateStats();
         renderMovies();
-      } catch (refreshErr) {}
+      } catch (refreshErr) { console.warn("CineLog: nie udało się odświeżyć listy filmów z serwera", refreshErr); }
     }
   }
 }

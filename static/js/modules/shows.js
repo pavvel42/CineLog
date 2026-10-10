@@ -288,7 +288,7 @@ export async function openEpisodeTracker(show) {
     renderSeasonTabs();
     renderSeasonEpisodes(false);
     applyShowDetailToTracker(show, detail);
-  } catch (e){}
+  } catch (e) { console.warn("CineLog: tracker: nie udało się wczytać danych serialu", e); }
 }
 
 function renderTrackerHeader(show) {
@@ -494,7 +494,7 @@ async function fetchTrackerData(show, gen = trackerGen) {
               show.tmdb_id = resolvedTmdbId;
             }
           }
-        } catch(e) {}
+        } catch (e) { console.debug("CineLog: szczegóły serialu: TMDb /find po IMDb ID nie odpowiedział", e); }
       }
 
       // Lookup by Title + Year
@@ -533,7 +533,7 @@ async function fetchTrackerData(show, gen = trackerGen) {
                 const tDataEn = await tmdbResEn.json();
                 plot = tDataEn.overview || "";
               }
-            } catch(e) {}
+            } catch (e) { console.debug("CineLog: szczegóły serialu: angielski opis z TMDb niedostępny", e); }
           }
 
           detail = {
@@ -570,7 +570,7 @@ async function fetchTrackerData(show, gen = trackerGen) {
           }
         }
       }
-    } catch (e) {}
+    } catch (e) { console.debug("CineLog: szczegóły serialu: angielski opis z TMDb niedostępny", e); }
   }
 
   // 2. Direct client OMDb fallback
@@ -604,7 +604,7 @@ async function fetchTrackerData(show, gen = trackerGen) {
           }
         }
       }
-    } catch (e) {}
+    } catch (e) { console.debug("CineLog: szczegóły serialu: OMDb niedostępny", e); }
   }
 
   // Direct client fallback for episode metadata if empty
@@ -720,7 +720,7 @@ async function ensureSeasonMeta(tmdbId, seasonNum, gen = trackerGen) {
         };
       }
     });
-  } catch (e) {}
+  } catch (e) { console.debug("CineLog: tracker: odcinki sezonu z TMDb niedostępne", e); }
 }
 
 /**
@@ -1357,7 +1357,7 @@ async function deleteShow(itemOrUuid) {
         saveLocalDatabase(true);
         updateStats();
         renderShows();
-      } catch (refreshErr) {}
+      } catch (refreshErr) { console.warn("CineLog: nie udało się odświeżyć listy seriali z serwera", refreshErr); }
     }
   }
 }

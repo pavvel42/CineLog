@@ -32,9 +32,7 @@ def client(tmp_path, monkeypatch):
     """Izolowana aplikacja: wszystkie pliki danych wskazują na tmp_path."""
     files = {
         "MOVIES_FILE": tmp_path / "movies.json",
-        "MOVIES_BACKUP_FILE": tmp_path / "movies_backup.json",
         "SHOWS_FILE": tmp_path / "shows.json",
-        "SHOWS_BACKUP_FILE": tmp_path / "shows_backup.json",
         "UPCOMING_CACHE_FILE": tmp_path / "upcoming_cache.json",
         "VOD_CACHE_FILE": tmp_path / "vod_cache.json",
     }

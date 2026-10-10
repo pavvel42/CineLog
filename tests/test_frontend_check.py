@@ -110,3 +110,22 @@ def test_main_zwraca_kod_bledu_gdy_sa_problemy(repo, capsys):
     exit_code = check_frontend.main(["--root", str(repo)])
     assert exit_code == 1
     assert "Problemy frontendu" in capsys.readouterr().out
+
+
+def test_wykrywa_pusty_catch(repo):
+    """Pusty catch połyka błąd bez śladu — „przycisk nic nie robi” bez żadnej wskazówki."""
+    _write(repo / "static/js/modules/a.js", "try { zrob(); } catch (e) {}\nfunction zrob() {}\n")
+    findings = check_frontend.run(repo, allowlist=set())
+    assert len(findings) == 1
+    assert "empty_catch" in findings[0]
+    assert "a.js:1" in findings[0]
+
+
+def test_catch_z_obsluga_albo_komentarzem_jest_w_porzadku(repo):
+    _write(
+        repo / "static/js/modules/a.js",
+        "try { zrob(); } catch (e) { console.debug(e); }\n"
+        "try { zrob(); } catch (e) {\n  // brak cache to normalny stan\n}\n"
+        "function zrob() {}\n",
+    )
+    assert check_frontend.run(repo, allowlist=set()) == []

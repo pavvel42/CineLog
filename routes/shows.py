@@ -75,14 +75,6 @@ def get_shows() -> ResponseReturnValue:
     shows = _app.load_shows()
     return jsonify(shows)
 
-@bp.route("/api/shows/<show_uuid>", methods=["GET"])
-def get_show_detail(show_uuid: str) -> ResponseReturnValue:
-    shows = _app.load_shows()
-    for s in shows:
-        if s.get("uuid") == show_uuid:
-            return jsonify(s)
-    return jsonify({"error": "Show not found"}), 404
-
 @bp.route("/api/shows/<show_uuid>/episodes_meta", methods=["GET"])
 def get_show_episodes_meta(show_uuid: str) -> ResponseReturnValue:
     lang = request.args.get("lang", "pl-PL").strip()
