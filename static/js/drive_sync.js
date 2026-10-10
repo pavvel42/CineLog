@@ -7,6 +7,10 @@ import { normalizeTitleForLibrary, recalculateShowProgress } from './modules/sta
 const DRIVE_DATABASE_FILE_NAME = "cinelog_database.json";
 const DRIVE_SETTINGS_FILE_NAME = "cinelog_settings.json";
 const DRIVE_SCOPES = "https://www.googleapis.com/auth/drive.file";
+// Zmiany z biblioteki, które jeszcze nie dotarły na Dysk (np. token wygasł).
+const PENDING_UPLOAD_KEY = "gdrive_pending_upload";
+// Powrót do aplikacji częściej niż co tyle nie pobiera bazy ponownie.
+const MIN_ODSTEP_SYNCHRONIZACJI_MS = 30_000;
 
 class GoogleDriveSync {
   constructor() {
@@ -21,15 +25,118 @@ class GoogleDriveSync {
     this.clientId = localStorage.getItem("gdrive_client_id") || (window.CINELOG_CONFIG && window.CINELOG_CONFIG.GOOGLE_CLIENT_ID) || "";
     this.isSyncing = false;
     this.debounceTimer = null;
+    // Automatyczna synchronizacja: callback podmieniający bibliotekę (main.js).
+    this.zastosujBibliotekeZDysku = null;
+    this.ostatniaSynchronizacja = 0;
+    this.czekaNaGest = false;
   }
 
   init() {
     this.updateStatusUI();
-    if (this.clientId && !this.isAuthorized() && this.accessToken) {
-      setTimeout(() => {
-        this.ensureValidToken();
-      }, 1000);
+    // Wygasłego tokenu nie odnawiamy tu: okno Google bez gestu użytkownika blokuje
+    // przeglądarka (szczególnie na telefonie). Odnowienie czeka na pierwsze dotknięcie.
+    if (this.byloPolaczenie() && !this.isAuthorized()) this.czekajNaGest();
+  }
+
+  /** Użytkownik połączył kiedyś aplikację z Dyskiem (token mógł już wygasnąć). */
+  byloPolaczenie() {
+    return Boolean(this.clientId && (this.accessToken || localStorage.getItem("gdrive_file_id")));
+  }
+
+  /** Automatyczna synchronizacja dotyczy tylko własnej biblioteki w trybie klienta. */
+  trybPozwalaNaSynchronizacje() {
+    const wlasnaBaza = localStorage.getItem("cinelog_user_imported") === "true";
+    const tryb = localStorage.getItem("cinelog_active_mode") || (wlasnaBaza ? "client" : "demo");
+    return wlasnaBaza && tryb === "client";
+  }
+
+  maZmianyDoWyslania() {
+    return localStorage.getItem(PENDING_UPLOAD_KEY) === "true";
+  }
+
+  /**
+   * Włącza automatyczną synchronizację: teraz i przy każdym powrocie do aplikacji.
+   * @param {(movies: object[], shows: object[]) => void} zastosuj podmienia bibliotekę
+   */
+  startAutoSync(zastosuj) {
+    this.zastosujBibliotekeZDysku = zastosuj;
+    if (!this._nasluchPowrotu) {
+      this._nasluchPowrotu = true;
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState !== "visible") return;
+        if (Date.now() - this.ostatniaSynchronizacja < MIN_ODSTEP_SYNCHRONIZACJI_MS) return;
+        this.autoSync();
+      });
     }
+    return this.autoSync();
+  }
+
+  /**
+   * Pobiera bazę z Dysku. Bez lokalnych zmian czekających na wysłanie Dysk jest
+   * źródłem prawdy (przechodzą też usunięcia z drugiego urządzenia); z takimi
+   * zmianami — scalenie i wysłanie wyniku.
+   * @returns {Promise<"ok"|"pominieto"|"czeka-na-gest"|"blad">}
+   */
+  async autoSync() {
+    if (!this.trybPozwalaNaSynchronizacje() || !this.byloPolaczenie()) return "pominieto";
+    if (!this.isAuthorized()) {
+      this.czekajNaGest();
+      return "czeka-na-gest";
+    }
+    if (this.isSyncing) return "pominieto";
+    this.isSyncing = true;
+    this.ostatniaSynchronizacja = Date.now();
+    try {
+      const dysk = await this.downloadFromDrive();
+      const lokalna = typeof this.localLibraryProvider === "function" ? this.localLibraryProvider() : null;
+      if (!dysk || !(Array.isArray(dysk.movies) || Array.isArray(dysk.shows))) {
+        if (lokalna && (lokalna.movies.length || lokalna.shows.length)) {
+          await this.uploadToDrive(lokalna.movies, lokalna.shows);
+        }
+        return "ok";
+      }
+      const filmyDysku = dysk.movies || [];
+      const serialeDysku = dysk.shows || [];
+      if (this.maZmianyDoWyslania() && lokalna) {
+        const scalona = this.mergeLibraries(lokalna.movies, lokalna.shows, filmyDysku, serialeDysku);
+        this._zastosuj(scalona.movies, scalona.shows);
+        await this.uploadToDrive(scalona.movies, scalona.shows);
+      } else if (!lokalna || JSON.stringify([lokalna.movies, lokalna.shows]) !== JSON.stringify([filmyDysku, serialeDysku])) {
+        this._zastosuj(filmyDysku, serialeDysku);
+      }
+      return "ok";
+    } catch (err) {
+      console.warn("CineLog: automatyczna synchronizacja z Dyskiem nie powiodła się", err);
+      this.updateStatusUI("error", "Błąd synchronizacji z Dyskiem");
+      return "blad";
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
+  _zastosuj(movies, shows) {
+    if (typeof this.zastosujBibliotekeZDysku === "function") this.zastosujBibliotekeZDysku(movies, shows);
+  }
+
+  /**
+   * Token wygasł (żyje godzinę). Google pozwala go odnowić tylko w reakcji na gest
+   * użytkownika, więc czekamy na pierwsze dotknięcie i wtedy synchronizujemy.
+   */
+  czekajNaGest() {
+    this.updateStatusUI("expired");
+    if (this.czekaNaGest) return;
+    this.czekaNaGest = true;
+    const wznow = () => {
+      document.removeEventListener("pointerdown", wznow, true);
+      document.removeEventListener("keydown", wznow, true);
+      this.czekaNaGest = false;
+      this.ensureValidToken().then((ok) => {
+        if (ok) this.autoSync();
+        else this.czekajNaGest();
+      });
+    };
+    document.addEventListener("pointerdown", wznow, true);
+    document.addEventListener("keydown", wznow, true);
   }
 
   isAuthorized() {
@@ -296,6 +403,7 @@ class GoogleDriveSync {
         const data = await res.json();
         this.databaseFileId = data.id;
         localStorage.setItem("gdrive_file_id", this.databaseFileId);
+        localStorage.removeItem(PENDING_UPLOAD_KEY);
         this.lastSyncTime = new Date().toISOString();
         localStorage.setItem("gdrive_last_sync", this.lastSyncTime);
         this.updateStatusUI("connected", "Zsynchronizowano z Google Drive");
@@ -413,7 +521,7 @@ class GoogleDriveSync {
   }
 
   triggerAutoSave(movies, shows) {
-    if (!this.isAuthorized()) return;
+    if (!this.byloPolaczenie()) return;
 
     // 🛡️ CRITICAL SAFETY GUARD: Never auto-sync to Google Drive if local database is marked as Demo/default
     const isCustom = localStorage.getItem("cinelog_user_imported") === "true";
@@ -430,6 +538,14 @@ class GoogleDriveSync {
       || (isCustom ? "client" : "demo");
     if (tryb !== "client") {
       console.warn(`🛡️ Google Drive Auto-Save wstrzymany: aktywna baza to tryb "${tryb}", a nie biblioteka użytkownika.`);
+      return;
+    }
+
+    // Znacznik zostaje do udanego wysłania: zmiana zrobiona przy wygasłym tokenie
+    // albo bez sieci wyśle się przy najbliższej synchronizacji (scalenie z Dyskiem).
+    localStorage.setItem(PENDING_UPLOAD_KEY, "true");
+    if (!this.isAuthorized()) {
+      this.czekajNaGest();
       return;
     }
 
@@ -556,8 +672,14 @@ class GoogleDriveSync {
 
     if (!this.isAuthorized()) {
       chip.className = "m3-chip";
-      chipIcon.innerText = "cloud_off";
-      chipText.innerText = "Dysk Google: Rozłączony";
+      chipIcon.style.animation = "none";
+      if (this.byloPolaczenie()) {
+        chipIcon.innerText = "cloud_sync";
+        chipText.innerText = "Dysk Google: Dotknij, aby zsynchronizować";
+      } else {
+        chipIcon.innerText = "cloud_off";
+        chipText.innerText = "Dysk Google: Rozłączony";
+      }
       return;
     }
 

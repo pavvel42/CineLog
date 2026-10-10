@@ -444,6 +444,34 @@ if (deleteShowBtn) {
 }
 }
 
+/**
+ * {numer sezonu: liczba odcinków} z listy sezonów TMDb (bez odcinków specjalnych).
+ * @param {Array<{season_number:number, episode_count:number}>|undefined} sezony
+ * @returns {Record<string, number>}
+ */
+function liczbyOdcinkowSezonow(sezony) {
+  const wynik = {};
+  (sezony || []).forEach(s => {
+    const nr = parseInt(s && s.season_number, 10);
+    const ile = parseInt(s && s.episode_count, 10);
+    if (nr > 0 && ile > 0) wynik[String(nr)] = ile;
+  });
+  return wynik;
+}
+
+/**
+ * Seriale z importu (TV Time, starsze kopie) nie mają listy odcinków w sezonach.
+ * Tracker pobiera ją przy otwarciu, więc dopisujemy ją do wpisu biblioteki —
+ * zakładki sezonów mają wtedy prawdziwe mianowniki od pierwszego renderu.
+ */
+function uzupelnijLiczbyOdcinkow(show, detail) {
+  const nowe = detail && detail.season_ep_counts;
+  if (!nowe || !Object.keys(nowe).length) return;
+  if (show.season_ep_counts && Object.keys(show.season_ep_counts).length) return;
+  show.season_ep_counts = { ...nowe };
+  if (!state.backendAvailable) saveLocalDatabase();
+}
+
 async function fetchTrackerData(show, gen = trackerGen) {
   // Dane trackera online: backend (/episodes_meta + /search_detail) -> fallbacki klienta TMDb/OMDb.
   // Ustawia modułowe currentShowMeta i dogrzewa metadane bieżącego sezonu.
@@ -543,6 +571,9 @@ async function fetchTrackerData(show, gen = trackerGen) {
             year: (tData.first_air_date || show.release_year || "").substring(0, 4),
             total_seasons: tData.number_of_seasons || (tData.seasons ? tData.seasons.filter(s => s.season_number > 0).length : 1),
             total_episodes: tData.number_of_episodes || 0,
+            // Mianowniki zakładek sezonów; bez nich sezony bez wczytanych odcinków
+            // pokazywały zgadywane „obejrzane + 3” (Lioness: 8/11 zamiast 8/8).
+            season_ep_counts: liczbyOdcinkowSezonow(tData.seasons),
             status: tData.status,
             vote_average: tData.vote_average,
             poster_url: tData.poster_path ? `https://image.tmdb.org/t/p/w500${tData.poster_path}` : null,
@@ -606,6 +637,8 @@ async function fetchTrackerData(show, gen = trackerGen) {
       }
     } catch (e) { console.debug("CineLog: szczegóły serialu: OMDb niedostępny", e); }
   }
+
+  uzupelnijLiczbyOdcinkow(show, detail);
 
   // Direct client fallback for episode metadata if empty
   if (gen !== trackerGen) return null;
@@ -841,9 +874,11 @@ function getSeasonDisplayInfo(seasonNum) {
       : (Number.isFinite(liczbaZListySezonu) && liczbaZListySezonu > 0
         ? liczbaZListySezonu
         : Math.max(liczbaZeWpisow, 1)));
-  if (!odcinkiBiblioteki.length && !maxEpInSeason && !Number.isFinite(liczbaZListySezonu) && !state.backendAvailable) {
-    // Tryb klienta bez metadanych TMDb: pokaż kilka kolejnych odcinków,
-    // żeby dało się klikać w przód poza ostatnio obejrzany odcinek.
+  const sezonBiezacy = seasonNum >= (selectedShow.latest_season || 1);
+  if (sezonBiezacy && !odcinkiBiblioteki.length && !maxEpInSeason && !Number.isFinite(liczbaZListySezonu) && !state.backendAvailable) {
+    // Tryb klienta bez metadanych TMDb: w bieżącym sezonie pokaż kilka kolejnych
+    // odcinków, żeby dało się klikać w przód. Wcześniejszych sezonów nie zgadujemy —
+    // obejrzane w całości pokazywały „8/11”.
     epCountToRender = Math.max(liczbaZeWpisow + 3, 1);
   }
 

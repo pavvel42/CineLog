@@ -81,21 +81,11 @@ async function loadData(targetMode = null) {
 
   setMode(state.mode);
 
-  // Google Drive Auto-Sync check (only in client/custom mode)
-  if (currentMode === "client" && window.googleDriveSync && window.googleDriveSync.isAuthorized()) {
-    try {
-      window.googleDriveSync.checkAutoSync((cloudMovies, cloudShows) => {
-        // Baza z chmury zastępuje bibliotekę w przeglądarce — najpierw kopia.
-        if (Array.isArray(cloudMovies) && cloudMovies.length) zapiszKopieBazy("auto-sync Google Drive");
-        state.movies = cloudMovies;
-        state.shows = cloudShows;
-        updateStats();
-        if (state.mode === "movies") renderMovies();
-        else renderShows();
-        saveLocalDatabase();
-        updateDemoBannerVisibility();
-      });
-    } catch (e) { console.warn("CineLog: automatyczna synchronizacja z Dyskiem nie wystartowała", e); }
+  // Automatyczna synchronizacja z Dyskiem Google (tylko tryb klienta): przy starcie
+  // i po każdym powrocie do aplikacji. Wcześniej wołała nieistniejącą funkcję,
+  // a pusty catch to ukrywał — zmiany z drugiego urządzenia trzeba było scalać ręcznie.
+  if (currentMode === "client" && window.googleDriveSync) {
+    window.googleDriveSync.startAutoSync(zastosujBibliotekeZDysku);
   }
 
   updateDemoBannerVisibility();
@@ -621,6 +611,23 @@ function initApp() {
   } else {
     loadData();
   }
+}
+
+/**
+ * Podmienia bibliotekę na wersję z Dysku Google (automatyczna synchronizacja).
+ * Bez wysyłki z powrotem: to jest stan, który właśnie przyszedł z Dysku.
+ * @param {object[]} movies
+ * @param {object[]} shows
+ */
+function zastosujBibliotekeZDysku(movies, shows) {
+  state.movies = movies;
+  state.shows = shows;
+  syncWindowAliases();
+  saveLocalDatabase(true);
+  updateStats();
+  if (state.mode === "movies") renderMovies();
+  else if (state.mode === "shows") renderShows();
+  updateDemoBannerVisibility();
 }
 
 /**

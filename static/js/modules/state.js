@@ -646,7 +646,9 @@ export function saveLocalDatabase(skipCloudSync = false) {
   // Bez tego warunku jedna edycja w trybie serwera wypychała do chmury bazę serwera,
   // nadpisując bibliotekę użytkownika na Dysku. Baza oznaczona jako demo też nie jedzie
   // do chmury (drugi guard, niezależny od trybu).
-  if (!skipCloudSync && getActiveEnvMode() === "client" && !isUserDatabaseDemo() && window.googleDriveSync && window.googleDriveSync.isAuthorized()) {
+  // Bez warunku isAuthorized(): przy wygasłym tokenie zmiana ma zostać oznaczona
+  // do wysłania (triggerAutoSave), a nie przepaść po cichu.
+  if (!skipCloudSync && getActiveEnvMode() === "client" && !isUserDatabaseDemo() && window.googleDriveSync) {
     window.googleDriveSync.triggerAutoSave(state.movies, state.shows);
   }
 }
