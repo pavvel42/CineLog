@@ -2,7 +2,7 @@
 // CineLog - Google Drive Cloud Sync, Local Backup & AI Configuration Module
 // ==========================================================================
 
-import { state, saveLocalDatabase, markUserDatabaseCustom, syncWindowAliases, escapeHtml, zapiszKopieBazy, pobierzKopieBazy, przywrocKopieBazy, trybBazyWPamieci, pobierzUsuniete, zapiszUsuniete, odwolajUsunieciaDla } from './state.js';
+import { state, saveLocalDatabase, markUserDatabaseCustom, syncWindowAliases, escapeHtml, zapiszKopieBazy, pobierzKopieBazy, przywrocKopieBazy, trybBazyWPamieci, pobierzUsuniete, zapiszUsuniete, odwolajUsunieciaDla, pobierzStanBazowy } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { renderMovies } from './movies.js';
@@ -759,7 +759,9 @@ if (btnMerge) {
         const cloudData = await window.googleDriveSync.downloadFromDrive();
         if (cloudData) {
           const kopiaZapisana = zapiszKopieBazy("scalanie z Google Drive");
-          const merged = window.googleDriveSync.mergeLibraries(state.movies, state.shows, cloudData.movies, cloudData.shows, pobierzUsuniete(), cloudData.deleted);
+          // Stan bazowy opisuje bibliotekę użytkownika; otwarta baza demo albo serwera scala się jako suma.
+          const bazowe = trybBazyWPamieci() === "client" ? pobierzStanBazowy() : null;
+          const merged = window.googleDriveSync.mergeLibraries(state.movies, state.shows, cloudData.movies, cloudData.shows, pobierzUsuniete(), cloudData.deleted, bazowe);
           state.movies = merged.movies;
           state.shows = merged.shows;
           markUserDatabaseCustom();

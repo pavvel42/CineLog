@@ -155,6 +155,7 @@ Zasady, które temu pilnują:
 - **Każdy tryb ma osobną bazę w przeglądarce**, także w dwóch kartach naraz: karta zapisuje tylko bazę trybu, który ma otwarty. Biblioteka klienta i demo nie jest zapisywana na serwerze Flask, nawet gdy serwer działa obok.
 - **Błąd odczytu z Dysku nie jest „pustym Dyskiem”**: przy błędzie sieci, odmowie dostępu albo uszkodzonym pliku aplikacja niczego na Dysku nie nadpisuje.
 - **Usunięcia przenoszą się między urządzeniami**: usunięta pozycja nie wraca przy scalaniu z Dyskiem (ślad usunięcia jest pamiętany rok). Pozycja dodana ponownie jest nową pozycją i zostaje; import pliku i przywrócenie kopii cofają usunięcia pozycji, które zawierają.
+- **Scalanie wie, kto co zmienił**: zmiana zrobiona bez połączenia (także cofnięcie: zdjęte serce, wyczyszczona ocena, odznaczony odcinek) po powrocie sieci trafia na Dysk i nie jest przywracana ze starej wersji pliku; zmiany z drugiego urządzenia w innych pozycjach i polach zostają.
 - **Remake to osobna pozycja**: o tożsamości decyduje identyfikator TMDb, a bez niego tytuł razem z rokiem — *Dune* (1984) i *Dune* (2021) nie są scalane.
 - **Uszkodzony plik biblioteki serwera nie jest nadpisywany**: serwer odmawia zapisu i odkłada kopię `*.corrupt`; bibliotekę naprawia import z pliku kopii.
 

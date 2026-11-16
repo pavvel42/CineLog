@@ -72,3 +72,18 @@ Decyzje sprzed założenia rejestru opisują wiadomości commitów (`git log`).
   Duplikaty w bibliotece usuwa użytkownik; synchronizacja nie kasuje wpisów po cichu.
 - **Źródło:** weryfikacja na żywo na prawdziwej bibliotece (zapis na Dysk zablokowany),
   `e2e/drive-bezpieczenstwo.spec.js` („scalanie paruje wpisy jeden do jednego”).
+
+## 2026-11-16 — Scalanie z Dyskiem rozlicza zmiany względem stanu bazowego
+- **Wybrano:** przeglądarka zapamiętuje wersję wpisu sprzed pierwszej zmiany od ostatniej synchronizacji
+  (`gdrive_stan_bazowy` w localStorage, czyszczony po udanej wysyłce). Automatyczne scalenie bierze z tej
+  przeglądarki tylko pola faktycznie tu zmienione (także wyczyszczone), a odcinki rozlicza osobno:
+  odznaczone tutaj znikają, zaznaczone tutaj dochodzą. Wpis nietknięty tutaj bierze wersję z Dysku.
+  Po scaleniu stanem bazowym staje się wersja z Dysku, więc nieudana wysyłka nie psuje następnego scalenia.
+- **Odrzucono:** znacznik czasu zmiany przy każdym wpisie (zależny od zegarów urządzeń, zmienia format pliku
+  na Dysku) oraz pełną kopię ostatnio zsynchronizowanej biblioteki (druga kopia 1,4 MB w localStorage).
+- **Dlaczego:** scalanie było sumą obu stron — cofnięcie, które nie zdążyło się wysłać, wracało z Dysku,
+  a stare wartości z tej przeglądarki cofały zmiany z drugiego urządzenia w niezwiązanych pozycjach.
+- **Granice:** bez stanu bazowego (ręczne „Scal” dwóch różnych bibliotek, zmiany czekające sprzed tej wersji,
+  brak miejsca w localStorage) scalanie zostaje sumą — wtedy nic z przeglądarki nie przegrywa z Dyskiem.
+- **Źródło:** `e2e/drive-bezpieczenstwo.spec.js` („scalanie wie, kto co zmienił”), próba na prawdziwym Dysku
+  (serce zdjęte przy nieudanej wysyłce, po scaleniu plik równy stanowi sprzed próby).

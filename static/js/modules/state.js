@@ -425,6 +425,87 @@ export function zapiszUsuniete(lista) {
   }
 }
 
+// --- Stan bazowy scalania z Dyskiem ---
+// Wpisy biblioteki w wersji sprzed zmian zrobionych w tej przeglądarce od ostatniej
+// synchronizacji: {uuid: wpis sprzed zmiany}, a dla wpisu dodanego tutaj {uuid: null}.
+// Dzięki temu scalanie wie, co zmieniono TUTAJ (także cofnięcia: zdjęte serce, wyczyszczona
+// ocena, odznaczony odcinek), a co na drugim urządzeniu. Żyje tylko do udanej wysyłki.
+const KLUCZ_STANU_BAZOWEGO = "gdrive_stan_bazowy";
+// Zmian nie dało się śledzić przez cały okres (czekały już przed śledzeniem, zabrakło miejsca):
+// do najbliższej synchronizacji scalanie działa bez stanu bazowego.
+const SLEDZENIE_WYLACZONE = "wylaczone";
+
+function wylaczSledzenieZmian() {
+  try {
+    localStorage.setItem(KLUCZ_STANU_BAZOWEGO, SLEDZENIE_WYLACZONE);
+  } catch (e) {
+    console.warn("CineLog: nie udało się wyłączyć śledzenia zmian", e);
+  }
+}
+
+/**
+ * @returns {Object<string, object|null>|null} null = scalanie bez stanu bazowego
+ */
+export function pobierzStanBazowy() {
+  const zapisany = localStorage.getItem(KLUCZ_STANU_BAZOWEGO);
+  if (!zapisany || zapisany === SLEDZENIE_WYLACZONE) return null;
+  try {
+    const bazowe = JSON.parse(zapisany);
+    return bazowe && typeof bazowe === "object" && !Array.isArray(bazowe) ? bazowe : null;
+  } catch (e) {
+    console.warn("CineLog: nieczytelny stan bazowy scalania — pomijam", e);
+    return null;
+  }
+}
+
+/** @param {Object<string, object|null>} bazowe */
+export function zapiszStanBazowy(bazowe) {
+  try {
+    localStorage.setItem(KLUCZ_STANU_BAZOWEGO, JSON.stringify(bazowe));
+  } catch (e) {
+    // Niepełny stan bazowy jest gorszy niż żaden: wpis bez śladu zmiany przegrałby z Dyskiem.
+    console.warn("CineLog: nie udało się zapisać stanu bazowego scalania", e);
+    wylaczSledzenieZmian();
+  }
+}
+
+/** Biblioteka w przeglądarce i plik na Dysku są zgodne: nie ma zmian do rozliczenia. */
+export function wyczyscStanBazowy() {
+  localStorage.removeItem(KLUCZ_STANU_BAZOWEGO);
+}
+
+/**
+ * Dopisuje do stanu bazowego wpisy, które ten zapis zmienił albo dodał. Wersja bazowa wpisu
+ * jest zapamiętywana raz — przy pierwszej zmianie od ostatniej synchronizacji.
+ * @param {{movies?: object[], shows?: object[]}|null} poprzednia biblioteka sprzed zapisu
+ * @param {object[]} movies
+ * @param {object[]} shows
+ * @param {boolean} czekalyZmiany jakieś zmiany czekały na wysłanie już przed tym zapisem
+ */
+export function zapamietajStanBazowy(poprzednia, movies, shows, czekalyZmiany) {
+  const zapisany = localStorage.getItem(KLUCZ_STANU_BAZOWEGO);
+  if (zapisany === SLEDZENIE_WYLACZONE) return;
+  const bazowe = pobierzStanBazowy();
+  if (!poprzednia || (!bazowe && (zapisany || czekalyZmiany))) {
+    wylaczSledzenieZmian();
+    return;
+  }
+  const wynik = bazowe || {};
+  const sprzedZapisu = new Map();
+  [...(poprzednia.movies || []), ...(poprzednia.shows || [])].forEach((wpis) => {
+    if (wpis && wpis.uuid) sprzedZapisu.set(String(wpis.uuid), wpis);
+  });
+  [...movies, ...shows].forEach((wpis) => {
+    if (!wpis || !wpis.uuid) return;
+    const uuid = String(wpis.uuid);
+    if (Object.prototype.hasOwnProperty.call(wynik, uuid)) return;
+    const przed = sprzedZapisu.get(uuid);
+    if (!przed) wynik[uuid] = null;
+    else if (JSON.stringify(przed) !== JSON.stringify(wpis)) wynik[uuid] = przed;
+  });
+  zapiszStanBazowy(wynik);
+}
+
 /**
  * Czy wpis został usunięty. Wpis z uuid pasuje tylko po uuid: pozycja dodana ponownie
  * dostaje nowy uuid, więc stare usunięcie jej nie dotyczy.
@@ -846,6 +927,18 @@ export function przywrocKopieBazy() {
  */
 export function saveLocalDatabase(skipCloudSync = false) {
   const trybBazy = trybBazyWPamieci();
+  const dysk = window.googleDriveSync;
+  const wysylkaNaDysk = !skipCloudSync && trybBazy === "client" && getActiveEnvMode() === "client" && Boolean(dysk);
+  // Wersja sprzed zapisu jest potrzebna, żeby scalanie z Dyskiem wiedziało, co tu zmieniono.
+  const sledzZmiany = wysylkaNaDysk && dysk.sledziZmianyLokalne();
+  let poprzednia = null;
+  if (sledzZmiany) {
+    try {
+      poprzednia = JSON.parse(localStorage.getItem(kluczBazyDlaTrybu(trybBazy)) || "null");
+    } catch (e) {
+      console.warn("CineLog: nieczytelna biblioteka sprzed zapisu — scalanie bez stanu bazowego", e);
+    }
+  }
   try {
     localStorage.setItem(kluczBazyDlaTrybu(trybBazy), JSON.stringify({
       movies: state.movies,
@@ -859,6 +952,7 @@ export function saveLocalDatabase(skipCloudSync = false) {
       console.warn("Nie udało się zapisać bazy do localStorage:", e);
     }
   }
+  if (sledzZmiany) zapamietajStanBazowy(poprzednia, state.movies, state.shows, dysk.maZmianyDoWyslania());
   syncWindowAliases();
   // 🛡️ CRITICAL GUARD: auto-sync do Drive tylko dla bazy UŻYTKOWNIKA w trybie klienta.
   // Bez tego warunku jedna edycja w trybie serwera wypychała do chmury bazę serwera,
@@ -868,9 +962,7 @@ export function saveLocalDatabase(skipCloudSync = false) {
   // do wysłania (triggerAutoSave), a nie przepaść po cichu.
   // Oba warunki naraz: biblioteka w pamięci jest biblioteką użytkownika ORAZ tryb w ustawieniach
   // to nadal tryb klienta (inna karta mogła go zmienić — wtedy ta karta zaraz się przeładuje).
-  if (!skipCloudSync && trybBazy === "client" && getActiveEnvMode() === "client" && window.googleDriveSync) {
-    window.googleDriveSync.triggerAutoSave(state.movies, state.shows);
-  }
+  if (wysylkaNaDysk) dysk.triggerAutoSave(state.movies, state.shows);
 }
 
 export function getActiveEnvMode() {

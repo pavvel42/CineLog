@@ -2,7 +2,7 @@
 
 // Czyste funkcje danych współdzielone z modules/state.js (esbuild bundluje
 // wszystko do drive_sync.min.js, więc <script> bez type="module" dalej działa).
-import { recalculateShowProgress, taSamaPozycja, pobierzUsuniete, zapiszUsuniete, scalUsuniete, czyUsuniety } from './modules/state.js';
+import { recalculateShowProgress, taSamaPozycja, pobierzUsuniete, zapiszUsuniete, scalUsuniete, czyUsuniety, pobierzStanBazowy, zapiszStanBazowy, wyczyscStanBazowy } from './modules/state.js';
 
 const DRIVE_DATABASE_FILE_NAME = "cinelog_database.json";
 const DRIVE_SETTINGS_FILE_NAME = "cinelog_settings.json";
@@ -75,6 +75,14 @@ class GoogleDriveSync {
   }
 
   /**
+   * Czy zapis biblioteki ma zapamiętać wersje wpisów sprzed zmiany (stan bazowy scalania).
+   * Te same warunki co wysyłka na Dysk; przy oczekującym zastąpieniu scalania nie będzie.
+   */
+  sledziZmianyLokalne() {
+    return this.byloPolaczenie() && this.trybPozwalaNaSynchronizacje() && this.trybOczekujacegoZapisu() !== ZAPIS_ZASTEPUJACY;
+  }
+
+  /**
    * Włącza automatyczną synchronizację: teraz i przy każdym powrocie do aplikacji.
    * @param {(movies: object[], shows: object[]) => void} zastosuj podmienia bibliotekę
    */
@@ -133,9 +141,13 @@ class GoogleDriveSync {
       const serialeDysku = dysk.shows || [];
       const usunieteDysku = Array.isArray(dysk.deleted) ? dysk.deleted : [];
       if (this.maZmianyDoWyslania()) {
-        const scalona = this.mergeLibraries(lokalna.movies, lokalna.shows, filmyDysku, serialeDysku, pobierzUsuniete(), usunieteDysku);
+        const bazowe = pobierzStanBazowy();
+        const scalona = this.mergeLibraries(lokalna.movies, lokalna.shows, filmyDysku, serialeDysku, pobierzUsuniete(), usunieteDysku, bazowe);
         zapiszUsuniete(scalona.deleted);
         this._zastosuj(scalona.movies, scalona.shows);
+        // Gdyby wysyłka poniżej się nie udała: wynik scalenia zawiera już to, co przyszło z Dysku,
+        // więc następne scalenie liczy zmiany względem tej wersji z Dysku, a nie starszej.
+        if (bazowe) zapiszStanBazowy(this._przebazuj(bazowe, filmyDysku, serialeDysku));
         await this.uploadToDrive(scalona.movies, scalona.shows);
         return "ok";
       }
@@ -221,6 +233,7 @@ class GoogleDriveSync {
     if (!this.byloPolaczenie() || !this._bibliotekaUzytkownika()) return false;
     this._anulujOdroczonyZapis();
     localStorage.setItem(PENDING_UPLOAD_KEY, ZAPIS_ZASTEPUJACY);
+    wyczyscStanBazowy();
     if (!this.isAuthorized()) {
       this.czekajNaGest();
       return false;
@@ -413,6 +426,7 @@ class GoogleDriveSync {
     localStorage.removeItem("gdrive_file_id");
     localStorage.removeItem("gdrive_settings_file_id");
     localStorage.removeItem("gdrive_last_sync");
+    wyczyscStanBazowy();
 
     this.updateStatusUI("disconnected");
   }
@@ -548,6 +562,7 @@ class GoogleDriveSync {
         this.databaseFileId = data.id;
         localStorage.setItem("gdrive_file_id", this.databaseFileId);
         localStorage.removeItem(PENDING_UPLOAD_KEY);
+        wyczyscStanBazowy();
         this.lastSyncTime = new Date().toISOString();
         localStorage.setItem("gdrive_last_sync", this.lastSyncTime);
         this.updateStatusUI("connected", "Zsynchronizowano z Google Drive");
@@ -707,6 +722,7 @@ class GoogleDriveSync {
   zapamietajStanZsynchronizowany() {
     this._anulujOdroczonyZapis();
     localStorage.removeItem(PENDING_UPLOAD_KEY);
+    wyczyscStanBazowy();
   }
 
   mergeMovie(cloudMovie, localMovie) {
@@ -743,27 +759,101 @@ class GoogleDriveSync {
   }
 
   /**
+   * Scalenie pary wpisów, gdy wiadomo, jak wpis wyglądał przy ostatniej synchronizacji:
+   * pole zmienione tutaj bierze wartość stąd (także pustą — to jest cofnięcie), każde inne
+   * wartość z Dysku. Odcinki rozlicza _scalOdcinki.
+   * @param {object} zDysku
+   * @param {object} lokalny
+   * @param {object} bazowy wpis sprzed zmian w tej przeglądarce
+   * @returns {object}
+   */
+  _scalTrojstronnie(zDysku, lokalny, bazowy) {
+    const takieSame = (a, b) => JSON.stringify(a === undefined ? null : a) === JSON.stringify(b === undefined ? null : b);
+    const wynik = { ...zDysku };
+    new Set([...Object.keys(lokalny), ...Object.keys(bazowy)]).forEach((pole) => {
+      if (pole === "episodes_watched" || takieSame(lokalny[pole], bazowy[pole])) return;
+      if (lokalny[pole] === undefined) delete wynik[pole];
+      else wynik[pole] = lokalny[pole];
+    });
+    return wynik;
+  }
+
+  /**
+   * Odcinki z Dysku bez tych, które tutaj odznaczono, plus te, które tutaj zaznaczono.
+   * @returns {object[]}
+   */
+  _scalOdcinki(zDysku, lokalne, bazowe) {
+    const klucz = (odcinek) => `${odcinek.season}_${odcinek.episode}`;
+    const lokalneKlucze = new Set(lokalne.map(klucz));
+    const bazoweKlucze = new Set(bazowe.map(klucz));
+    const wynik = zDysku.filter((odcinek) => !bazoweKlucze.has(klucz(odcinek)) || lokalneKlucze.has(klucz(odcinek)));
+    const obecne = new Set(wynik.map(klucz));
+    lokalne.forEach((odcinek) => {
+      if (bazoweKlucze.has(klucz(odcinek)) || obecne.has(klucz(odcinek))) return;
+      obecne.add(klucz(odcinek));
+      wynik.push(odcinek);
+    });
+    return wynik;
+  }
+
+  /**
+   * Po scaleniu stanem bazowym wpisów zmienionych tutaj staje się ich wersja z Dysku.
+   * @param {Object<string, object|null>} bazowe
+   * @returns {Object<string, object|null>}
+   */
+  _przebazuj(bazowe, filmyDysku, serialeDysku) {
+    const naDysku = new Map();
+    [...filmyDysku, ...serialeDysku].forEach((wpis) => {
+      if (wpis && wpis.uuid) naDysku.set(String(wpis.uuid), wpis);
+    });
+    return Object.fromEntries(Object.keys(bazowe).map((uuid) => [uuid, naDysku.get(uuid) || null]));
+  }
+
+  /**
    * Scala bibliotekę z przeglądarki z biblioteką z Dysku. Usunięcia z obu stron są
    * stosowane PRZED scaleniem: pozycja skasowana na jednym urządzeniu nie wraca z drugiego,
    * a dodana ponownie (nowy uuid) zostaje.
+   *
+   * Ze stanem bazowym (bazowe) scalanie wie, kto co zmienił: wpis nietknięty tutaj bierze
+   * wersję z Dysku, wpis zmieniony tutaj — pole po polu (_scalTrojstronnie). Bez stanu
+   * bazowego (ręczne scalenie dwóch bibliotek, zmiany sprzed śledzenia) nic nie wiadomo,
+   * więc wynik jest sumą obu stron (mergeMovie / mergeShow).
+   * @param {Object<string, object|null>|null} [bazowe] wynik pobierzStanBazowy()
    * @returns {{movies: object[], shows: object[], deleted: object[]}}
    */
-  mergeLibraries(localMovies, localShows, cloudMovies, cloudShows, localDeleted = [], cloudDeleted = []) {
+  mergeLibraries(localMovies, localShows, cloudMovies, cloudShows, localDeleted = [], cloudDeleted = [], bazowe = null) {
     const deleted = scalUsuniete(localDeleted, cloudDeleted);
     const zyje = (typ) => (entry) => Boolean(entry) && !czyUsuniety(entry, typ, deleted);
 
     const zTytulem = (entry) => Boolean((entry.title || "").trim());
 
+    const scalPare = (suma, trojstronnie) => (zDysku, lokalny) => {
+      if (!bazowe) return suma(zDysku, lokalny);
+      const uuid = String(lokalny.uuid);
+      if (!Object.prototype.hasOwnProperty.call(bazowe, uuid)) return zDysku;
+      // null: wpis dodany tutaj, a na Dysku ta pozycja już jest (dodana też na drugim urządzeniu).
+      return bazowe[uuid] ? trojstronnie(zDysku, lokalny, bazowe[uuid]) : suma(zDysku, lokalny);
+    };
+
     return {
       movies: this._scalListe(
         (cloudMovies || []).filter(zyje("movie")),
         (localMovies || []).filter(zyje("movie")).filter(zTytulem),
-        (zDysku, lokalny) => this.mergeMovie(zDysku, lokalny)
+        scalPare(
+          (zDysku, lokalny) => this.mergeMovie(zDysku, lokalny),
+          (zDysku, lokalny, bazowy) => this._scalTrojstronnie(zDysku, lokalny, bazowy)
+        )
       ),
       shows: this._scalListe(
         (cloudShows || []).filter(zyje("show")),
         (localShows || []).filter(zyje("show")).filter(zTytulem),
-        (zDysku, lokalny) => this.mergeShow(zDysku, lokalny)
+        scalPare(
+          (zDysku, lokalny) => this.mergeShow(zDysku, lokalny),
+          (zDysku, lokalny, bazowy) => recalculateShowProgress({
+            ...this._scalTrojstronnie(zDysku, lokalny, bazowy),
+            episodes_watched: this._scalOdcinki(zDysku.episodes_watched || [], lokalny.episodes_watched || [], bazowy.episodes_watched || [])
+          })
+        )
       ),
       deleted: deleted
     };

@@ -35,7 +35,7 @@ const ARRIVAL = film("m-3", "Nowy początek", 329865);
  * @param {{movies: object[], shows: object[], deleted?: object[]}|null} bazaNaDysku null = brak pliku
  */
 async function atrapaDysku(page, bazaNaDysku) {
-  const dysk = { baza: bazaNaDysku, wysylki: [], pobrania: 0, awaria: {} };
+  const dysk = { baza: bazaNaDysku, wysylki: [], probyWysylki: 0, pobrania: 0, awaria: {} };
   await page.route("**/api/**", (r) => r.abort());
   await page.route("https://api.themoviedb.org/**", (r) => r.fulfill(json({ results: [] })));
   await page.route("https://accounts.google.com/**", (r) => r.abort());
@@ -45,6 +45,8 @@ async function atrapaDysku(page, bazaNaDysku) {
     if (url.includes("/upload/drive/")) {
       const tresc = req.postData() || "";
       if (tresc.includes("cinelog_database.json")) {
+        dysk.probyWysylki += 1;
+        if (dysk.awaria.wysylka) return route.fulfill(json({ error: "awaria" }, dysk.awaria.wysylka));
         const start = tresc.indexOf('{\n  "app"');
         const wyslana = JSON.parse(tresc.slice(start, tresc.lastIndexOf("}") + 1));
         dysk.wysylki.push(wyslana);
@@ -354,5 +356,126 @@ test.describe("Dysk Google: scalanie paruje wpisy jeden do jednego", () => {
     }, DIUNA);
 
     expect(wynik, "błędne dopasowanie nie może wrócić z Dysku jako drugi wpis o tym samym uuid").toEqual(["m-2:841:Diuna (1984)"]);
+  });
+});
+
+test.describe("Dysk Google: scalanie wie, kto co zmienił", () => {
+  test.use({ serviceWorkers: "block" });
+
+  // Scalanie było sumą: serce „którekolwiek", ocena „lokalna, jeśli jest", odcinki „wszystkie".
+  // Cofnięcie (odznaczone serce, wyczyszczona ocena, odznaczony odcinek), które nie zdążyło się
+  // wysłać, wracało z Dysku, a stare wartości z tej przeglądarki cofały zmiany z drugiego urządzenia.
+  const ULUBIONA = { ...INCEPCJA, is_favorite: true, rating: 6 };
+
+  const kliknijSerce = async (page, uuid) => {
+    await page.locator(`#m3-movies-grid article.m3-card:has(.m3-card-fav-btn[data-uuid="${uuid}"])`).click();
+    await expect(page.locator("#m3-sheet-movie-detail")).toHaveClass(/active/);
+    await page.locator("#m3-detail-fav-btn").click();
+  };
+  const otworz = async (page, liczbaKart) => {
+    await page.goto("/?mode=movies");
+    await expect(page.locator("#m3-movies-grid article.m3-card")).toHaveCount(liczbaKart, { timeout: 10_000 });
+    await expect(page.locator("#m3-drive-status-text")).not.toHaveText(/Synchronizuj|Zapisuj/);
+  };
+  const lokalnyFilm = (page, uuid) =>
+    page.evaluate((u) => JSON.parse(localStorage.getItem("cinelog_database")).movies.find((m) => m.uuid === u), uuid);
+
+  test("odznaczone serce, które nie zdążyło się wysłać, nie wraca z Dysku", async ({ page }) => {
+    const dysk = await atrapaDysku(page, { movies: [ULUBIONA, DIUNA], shows: [] });
+    await przegladarka(page, { movies: [ULUBIONA, DIUNA] });
+    await otworz(page, 2);
+
+    dysk.awaria.wysylka = 503;
+    await kliknijSerce(page, "m-1");
+    await expect.poll(() => dysk.probyWysylki, { timeout: 10_000 }).toBeGreaterThan(0);
+    expect(dysk.baza.movies[0].is_favorite, "awaria: na Dysku stara wartość").toBe(true);
+
+    dysk.awaria.wysylka = null;
+    await page.reload();
+    await expect.poll(() => dysk.wysylki.length, { timeout: 10_000 }).toBeGreaterThan(0);
+    expect(dysk.baza.movies.find((m) => m.uuid === "m-1").is_favorite, "na Dysku").toBe(false);
+    expect((await lokalnyFilm(page, "m-1")).is_favorite, "w przeglądarce").toBe(false);
+    expect(await page.evaluate(() => localStorage.getItem("gdrive_stan_bazowy")), "po wysłaniu nie ma czego pamiętać").toBeNull();
+  });
+
+  test("zmiana z drugiego urządzenia nie jest cofana przez starą wartość z tej przeglądarki", async ({ page }) => {
+    const dysk = await atrapaDysku(page, { movies: [ULUBIONA, DIUNA], shows: [] });
+    await przegladarka(page, { movies: [ULUBIONA, DIUNA] });
+    await otworz(page, 2);
+
+    dysk.awaria.wysylka = 503;
+    await kliknijSerce(page, "m-2"); // tutaj: serce na „Diunie"
+    await expect.poll(() => dysk.probyWysylki, { timeout: 10_000 }).toBeGreaterThan(0);
+    // drugie urządzenie w tym czasie: nowa ocena „Incepcji" i zdjęte serce
+    dysk.baza = { movies: [{ ...ULUBIONA, rating: 9, is_favorite: false }, DIUNA], shows: [] };
+
+    dysk.awaria.wysylka = null;
+    await page.reload();
+    await expect.poll(() => dysk.wysylki.length, { timeout: 10_000 }).toBeGreaterThan(0);
+    const opis = (m) => `${m.title}: ocena ${m.rating}, serce ${m.is_favorite}`;
+    expect(dysk.baza.movies.map(opis)).toEqual(["Incepcja: ocena 9, serce false", "Diuna: ocena null, serce true"]);
+    expect(opis(await lokalnyFilm(page, "m-1"))).toBe("Incepcja: ocena 9, serce false");
+  });
+
+  test("ten sam film zmieniony na obu urządzeniach: każde pole od tego, kto je zmienił", async ({ page }) => {
+    const dysk = await atrapaDysku(page, { movies: [ULUBIONA], shows: [] });
+    await przegladarka(page, { movies: [ULUBIONA] });
+    await otworz(page, 1);
+
+    dysk.awaria.wysylka = 503;
+    await kliknijSerce(page, "m-1"); // tutaj: zdjęte serce
+    await expect.poll(() => dysk.probyWysylki, { timeout: 10_000 }).toBeGreaterThan(0);
+    dysk.baza = { movies: [{ ...ULUBIONA, rating: 9 }], shows: [] }; // tam: nowa ocena
+
+    // Pierwsze scalenie nie dochodzi na Dysk…
+    await page.reload();
+    await expect.poll(() => dysk.probyWysylki, { timeout: 10_000 }).toBeGreaterThan(1);
+    await expect.poll(async () => (await lokalnyFilm(page, "m-1")).rating).toBe(9);
+    // …a drugie urządzenie zmienia ocenę jeszcze raz.
+    dysk.baza = { movies: [{ ...ULUBIONA, rating: 10 }], shows: [] };
+
+    dysk.awaria.wysylka = null;
+    await page.reload();
+    await expect.poll(() => dysk.wysylki.length, { timeout: 10_000 }).toBeGreaterThan(0);
+    const naDysku = dysk.baza.movies[0];
+    expect(`ocena ${naDysku.rating}, serce ${naDysku.is_favorite}`).toBe("ocena 10, serce false");
+  });
+
+  test("cofnięty odcinek i wyczyszczona ocena nie wracają, a odcinek z drugiego urządzenia dochodzi", async ({ page }) => {
+    await atrapaDysku(page, { movies: [INCEPCJA], shows: [] });
+    await przegladarka(page, { movies: [INCEPCJA] });
+    await otworz(page, 1);
+
+    const wynik = await page.evaluate(() => {
+      const odc = (season, episode) => ({ season, episode });
+      const serial = (odcinki, rating) => ({ uuid: "s-1", title: "Serial", tmdb_id: 1, status: "watching", rating, episodes_watched: odcinki });
+      const bazowy = serial([odc(1, 1), odc(1, 2), odc(1, 3)], 8);
+      const tutaj = serial([odc(1, 1), odc(1, 2)], null); // cofnięty 1x3, wyczyszczona ocena
+      const naDysku = serial([odc(1, 1), odc(1, 2), odc(1, 3), odc(1, 4)], 8); // tam obejrzany 1x4
+      const scalona = window.googleDriveSync.mergeLibraries([], [tutaj], [], [naDysku], [], [], { "s-1": bazowy });
+      const s = scalona.shows[0];
+      return { odcinki: s.episodes_watched.map((o) => `${o.season}x${o.episode}`), ocena: s.rating, licznik: s.watched_count, postep: s.latest_progress };
+    });
+
+    expect(wynik).toEqual({ odcinki: ["1x1", "1x2", "1x4"], ocena: null, licznik: 3, postep: "S01E04" });
+  });
+
+  test("zmiany czekające sprzed śledzenia scalają się po staremu, a nowa edycja tego nie zmienia", async ({ page }) => {
+    // Znacznik „do wysłania" bez zapamiętanego stanu bazowego (zmiana z wcześniejszej wersji aplikacji):
+    // nie wiadomo, co zmieniono, więc nic z tej przeglądarki nie może przegrać z Dyskiem.
+    const dysk = await atrapaDysku(page, { movies: [INCEPCJA, DIUNA], shows: [] });
+    dysk.awaria.wysylka = 503;
+    await przegladarka(page, { movies: [{ ...INCEPCJA, is_favorite: true }, DIUNA], zmianyDoWyslania: true });
+    await otworz(page, 2);
+    await expect.poll(() => dysk.probyWysylki, { timeout: 10_000 }).toBeGreaterThan(0);
+
+    const proby = dysk.probyWysylki;
+    await kliknijSerce(page, "m-2");
+    await expect.poll(() => dysk.probyWysylki, { timeout: 10_000 }).toBeGreaterThan(proby);
+
+    dysk.awaria.wysylka = null;
+    await page.reload();
+    await expect.poll(() => dysk.wysylki.length, { timeout: 10_000 }).toBeGreaterThan(0);
+    expect(dysk.baza.movies.map((m) => `${m.title}: ${m.is_favorite}`)).toEqual(["Incepcja: true", "Diuna: true"]);
   });
 });
