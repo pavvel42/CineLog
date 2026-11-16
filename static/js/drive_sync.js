@@ -709,13 +709,6 @@ class GoogleDriveSync {
     localStorage.removeItem(PENDING_UPLOAD_KEY);
   }
 
-  // Dopasowanie pozycji między chmurą a lokalną bazą — wspólna reguła tożsamości
-  // (taSamaPozycja): dwa RÓŻNE tmdb_id to dwie różne pozycje, a ten sam tytuł z innym
-  // rokiem to remake, czyli też osobna pozycja.
-  findMergeIndex(list, entry) {
-    return list.findIndex((cloud) => taSamaPozycja(cloud, entry));
-  }
-
   mergeMovie(cloudMovie, localMovie) {
     return {
       ...cloudMovie,
@@ -759,27 +752,74 @@ class GoogleDriveSync {
     const deleted = scalUsuniete(localDeleted, cloudDeleted);
     const zyje = (typ) => (entry) => Boolean(entry) && !czyUsuniety(entry, typ, deleted);
 
-    const movies = (cloudMovies || []).filter(zyje("movie"));
-    (localMovies || []).filter(zyje("movie")).forEach(m => {
-      if (!(m.title || "").trim()) return;
-      const idx = this.findMergeIndex(movies, m);
-      if (idx === -1) movies.push(m);
-      else movies[idx] = this.mergeMovie(movies[idx], m);
-    });
-
-    const shows = (cloudShows || []).filter(zyje("show"));
-    (localShows || []).filter(zyje("show")).forEach(s => {
-      if (!(s.title || "").trim()) return;
-      const idx = this.findMergeIndex(shows, s);
-      if (idx === -1) shows.push(s);
-      else shows[idx] = this.mergeShow(shows[idx], s);
-    });
+    const zTytulem = (entry) => Boolean((entry.title || "").trim());
 
     return {
-      movies: movies,
-      shows: shows,
+      movies: this._scalListe(
+        (cloudMovies || []).filter(zyje("movie")),
+        (localMovies || []).filter(zyje("movie")).filter(zTytulem),
+        (zDysku, lokalny) => this.mergeMovie(zDysku, lokalny)
+      ),
+      shows: this._scalListe(
+        (cloudShows || []).filter(zyje("show")),
+        (localShows || []).filter(zyje("show")).filter(zTytulem),
+        (zDysku, lokalny) => this.mergeShow(zDysku, lokalny)
+      ),
       deleted: deleted
     };
+  }
+
+  /**
+   * Paruje wpisy lokalne z wpisami z Dysku jeden do jednego: każdy wpis z Dysku dostaje
+   * najwyżej jedną parę. Najpierw pary po uuid (to ten sam wpis biblioteki), dopiero potem
+   * po tożsamości pozycji (taSamaPozycja: dwa różne tmdb_id to dwie pozycje, ten sam tytuł
+   * z innym rokiem to remake) wśród wpisów z Dysku, które pary jeszcze nie mają.
+   * Parowanie zachłanne („pierwszy pasujący") przy dwóch wpisach o tym samym tmdb_id
+   * wkładało oba lokalne w ten sam wpis z Dysku: jeden znikał, drugi się dublował.
+   * Kolejność wyniku: wpisy z Dysku, po nich nowe wpisy lokalne.
+   * @param {object[]} zDysku
+   * @param {object[]} lokalne
+   * @param {(zDysku: object, lokalny: object) => object} scalPare
+   * @returns {object[]}
+   */
+  _scalListe(zDysku, lokalne, scalPare) {
+    const wynik = zDysku.slice();
+    const maPare = new Array(wynik.length).fill(false);
+    const indeksPoUuid = new Map();
+    wynik.forEach((wpis, i) => {
+      const uuid = wpis.uuid ? String(wpis.uuid) : "";
+      if (uuid && !indeksPoUuid.has(uuid)) indeksPoUuid.set(uuid, i);
+    });
+
+    const bezParyPoUuid = [];
+    lokalne.forEach((lokalny) => {
+      const i = lokalny.uuid ? indeksPoUuid.get(String(lokalny.uuid)) : undefined;
+      if (i === undefined || maPare[i]) {
+        bezParyPoUuid.push(lokalny);
+        return;
+      }
+      maPare[i] = true;
+      wynik[i] = scalPare(wynik[i], lokalny);
+    });
+
+    const liczbaZDysku = zDysku.length;
+    bezParyPoUuid.forEach((lokalny) => {
+      let i = -1;
+      for (let k = 0; k < liczbaZDysku; k += 1) {
+        if (!maPare[k] && taSamaPozycja(wynik[k], lokalny)) {
+          i = k;
+          break;
+        }
+      }
+      if (i === -1) {
+        wynik.push(lokalny);
+        return;
+      }
+      maPare[i] = true;
+      wynik[i] = scalPare(wynik[i], lokalny);
+    });
+
+    return wynik;
   }
 
   async syncWithDrive(onDataUpdated) {

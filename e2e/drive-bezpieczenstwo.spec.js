@@ -282,3 +282,77 @@ test.describe("Dysk Google: usunięcia przechodzą między urządzeniami", () =>
     expect(dysk.baza.movies.map((m) => m.uuid).sort()).toEqual(["m-1", "m-2-nowy"]);
   });
 });
+
+test.describe("Dysk Google: scalanie paruje wpisy jeden do jednego", () => {
+  test.use({ serviceWorkers: "block" });
+
+  // Znalezione na prawdziwej bibliotece: dwa wpisy tego samego serialu (polski i oryginalny
+  // tytuł, ten sam tmdb_id, różne uuid). Scalenie parowało oba lokalne wpisy z PIERWSZYM
+  // wpisem z Dysku — jeden wpis znikał, a drugi trafiał na Dysk dwa razy z tym samym uuid.
+  const WPIS_PL = { ...DIUNA, uuid: "m-pl", title: "Diuna" };
+  const WPIS_EN = { ...DIUNA, uuid: "m-en", title: "Dune" };
+
+  test("biblioteka scalona z samą sobą zostaje bez zmian, także przy dwóch wpisach o tym samym tmdb_id", async ({ page }) => {
+    await atrapaDysku(page, { movies: [INCEPCJA], shows: [] });
+    await przegladarka(page, { movies: [INCEPCJA] });
+    await page.goto("/?mode=movies");
+    await expect(page.locator("#m3-movies-grid article.m3-card")).toHaveCount(1, { timeout: 10_000 });
+
+    const wynik = await page.evaluate(([pl, en]) => {
+      const serial = (uuid, title) => ({ uuid, title, tmdb_id: 90228, status: "watching", episodes_watched: [{ season: 1, episode: 1 }] });
+      const filmy = () => [{ ...pl }, { ...en }];
+      const seriale = () => [serial("s-pl", "Diuna: Proroctwo"), serial("s-en", "Dune: Prophecy")];
+      const scalona = window.googleDriveSync.mergeLibraries(filmy(), seriale(), filmy(), seriale());
+      const opis = (lista) => lista.map((x) => `${x.uuid}:${x.title}`);
+      return { filmy: opis(scalona.movies), seriale: opis(scalona.shows) };
+    }, [WPIS_PL, WPIS_EN]);
+
+    expect(wynik.filmy).toEqual(["m-pl:Diuna", "m-en:Dune"]);
+    expect(wynik.seriale).toEqual(["s-pl:Diuna: Proroctwo", "s-en:Dune: Prophecy"]);
+  });
+
+  test("synchronizacja z czekającą zmianą nie gubi ani nie dubluje wpisów o tym samym tmdb_id", async ({ page }) => {
+    const dysk = await atrapaDysku(page, { movies: [INCEPCJA, WPIS_PL, WPIS_EN], shows: [] });
+    await przegladarka(page, { movies: [{ ...INCEPCJA, is_favorite: true }, WPIS_PL, WPIS_EN], zmianyDoWyslania: true });
+
+    await page.goto("/?mode=movies");
+    await expect.poll(() => dysk.wysylki.length, { timeout: 10_000 }).toBeGreaterThan(0);
+
+    const opis = (lista) => lista.map((m) => `${m.uuid}:${m.title}`).sort();
+    expect(opis(dysk.baza.movies), "na Dysku").toEqual(["m-1:Incepcja", "m-en:Dune", "m-pl:Diuna"]);
+    expect(dysk.baza.movies.find((m) => m.uuid === "m-1").is_favorite).toBe(true);
+    const lokalne = await page.evaluate(() => JSON.parse(localStorage.getItem("cinelog_database")).movies.map((m) => `${m.uuid}:${m.title}`).sort());
+    expect(lokalne, "w przeglądarce").toEqual(["m-1:Incepcja", "m-en:Dune", "m-pl:Diuna"]);
+  });
+
+  test("wpis lokalny bez pary po uuid nie zabiera wpisu, który ma już swoją parę", async ({ page }) => {
+    await atrapaDysku(page, { movies: [INCEPCJA], shows: [] });
+    await przegladarka(page, { movies: [INCEPCJA] });
+    await page.goto("/?mode=movies");
+    await expect(page.locator("#m3-movies-grid article.m3-card")).toHaveCount(1, { timeout: 10_000 });
+
+    // Na Dysku jest tylko wpis „pl"; tutaj doszedł drugi wpis tego samego tytułu („en"),
+    // ustawiony na liście PRZED „pl".
+    const wynik = await page.evaluate(([pl, en]) => {
+      const scalona = window.googleDriveSync.mergeLibraries([{ ...en }, { ...pl, rating: 9 }], [], [{ ...pl }], []);
+      return scalona.movies.map((m) => `${m.uuid}:${m.title}:${m.rating}`);
+    }, [WPIS_PL, WPIS_EN]);
+
+    expect(wynik).toEqual(["m-pl:Diuna:9", "m-en:Dune:null"]);
+  });
+
+  test("wpis poprawiony przez rematch (ten sam uuid, inny tmdb_id) zastępuje starą wersję z Dysku", async ({ page }) => {
+    await atrapaDysku(page, { movies: [INCEPCJA], shows: [] });
+    await przegladarka(page, { movies: [INCEPCJA] });
+    await page.goto("/?mode=movies");
+    await expect(page.locator("#m3-movies-grid article.m3-card")).toHaveCount(1, { timeout: 10_000 });
+
+    const wynik = await page.evaluate((zDysku) => {
+      const poRematchu = { ...zDysku, tmdb_id: 841, title: "Diuna (1984)" };
+      const scalona = window.googleDriveSync.mergeLibraries([poRematchu], [], [zDysku], []);
+      return scalona.movies.map((m) => `${m.uuid}:${m.tmdb_id}:${m.title}`);
+    }, DIUNA);
+
+    expect(wynik, "błędne dopasowanie nie może wrócić z Dysku jako drugi wpis o tym samym uuid").toEqual(["m-2:841:Diuna (1984)"]);
+  });
+});

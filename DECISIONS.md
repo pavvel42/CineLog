@@ -60,3 +60,15 @@ Decyzje sprzed założenia rejestru opisują wiadomości commitów (`git log`).
 - **Dlaczego:** osoby nie mają roku, którym dałoby się rozstrzygnąć imienników; odmowa dawała pusty profil
   dla każdego twórcy z imiennikiem (Chris Evans, John Williams), a `results[0]` bywa osobą o innym nazwisku.
 - **Źródło:** próba na żywo na `/api/actor/details`, `tests/test_dopasowanie_wszedzie.py`.
+
+## 2026-11-16 — Scalanie z Dyskiem paruje wpisy jeden do jednego, najpierw po uuid
+- **Wybrano:** `mergeLibraries` łączy wpis lokalny z najwyżej jednym wpisem z Dysku: najpierw po `uuid`
+  (także gdy rematch zmienił `tmdb_id`), potem po tożsamości pozycji wśród wpisów bez pary
+  (`_scalListe` w `static/js/drive_sync.js`). Biblioteka scalona z samą sobą zostaje bez zmian.
+- **Odrzucono:** parowanie „pierwszy pasujący po `tmdb_id`” oraz automatyczne sklejanie przy scalaniu
+  dwóch wpisów tej samej pozycji w jednej bibliotece.
+- **Dlaczego:** przy dwóch wpisach o tym samym `tmdb_id` (np. polski i oryginalny tytuł serialu) oba lokalne
+  trafiały w ten sam wpis z Dysku — jeden znikał, drugi szedł na Dysk dwa razy z tym samym `uuid`.
+  Duplikaty w bibliotece usuwa użytkownik; synchronizacja nie kasuje wpisów po cichu.
+- **Źródło:** weryfikacja na żywo na prawdziwej bibliotece (zapis na Dysk zablokowany),
+  `e2e/drive-bezpieczenstwo.spec.js` („scalanie paruje wpisy jeden do jednego”).
