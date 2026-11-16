@@ -29,7 +29,7 @@
 ## ✨ Główne możliwości
 
 - 🎞️ **Biblioteka Filmów i Seriali**: Wygodne zarządzanie seansami (*Obejrzane*, *Do obejrzenia*), ocenianie w skali gwiazdkowej, ulubione oraz licznik ponownych seansów (*rewatch*).
-- 📺 **Śledzenie Odcinków (Episode Tracker)**: Intuicyjne oznaczanie obejrzanych sezonów i odcinków, statusy premier (*w produkcji*, *zakończony*) oraz powiadomienia o nadchodzących epizodach.
+- 📺 **Śledzenie Odcinków (Episode Tracker)**: Intuicyjne oznaczanie obejrzanych sezonów i odcinków, statusy emisji (*w produkcji*, *zakończony*) oraz radar nadchodzących premier. Liczbę sezonów i odcinków tracker odświeża z TMDb przy każdym otwarciu serialu.
 - 📥 **Uniwersalny Importer**: 
   - 🎬 **Filmweb** (eksport CSV)
   - 💚 **Letterboxd** (eksport CSV)
@@ -42,10 +42,10 @@
   - Obsługa wiodących dostawców: **OpenAI**, **DeepSeek**, **Groq** (darmowy i błyskawiczny), **OpenRouter** oraz lokalnego **Ollama** (100% offline).
   - Interaktywne karty filmów, inteligentne wzmianki `@tytuł` i dodawanie polecanych pozycji 1 kliknięciem.
 - ☁️ **Kopia i synchronizacja Google Drive**: Pełna, automatyczna synchronizacja biblioteki z Twoim prywatnym Dyskiem Google (bez zewnętrznych serwerów bazodanowych).
-- 📊 **Statystyki & Osiągnięcia**: Wykresy czasu spędzonego przed ekranem, ulubione dekady i gatunki, katalog reżyserów oraz odznaki kinomana.
+- 📊 **Statystyki & Osiągnięcia**: Łączny czas przed ekranem, wykresy ocen, gatunków i aktywności w kolejnych latach, cel roczny oraz katalog reżyserów z odznakami reżyserskimi.
 - 📺 **Filtry Platform VOD**: Błyskawiczne filtrowanie filmów pod kątem dostępności na platformach streamingowych (Netflix, HBO Max, Disney+, Prime Video, SkyShowtime, Apple TV, CANAL+ i inne).
 - 📅 **Eksport Kalendarza & Danych**: Pobieranie kopii JSON (przycisk **Pobierz kopię JSON**) oraz eksport premier do kalendarza `.ics` (Google Calendar, Apple Calendar, Outlook).
-- 📱 **Progresywna Aplikacja Webowa (PWA)**: Możliwość instalacji na telefonie (iOS / Android) lub pulpicie z pełnym dostępem offline.
+- 📱 **Progresywna Aplikacja Webowa (PWA)**: Instalacja z menu przeglądarki (*Zainstaluj aplikację* / *Dodaj do ekranu głównego*) na telefonie lub pulpicie. Offline działają biblioteka i interfejs; wykresy, czcionki i ikony (ładowane z CDN), plakaty oraz wyszukiwarka wymagają sieci.
 
 ---
 
@@ -93,7 +93,7 @@ Klucze są opcjonalne — aplikacja działa też bez nich, a każdy użytkownik 
 
    Przy starcie `run.py` wpisuje tę wartość do `static/js/config.js`, więc nie musisz jej wklejać na każdym urządzeniu. Zaakceptowana jest też nazwa `ID_Project_Google_Cloud`. Wartość, która nie jest identyfikatorem klienta (np. numer projektu albo klucz API), jest odrzucana z ostrzeżeniem w logu — Google odpowiadał na nią mylącym błędem `401 invalid_client` („The OAuth client was not found"), który wygląda jak problem z uprawnieniami konta, a oznacza tylko nieznany identyfikator klienta.
 
-Pozostałe zmienne (wszystkie opcjonalne): `HOST` (domyślnie `127.0.0.1`), `PORT` (domyślnie `5001`), `FLASK_DEBUG=1` oraz `DATA_DIR` (katalog plików JSON, przydatny do izolowanych testów).
+Pozostałe zmienne (wszystkie opcjonalne): `HOST` (domyślnie `127.0.0.1`), `PORT` (domyślnie `5001`), `FLASK_DEBUG=1`, `DATA_DIR` (katalog plików JSON, przydatny do izolowanych testów) oraz `CINELOG_ALLOWED_HOSTS` — lista nazw hostów po przecinku, pod którymi otwierasz aplikację. Serwer przyjmuje żądania tylko dla `localhost`, adresów IP i nazw z tej listy (ochrona przed DNS rebinding); własną nazwę, np. `cinelog.local`, trzeba tu dopisać.
 
 #### 3. Uruchomienie aplikacji
 Wymagany Python 3.9+ (CI testuje na 3.12; lokalnie działa też 3.14):
@@ -152,6 +152,11 @@ Zasady, które temu pilnują:
 - **Pull z Dysku, scalanie, przełączenie trybu i reset demo** najpierw zapisują kopię biblioteki z przeglądarki. Cofniesz to przyciskiem **Przywróć poprzednią bazę** w oknie *Tryb i Środowisko*.
 - **Import z pliku to świadoma wymiana biblioteki** i kopii nie robi — kopię pobierasz sam przyciskiem **Pobierz kopię JSON**. W trybie serwera import trafia do bazy serwera (`data/`), w trybie demo przełącza aplikację na tryb klienta.
 - **Autozapis na Google Drive działa tylko w trybie klienta** — sesja na serwerowym ziarnie danych nie wypchnie go do Twojej chmury.
+- **Każdy tryb ma osobną bazę w przeglądarce**, także w dwóch kartach naraz: karta zapisuje tylko bazę trybu, który ma otwarty. Biblioteka klienta i demo nie jest zapisywana na serwerze Flask, nawet gdy serwer działa obok.
+- **Błąd odczytu z Dysku nie jest „pustym Dyskiem”**: przy błędzie sieci, odmowie dostępu albo uszkodzonym pliku aplikacja niczego na Dysku nie nadpisuje.
+- **Usunięcia przenoszą się między urządzeniami**: usunięta pozycja nie wraca przy scalaniu z Dyskiem (ślad usunięcia jest pamiętany rok). Pozycja dodana ponownie jest nową pozycją i zostaje; import pliku i przywrócenie kopii cofają usunięcia pozycji, które zawierają.
+- **Remake to osobna pozycja**: o tożsamości decyduje identyfikator TMDb, a bez niego tytuł razem z rokiem — *Dune* (1984) i *Dune* (2021) nie są scalane.
+- **Uszkodzony plik biblioteki serwera nie jest nadpisywany**: serwer odmawia zapisu i odkłada kopię `*.corrupt`; bibliotekę naprawia import z pliku kopii.
 
 ---
 

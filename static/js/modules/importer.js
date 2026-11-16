@@ -2,7 +2,7 @@
 // CineLog - Universal Importer Module (Filmweb, Letterboxd, IMDb, JSON)
 // ==========================================================================
 
-import { state, saveLocalDatabase, generateUUID, markUserDatabaseCustom, escapeHtml, apiFetch, isRealDetail, localTimestamp, recalculateShowProgress, wybierzTrafienieWTmdb, getActiveEnvMode, normalizeTitleForLibrary } from './state.js';
+import { state, saveLocalDatabase, generateUUID, markUserDatabaseCustom, escapeHtml, apiFetch, isRealDetail, localTimestamp, recalculateShowProgress, wybierzTrafienieWTmdb, getActiveEnvMode, normalizeTitleForLibrary, odwolajUsunieciaDla, trybBazyWPamieci } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { renderMovies } from './movies.js';
@@ -41,10 +41,14 @@ async function zastapBiblioteke(movies, shows) {
     state.movies = movies;
     state.shows = shows;
     markUserDatabaseCustom();
+    // Import wprowadza bibliotekę świadomie w całości: unieważnia usunięcia pozycji, które
+    // zawiera, i zastępuje bazę na Dysku (scalenie przywróciłoby to, co import pominął).
+    odwolajUsunieciaDla(movies, shows);
     const demoBanner = document.getElementById("m3-demo-notice-banner");
     if (demoBanner) demoBanner.style.display = "none";
   }
-  saveLocalDatabase();
+  saveLocalDatabase(true);
+  if (trybBazyWPamieci() === "client" && window.googleDriveSync) window.googleDriveSync.zastapNaDysku();
   updateStats();
   if (state.mode === "movies") renderMovies();
   else renderShows();
@@ -72,9 +76,11 @@ function kluczPozycjiImportu(item) {
 }
 
 /**
- * Universal CSV Parser handling quotes, commas, semicolons, and CRLF
+ * Universal CSV Parser handling quotes, commas, semicolons, and CRLF.
+ * Zgodnie z RFC 4180 tylko cudzysłów `"` otwiera pole w cudzysłowie (i tylko na początku
+ * pola); `""` w środku to znak cudzysłowu. Apostrof (Ocean's Eleven) jest zwykłym znakiem.
  */
-function parseCSV(text) {
+export function parseCSV(text) {
   // Remove UTF-8 BOM if present
   if (text.charCodeAt(0) === 0xFEFF) {
     text = text.slice(1);
@@ -88,12 +94,16 @@ function parseCSV(text) {
     const char = text[i];
     const nextChar = text[i + 1];
 
-    if (char === '"' || char === "'") {
-      if (inQuotes && nextChar === char) {
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
         row[row.length - 1] += char;
         i++; // skip escaped quote
+      } else if (inQuotes) {
+        inQuotes = false;
+      } else if (row[row.length - 1].trim() === "") {
+        inQuotes = true; // cudzysłów na początku pola
       } else {
-        inQuotes = !inQuotes;
+        row[row.length - 1] += char; // cudzysłów w środku pola bez cudzysłowu to zwykły znak
       }
     } else if ((char === ',' || char === ';') && !inQuotes) {
       row.push("");

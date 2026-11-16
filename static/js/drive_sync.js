@@ -2,13 +2,33 @@
 
 // Czyste funkcje danych współdzielone z modules/state.js (esbuild bundluje
 // wszystko do drive_sync.min.js, więc <script> bez type="module" dalej działa).
-import { normalizeTitleForLibrary, recalculateShowProgress } from './modules/state.js';
+import { recalculateShowProgress, taSamaPozycja, pobierzUsuniete, zapiszUsuniete, scalUsuniete, czyUsuniety } from './modules/state.js';
 
 const DRIVE_DATABASE_FILE_NAME = "cinelog_database.json";
 const DRIVE_SETTINGS_FILE_NAME = "cinelog_settings.json";
 const DRIVE_SCOPES = "https://www.googleapis.com/auth/drive.file";
 // Zmiany z biblioteki, które jeszcze nie dotarły na Dysk (np. token wygasł).
+// "true" = scal z Dyskiem i wyślij; "replace" = biblioteka z przeglądarki zastępuje tę na Dysku
+// (przywrócenie kopii, import pliku) — scalenie przywróciłoby to, co użytkownik właśnie cofnął.
 const PENDING_UPLOAD_KEY = "gdrive_pending_upload";
+const ZAPIS_ZASTEPUJACY = "replace";
+const OPOZNIENIE_ZAPISU_MS = 2000;
+
+/**
+ * Dysk nie odpowiedział tak, żeby dało się ustalić stan pliku (sieć, HTTP 4xx/5xx, uszkodzona
+ * treść). To co innego niż „pliku nie ma": po takim błędzie nie wolno niczego wysyłać.
+ */
+class BladDysku extends Error {
+  /**
+   * @param {string} message
+   * @param {number} [status] kod HTTP, 0 gdy żądanie w ogóle nie doszło
+   */
+  constructor(message, status = 0) {
+    super(message);
+    this.name = "BladDysku";
+    this.status = status;
+  }
+}
 // Powrót do aplikacji częściej niż co tyle nie pobiera bazy ponownie.
 const MIN_ODSTEP_SYNCHRONIZACJI_MS = 30_000;
 
@@ -86,28 +106,56 @@ class GoogleDriveSync {
     if (this.isSyncing) return "pominieto";
     this.isSyncing = true;
     this.ostatniaSynchronizacja = Date.now();
+    // Odroczony zapis sprzed synchronizacji wysłałby bibliotekę sprzed scalenia; znacznik
+    // zmian do wysłania zostaje, więc te zmiany pójdą na Dysk w scaleniu poniżej.
+    this._anulujOdroczonyZapis();
     try {
+      if (!this._bibliotekaUzytkownika()) return "pominieto";
+      if (this.trybOczekujacegoZapisu() === ZAPIS_ZASTEPUJACY) {
+        const doWyslania = this._bibliotekaUzytkownika();
+        return (await this.uploadToDrive(doWyslania.movies, doWyslania.shows)) ? "ok" : "blad";
+      }
+
+      // Rzuca BladDysku, gdy stanu pliku nie da się ustalić — wtedy niczego nie wysyłamy.
       const dysk = await this.downloadFromDrive();
-      const lokalna = typeof this.localLibraryProvider === "function" ? this.localLibraryProvider() : null;
-      if (!dysk || !(Array.isArray(dysk.movies) || Array.isArray(dysk.shows))) {
-        if (lokalna && (lokalna.movies.length || lokalna.shows.length)) {
-          await this.uploadToDrive(lokalna.movies, lokalna.shows);
+      // Dopiero po pobraniu: w trakcie oczekiwania użytkownik mógł coś zmienić albo zmienić tryb.
+      const lokalna = this._bibliotekaUzytkownika();
+      if (!lokalna) return "pominieto";
+      const lokalnaMaDane = lokalna.movies.length > 0 || lokalna.shows.length > 0;
+
+      if (dysk === null) {
+        // Pliku na Dysku na pewno nie ma: pierwsza wysyłka biblioteki użytkownika.
+        if (lokalnaMaDane) await this.uploadToDrive(lokalna.movies, lokalna.shows);
+        return "ok";
+      }
+
+      const filmyDysku = dysk.movies || [];
+      const serialeDysku = dysk.shows || [];
+      const usunieteDysku = Array.isArray(dysk.deleted) ? dysk.deleted : [];
+      if (this.maZmianyDoWyslania()) {
+        const scalona = this.mergeLibraries(lokalna.movies, lokalna.shows, filmyDysku, serialeDysku, pobierzUsuniete(), usunieteDysku);
+        zapiszUsuniete(scalona.deleted);
+        this._zastosuj(scalona.movies, scalona.shows);
+        await this.uploadToDrive(scalona.movies, scalona.shows);
+        return "ok";
+      }
+      if (lokalnaMaDane && filmyDysku.length === 0 && serialeDysku.length === 0) {
+        // Pusta baza na Dysku przy niepustej bibliotece to prawie zawsze pomyłka innego
+        // urządzenia. Automat niczego nie kasuje — decyzję podejmuje użytkownik w oknie chmury.
+        this.updateStatusUI("error", "Baza na Dysku jest pusta — nic nie zmieniono");
+        if (window.showToastNotification) {
+          window.showToastNotification("Baza na Dysku Google jest pusta, a w tej przeglądarce są filmy lub seriale. Niczego nie zmieniłem — w oknie chmury wybierz „Wyślij do Chmury” albo „Pobierz z Chmury”.", "warning");
         }
         return "ok";
       }
-      const filmyDysku = dysk.movies || [];
-      const serialeDysku = dysk.shows || [];
-      if (this.maZmianyDoWyslania() && lokalna) {
-        const scalona = this.mergeLibraries(lokalna.movies, lokalna.shows, filmyDysku, serialeDysku);
-        this._zastosuj(scalona.movies, scalona.shows);
-        await this.uploadToDrive(scalona.movies, scalona.shows);
-      } else if (!lokalna || JSON.stringify([lokalna.movies, lokalna.shows]) !== JSON.stringify([filmyDysku, serialeDysku])) {
+      zapiszUsuniete(usunieteDysku);
+      if (JSON.stringify([lokalna.movies, lokalna.shows]) !== JSON.stringify([filmyDysku, serialeDysku])) {
         this._zastosuj(filmyDysku, serialeDysku);
       }
       return "ok";
     } catch (err) {
       console.warn("CineLog: automatyczna synchronizacja z Dyskiem nie powiodła się", err);
-      this.updateStatusUI("error", "Błąd synchronizacji z Dyskiem");
+      this.updateStatusUI("error", "Błąd synchronizacji z Dyskiem — nic nie zmieniono");
       return "blad";
     } finally {
       this.isSyncing = false;
@@ -116,6 +164,94 @@ class GoogleDriveSync {
 
   _zastosuj(movies, shows) {
     if (typeof this.zastosujBibliotekeZDysku === "function") this.zastosujBibliotekeZDysku(movies, shows);
+  }
+
+  /**
+   * Biblioteka użytkownika z pamięci karty albo null, gdy karta trzyma bazę demo lub serwera
+   * (te nigdy nie trafiają na Dysk).
+   * @returns {{movies: object[], shows: object[]}|null}
+   */
+  _bibliotekaUzytkownika() {
+    if (!this.trybPozwalaNaSynchronizacje() || typeof this.localLibraryProvider !== "function") return null;
+    const lokalna = this.localLibraryProvider();
+    if (!lokalna || (lokalna.tryb && lokalna.tryb !== "client")) return null;
+    return {
+      movies: Array.isArray(lokalna.movies) ? lokalna.movies : [],
+      shows: Array.isArray(lokalna.shows) ? lokalna.shows : []
+    };
+  }
+
+  /** @returns {"true"|"replace"|null} */
+  trybOczekujacegoZapisu() {
+    return localStorage.getItem(PENDING_UPLOAD_KEY);
+  }
+
+  _anulujOdroczonyZapis() {
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+  }
+
+  _zaplanujZapis() {
+    this._anulujOdroczonyZapis();
+    this.debounceTimer = setTimeout(() => {
+      this.debounceTimer = null;
+      this._wyslijAktualnaBiblioteke();
+    }, OPOZNIENIE_ZAPISU_MS);
+  }
+
+  /** Wysyła bibliotekę w stanie z chwili wysyłki (nie z chwili edycji, która ją zaplanowała). */
+  async _wyslijAktualnaBiblioteke() {
+    if (this.isSyncing) {
+      this._zaplanujZapis();
+      return false;
+    }
+    const lokalna = this._bibliotekaUzytkownika();
+    if (!lokalna) return false;
+    return this.uploadToDrive(lokalna.movies, lokalna.shows);
+  }
+
+  /**
+   * Biblioteka z przeglądarki ma zastąpić tę na Dysku, bez scalania (przywrócenie kopii,
+   * import pliku). Gdy wysyłka teraz się nie uda, zastąpi ją najbliższa synchronizacja.
+   * @returns {Promise<boolean>} true, gdy biblioteka jest już na Dysku
+   */
+  async zastapNaDysku() {
+    if (!this.byloPolaczenie() || !this._bibliotekaUzytkownika()) return false;
+    this._anulujOdroczonyZapis();
+    localStorage.setItem(PENDING_UPLOAD_KEY, ZAPIS_ZASTEPUJACY);
+    if (!this.isAuthorized()) {
+      this.czekajNaGest();
+      return false;
+    }
+    const lokalna = this._bibliotekaUzytkownika();
+    return this.uploadToDrive(lokalna.movies, lokalna.shows);
+  }
+
+  _uniewaznijToken() {
+    this.accessToken = null;
+    this.tokenExpiresAt = 0;
+    localStorage.removeItem("gdrive_access_token");
+    localStorage.removeItem("gdrive_token_exp");
+  }
+
+  /**
+   * Żądanie do API Dysku z tokenem. Brak odpowiedzi to BladDysku, a nie „pusty wynik".
+   * @param {string} url
+   * @param {RequestInit} [init]
+   * @returns {Promise<Response>}
+   */
+  async _zadanie(url, init = {}) {
+    let res;
+    try {
+      res = await fetch(url, { ...init, headers: { ...(init.headers || {}), Authorization: `Bearer ${this.accessToken}` } });
+    } catch (e) {
+      throw new BladDysku(`brak połączenia z Dyskiem Google (${e && e.message ? e.message : "błąd sieci"})`);
+    }
+    // Token odwołany albo unieważniony przed czasem: następna próba poprosi o nowy.
+    if (res.status === 401) this._uniewaznijToken();
+    return res;
   }
 
   /**
@@ -281,74 +417,83 @@ class GoogleDriveSync {
     this.updateStatusUI("disconnected");
   }
 
+  /**
+   * Szuka pliku aplikacji na Dysku.
+   * @returns {Promise<string|null>} identyfikator albo null, gdy pliku na pewno nie ma
+   * @throws {BladDysku} gdy nie da się tego ustalić (sieć, HTTP inne niż 200/404)
+   */
   async findFileByName(fileName, cachedIdKey) {
     const cachedId = localStorage.getItem(cachedIdKey);
     if (cachedId) {
-      try {
-        const checkRes = await fetch(`https://www.googleapis.com/drive/v3/files/${cachedId}?fields=id,name,trashed`, {
-          headers: { Authorization: `Bearer ${this.accessToken}` }
-        });
-        if (checkRes.ok) {
-          const checkData = await checkRes.json();
-          if (!checkData.trashed && checkData.name === fileName) return cachedId;
-        } else {
-          localStorage.removeItem(cachedIdKey);
-        }
-      } catch (e) {
-        localStorage.removeItem(cachedIdKey);
+      const checkRes = await this._zadanie(`https://www.googleapis.com/drive/v3/files/${cachedId}?fields=id,name,trashed`);
+      if (checkRes.ok) {
+        const checkData = await checkRes.json();
+        if (!checkData.trashed && checkData.name === fileName) return cachedId;
+      } else if (checkRes.status !== 404) {
+        throw new BladDysku(`Dysk Google odpowiedział HTTP ${checkRes.status} przy sprawdzaniu pliku ${fileName}`, checkRes.status);
       }
+      // Plik skasowany, w koszu albo o innej nazwie: zapamiętany identyfikator jest nieaktualny.
+      localStorage.removeItem(cachedIdKey);
     }
 
-    try {
-      const q = encodeURIComponent(`name = '${fileName}' and trashed = false`);
-      const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc`, {
-        headers: { Authorization: `Bearer ${this.accessToken}` }
-      });
-
-      if (searchRes.ok) {
-        const data = await searchRes.json();
-        if (data.files && data.files.length > 0) {
-          const foundId = data.files[0].id;
-          localStorage.setItem(cachedIdKey, foundId);
-          return foundId;
-        }
-      }
-    } catch (e) {
-      console.warn("Drive search query failed:", e);
+    const q = encodeURIComponent(`name = '${fileName}' and trashed = false`);
+    const searchRes = await this._zadanie(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc`);
+    if (!searchRes.ok) {
+      throw new BladDysku(`Dysk Google odpowiedział HTTP ${searchRes.status} przy szukaniu pliku ${fileName}`, searchRes.status);
     }
-
+    const data = await searchRes.json();
+    if (data.files && data.files.length > 0) {
+      const foundId = data.files[0].id;
+      localStorage.setItem(cachedIdKey, foundId);
+      return foundId;
+    }
     return null;
   }
 
   // --- DATABASE SYNC (cinelog_database.json) ---
+  /**
+   * Pobiera bibliotekę z Dysku.
+   * @returns {Promise<object|null>} treść pliku albo null, gdy pliku na Dysku na pewno nie ma
+   * @throws {BladDysku} gdy pliku nie udało się odczytać — wtedy NIE wolno uznać Dysku za pusty
+   */
   async downloadFromDrive() {
     await this.ensureValidToken();
-    if (!this.isAuthorized()) return null;
-
-    const fileId = await this.findFileByName(DRIVE_DATABASE_FILE_NAME, "gdrive_file_id");
-    if (!fileId) return null;
+    if (!this.isAuthorized()) throw new BladDysku("brak ważnego logowania do Dysku Google", 401);
 
     try {
-      this.updateStatusUI("syncing", "Pobieram bazę z Dysku...");
-      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-        headers: { Authorization: `Bearer ${this.accessToken}` }
-      });
+      const fileId = await this.findFileByName(DRIVE_DATABASE_FILE_NAME, "gdrive_file_id");
+      if (!fileId) return null;
 
-      if (res.ok) {
-        const payload = await res.json();
-        this.databaseFileId = fileId;
-        this.lastSyncTime = new Date().toISOString();
-        localStorage.setItem("gdrive_last_sync", this.lastSyncTime);
-        this.updateStatusUI("connected", "Baza pobrana z Google Drive");
-        return payload;
+      this.updateStatusUI("syncing", "Pobieram bazę z Dysku...");
+      const res = await this._zadanie(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+      if (!res.ok) throw new BladDysku(`Dysk Google odpowiedział HTTP ${res.status} przy pobieraniu bazy`, res.status);
+
+      let payload;
+      try {
+        payload = await res.json();
+      } catch (e) {
+        throw new BladDysku("plik bazy na Dysku Google nie jest poprawnym plikiem JSON");
       }
+      if (!payload || typeof payload !== "object" || !(Array.isArray(payload.movies) || Array.isArray(payload.shows))) {
+        throw new BladDysku("plik bazy na Dysku Google nie zawiera biblioteki CineLog");
+      }
+
+      this.databaseFileId = fileId;
+      this.lastSyncTime = new Date().toISOString();
+      localStorage.setItem("gdrive_last_sync", this.lastSyncTime);
+      this.updateStatusUI("connected", "Baza pobrana z Google Drive");
+      return payload;
     } catch (err) {
       console.error("Error downloading database from Drive:", err);
       this.updateStatusUI("error", "Błąd pobierania bazy z Dysku");
+      throw err instanceof BladDysku ? err : new BladDysku(err && err.message ? err.message : "nieznany błąd");
     }
-    return null;
   }
 
+  /**
+   * Zapisuje bibliotekę na Dysku razem z listą usunięć (zastępuje treść pliku).
+   * @returns {Promise<boolean>} true, gdy plik został zapisany
+   */
   async uploadToDrive(movies, shows) {
     await this.ensureValidToken();
     if (!this.isAuthorized()) return false;
@@ -360,9 +505,11 @@ class GoogleDriveSync {
         version: "1.0.0",
         synced_at: new Date().toISOString(),
         movies: movies,
-        shows: shows
+        shows: shows,
+        deleted: pobierzUsuniete()
       };
 
+      // Rzuca przy błędzie wyszukiwania: bez tego nieudane szukanie zakładało drugi plik bazy.
       const fileId = await this.findFileByName(DRIVE_DATABASE_FILE_NAME, "gdrive_file_id");
       const metadata = {
         name: DRIVE_DATABASE_FILE_NAME,
@@ -390,12 +537,9 @@ class GoogleDriveSync {
         JSON.stringify(payload, null, 2) +
         closeDelim;
 
-      const res = await fetch(url, {
+      const res = await this._zadanie(url, {
         method: method,
-        headers: {
-          Authorization: `Bearer ${this.accessToken}`,
-          "Content-Type": `multipart/related; boundary=${boundary}`
-        },
+        headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
         body: multipartBody
       });
 
@@ -409,6 +553,9 @@ class GoogleDriveSync {
         this.updateStatusUI("connected", "Zsynchronizowano z Google Drive");
         return true;
       }
+      console.warn(`Zapis bazy na Dysku nieudany: HTTP ${res.status}`);
+      this.updateStatusUI("error", "Błąd zapisu na Dysku");
+      if (res.status === 401) this.czekajNaGest();
     } catch (err) {
       console.error("Error uploading database to Drive:", err);
       this.updateStatusUI("error", "Błąd zapisu na Dysku");
@@ -421,10 +568,10 @@ class GoogleDriveSync {
     await this.ensureValidToken();
     if (!this.isAuthorized()) return null;
 
-    const fileId = await this.findFileByName(DRIVE_SETTINGS_FILE_NAME, "gdrive_settings_file_id");
-    if (!fileId) return null;
-
     try {
+      // Ustawienia VOD nie są krytyczne: błąd odczytu oznacza tylko „zostają lokalne".
+      const fileId = await this.findFileByName(DRIVE_SETTINGS_FILE_NAME, "gdrive_settings_file_id");
+      if (!fileId) return null;
       const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
         headers: { Authorization: `Bearer ${this.accessToken}` }
       });
@@ -543,35 +690,30 @@ class GoogleDriveSync {
 
     // Znacznik zostaje do udanego wysłania: zmiana zrobiona przy wygasłym tokenie
     // albo bez sieci wyśle się przy najbliższej synchronizacji (scalenie z Dyskiem).
-    localStorage.setItem(PENDING_UPLOAD_KEY, "true");
+    // Oczekującego zastąpienia (przywrócona kopia, import) zwykła edycja nie osłabia do scalenia.
+    if (this.trybOczekujacegoZapisu() !== ZAPIS_ZASTEPUJACY) localStorage.setItem(PENDING_UPLOAD_KEY, "true");
     if (!this.isAuthorized()) {
       this.czekajNaGest();
       return;
     }
 
-    if (this.debounceTimer) clearTimeout(this.debounceTimer);
     this.updateStatusUI("syncing", "Oczekuję na zapis...");
-
-    this.debounceTimer = setTimeout(() => {
-      this.uploadToDrive(movies, shows);
-    }, 2000);
+    // Tablice z argumentów to stan z chwili edycji; wysyłka czyta bibliotekę na nowo,
+    // bo w ciągu tych 2 s synchronizacja albo import mogły ją podmienić.
+    this._zaplanujZapis();
   }
 
-  // Dopasowanie pozycji między chmurą a lokalną bazą: najpierw tmdb_id,
-  // potem uuid, na końcu znormalizowany tytuł. Dwa RÓŻNE tmdb_id to dwie
-  // różne pozycje — podobny tytuł nie może ich scalić (np. po rematchu).
-  findMergeIndex(list, entry) {
-    const entryTmdb = (entry.tmdb_id === undefined || entry.tmdb_id === null || entry.tmdb_id === "") ? null : String(entry.tmdb_id);
-    const entryUuid = entry.uuid ? String(entry.uuid) : null;
-    const entryTitle = normalizeTitleForLibrary(entry.title);
+  /** Biblioteka w przeglądarce jest dokładnie tym, co leży na Dysku: nic nie czeka na wysłanie. */
+  zapamietajStanZsynchronizowany() {
+    this._anulujOdroczonyZapis();
+    localStorage.removeItem(PENDING_UPLOAD_KEY);
+  }
 
-    return list.findIndex(cloud => {
-      const cloudTmdb = (cloud.tmdb_id === undefined || cloud.tmdb_id === null || cloud.tmdb_id === "") ? null : String(cloud.tmdb_id);
-      if (entryTmdb && cloudTmdb) return entryTmdb === cloudTmdb;
-      if (entryUuid && cloud.uuid && String(cloud.uuid) === entryUuid) return true;
-      if (entryTitle && normalizeTitleForLibrary(cloud.title) === entryTitle) return true;
-      return false;
-    });
+  // Dopasowanie pozycji między chmurą a lokalną bazą — wspólna reguła tożsamości
+  // (taSamaPozycja): dwa RÓŻNE tmdb_id to dwie różne pozycje, a ten sam tytuł z innym
+  // rokiem to remake, czyli też osobna pozycja.
+  findMergeIndex(list, entry) {
+    return list.findIndex((cloud) => taSamaPozycja(cloud, entry));
   }
 
   mergeMovie(cloudMovie, localMovie) {
@@ -607,18 +749,27 @@ class GoogleDriveSync {
     return recalculateShowProgress(merged);
   }
 
-  mergeLibraries(localMovies, localShows, cloudMovies, cloudShows) {
-    const movies = [...(cloudMovies || [])];
-    (localMovies || []).forEach(m => {
-      if (!m || !(m.title || "").trim()) return;
+  /**
+   * Scala bibliotekę z przeglądarki z biblioteką z Dysku. Usunięcia z obu stron są
+   * stosowane PRZED scaleniem: pozycja skasowana na jednym urządzeniu nie wraca z drugiego,
+   * a dodana ponownie (nowy uuid) zostaje.
+   * @returns {{movies: object[], shows: object[], deleted: object[]}}
+   */
+  mergeLibraries(localMovies, localShows, cloudMovies, cloudShows, localDeleted = [], cloudDeleted = []) {
+    const deleted = scalUsuniete(localDeleted, cloudDeleted);
+    const zyje = (typ) => (entry) => Boolean(entry) && !czyUsuniety(entry, typ, deleted);
+
+    const movies = (cloudMovies || []).filter(zyje("movie"));
+    (localMovies || []).filter(zyje("movie")).forEach(m => {
+      if (!(m.title || "").trim()) return;
       const idx = this.findMergeIndex(movies, m);
       if (idx === -1) movies.push(m);
       else movies[idx] = this.mergeMovie(movies[idx], m);
     });
 
-    const shows = [...(cloudShows || [])];
-    (localShows || []).forEach(s => {
-      if (!s || !(s.title || "").trim()) return;
+    const shows = (cloudShows || []).filter(zyje("show"));
+    (localShows || []).filter(zyje("show")).forEach(s => {
+      if (!(s.title || "").trim()) return;
       const idx = this.findMergeIndex(shows, s);
       if (idx === -1) shows.push(s);
       else shows[idx] = this.mergeShow(shows[idx], s);
@@ -626,7 +777,8 @@ class GoogleDriveSync {
 
     return {
       movies: movies,
-      shows: shows
+      shows: shows,
+      deleted: deleted
     };
   }
 
@@ -646,15 +798,25 @@ class GoogleDriveSync {
     }
 
     // 2. Sync Database
-    const driveData = await this.downloadFromDrive();
-    if (driveData && (driveData.movies || driveData.shows)) {
+    let driveData;
+    try {
+      driveData = await this.downloadFromDrive();
+    } catch (err) {
+      // Stanu pliku nie znamy: niczego nie wysyłamy i niczego nie podmieniamy.
+      if (window.showToastNotification) {
+        window.showToastNotification(`Nie udało się odczytać bazy z Dysku Google (${err.message}). Biblioteka w przeglądarce i plik na Dysku zostają bez zmian.`, "error");
+      }
+      return;
+    }
+    if (driveData) {
       if (onDataUpdated) {
         onDataUpdated(driveData.movies || [], driveData.shows || [], driveData);
       }
     } else {
-      // If file doesn't exist yet, immediately upload local library to create the initial file on Drive
-      const local = typeof this.localLibraryProvider === "function" ? this.localLibraryProvider() : null;
-      if (local && ((local.movies && local.movies.length > 0) || (local.shows && local.shows.length > 0))) {
+      // Pliku na Dysku na pewno nie ma: zakładamy go z biblioteki użytkownika.
+      // Baza demo i baza serwera nie są biblioteką użytkownika — nie trafiają na Dysk.
+      const local = this._bibliotekaUzytkownika();
+      if (local && (local.movies.length > 0 || local.shows.length > 0)) {
         await this.uploadToDrive(local.movies, local.shows);
       }
     }

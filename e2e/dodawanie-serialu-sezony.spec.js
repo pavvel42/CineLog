@@ -134,3 +134,65 @@ test.describe("Dodawanie serialu z polskim tytułem („Biuro” = The Office US
     await expect(sheet.locator(".m3-ep-item")).toHaveCount(23);
   });
 });
+
+// Regresja (audyt F3): wpis zapisany starszą wersją ma `total_seasons: 1` i listę odcinków
+// tylko dla sezonu 1. Tracker przy każdym otwarciu pobiera świeże szczegóły serialu, ale
+// istniejących (przestarzałych) metadanych wpisu nie ruszał — zostawało „Sezon 1 (0/6)".
+test.describe("Stary wpis „Biuro” z niepełnymi metadanymi", () => {
+  test.use({ serviceWorkers: "block" });
+
+  const STARY_WPIS = {
+    uuid: "aaaaaaaa-0000-4000-8000-000000000001",
+    title: "Biuro",
+    year: "2005",
+    status: "watching",
+    tmdb_id: 2316,
+    total_seasons: 1,
+    total_episodes: 6,
+    season_ep_counts: { 1: 6 },
+    episodes_watched: [],
+    is_favorite: false,
+  };
+
+  test("tracker pokazuje 9 sezonów i naprawia wpis w bibliotece", async ({ page }) => {
+    await przygotuj(page);
+    await page.addInitScript((wpis) => {
+      localStorage.setItem("cinelog_database", JSON.stringify({ movies: [], shows: [wpis], updated_at: "2026-01-01T00:00:00Z" }));
+    }, STARY_WPIS);
+
+    await page.goto("/?mode=shows");
+    await page.locator("#m3-shows-grid article.m3-card").first().click();
+    const sheet = page.locator("#m3-sheet-episodes");
+    await expect(sheet).toHaveClass(/active/, { timeout: 10_000 });
+
+    const zakladki = sheet.locator(".m3-season-tab");
+    await expect(zakladki).toHaveCount(9);
+    await expect(zakladki.first()).toContainText("(0/6)");
+    await expect(zakladki.nth(8)).toContainText("(0/23)");
+
+    await expect.poll(() => page.evaluate(() => {
+      const wpis = JSON.parse(localStorage.getItem("cinelog_database")).shows[0];
+      return { sezony: wpis.total_seasons, odcinki: wpis.total_episodes, lista: Object.keys(wpis.season_ep_counts).length };
+    })).toEqual({ sezony: 9, odcinki: 186, lista: 9 });
+  });
+
+  test("szczegóły innego serialu (inny tmdb_id) nie nadpisują metadanych wpisu", async ({ page }) => {
+    await przygotuj(page);
+    // TMDb odpowiada na /tv/2316 danymi innego serialu (id 999) — takiej odpowiedzi nie ufamy.
+    await page.route(
+      (url) => url.hostname === "api.themoviedb.org" && /\/tv\/2316$/.test(url.pathname),
+      (r) => r.fulfill(json({ ...SZCZEGOLY_BEZ_LICZBY_SEZONOW, id: 999 }))
+    );
+    await page.addInitScript((wpis) => {
+      localStorage.setItem("cinelog_database", JSON.stringify({ movies: [], shows: [wpis], updated_at: "2026-01-01T00:00:00Z" }));
+    }, STARY_WPIS);
+
+    await page.goto("/?mode=shows");
+    await page.locator("#m3-shows-grid article.m3-card").first().click();
+    const sheet = page.locator("#m3-sheet-episodes");
+    await expect(sheet).toHaveClass(/active/, { timeout: 10_000 });
+    await expect(sheet.locator(".m3-season-tab").first()).toContainText("(0/6)");
+    await page.waitForTimeout(800);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("cinelog_database")).shows[0].total_seasons)).toBe(1);
+  });
+});

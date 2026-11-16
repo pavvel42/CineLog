@@ -2,7 +2,7 @@
 // CineLog - TV Shows Management & Episode Tracker Module
 // ==========================================================================
 
-import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, apiFetch, isRealDetail, generateUUID, recalculateShowProgress, localTimestamp, wybierzTrafienieWTmdb } from './state.js';
+import { state, getActiveEnvMode, tmdbIdOf, getGradientForTitle, saveLocalDatabase, syncWindowAliases, escapeHtml, safeUrl, renderListInChunks, apiFetch, isRealDetail, generateUUID, recalculateShowProgress, localTimestamp, wybierzTrafienieWTmdb, pozycjaDoUsuniecia, oznaczUsuniecie, trybBazyWPamieci, bibliotekaNaSerwerze } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
@@ -52,7 +52,10 @@ async function runCompletionCheck() {
  */
 export async function syncShowsCompletion({ force = false } = {}) {
   if (completionCheckInFlight) return completionCheckInFlight;
-  if (!force && (!state.backendAvailable || Date.now() - completionCheckedAt < COMPLETION_CHECK_COOLDOWN_MS)) {
+  // Trasa uzgadnia bibliotekę SERWERA i odsyła jego listę seriali — w trybie klienta
+  // i demo nie ma czego uzgadniać, a odpowiedź zastąpiłaby bibliotekę użytkownika.
+  if (!bibliotekaNaSerwerze()) return false;
+  if (!force && Date.now() - completionCheckedAt < COMPLETION_CHECK_COOLDOWN_MS) {
     return false;
   }
   completionCheckInFlight = runCompletionCheck()
@@ -196,7 +199,7 @@ export async function renderShows() {
         renderShows();
         updateStats();
         saveLocalDatabase();
-        if (!state.backendAvailable) return;
+        if (!bibliotekaNaSerwerze()) return;
         try {
           const res = await apiFetch(`/api/shows/${s.uuid}`, {
             method: "PUT",
@@ -354,7 +357,7 @@ if (detailStars) {
       renderShows();
       updateStats();
       saveLocalDatabase();
-      if (!state.backendAvailable) {
+      if (!bibliotekaNaSerwerze()) {
         openEpisodeTracker(show);
         return;
       }
@@ -406,9 +409,11 @@ if (favShowBtn) {
     favShowBtn.title = isFav ? "Usuń z ulubionych" : "Dodaj do ulubionych";
   };
   updateShowFavUI();
-  favShowBtn.onclick = () => {
-    toggleShowFavorite(show.uuid, Boolean(show.is_favorite));
-    show.is_favorite = !show.is_favorite;
+  favShowBtn.onclick = async () => {
+    // Stan zmienia wyłącznie toggleShowFavorite; arkusz tylko go odczytuje (patrz movies.js).
+    const zapis = toggleShowFavorite(show.uuid, Boolean(show.is_favorite), show);
+    updateShowFavUI();
+    await zapis; // serwer mógł odrzucić zapis — wtedy zmiana jest już cofnięta
     updateShowFavUI();
   };
 }
@@ -460,16 +465,43 @@ function liczbyOdcinkowSezonow(sezony) {
 }
 
 /**
- * Seriale z importu (TV Time, starsze kopie) nie mają listy odcinków w sezonach.
- * Tracker pobiera ją przy otwarciu, więc dopisujemy ją do wpisu biblioteki —
- * zakładki sezonów mają wtedy prawdziwe mianowniki od pierwszego renderu.
+ * Odświeża metadane wpisu biblioteki (liczba sezonów i odcinków, lista odcinków w sezonach,
+ * status emisji) świeżymi szczegółami serialu, które tracker pobiera przy każdym otwarciu.
+ *
+ * Seriale z importu (TV Time, starsze kopie) nie mają tych pól wcale, a wpisy zapisane
+ * starszą wersją mają je niepełne (jeden sezon z dziewięciu) — tracker pokazywał wtedy
+ * „Sezon 1 (0/6)”, choć miał już w ręku pełne dane. Serial w emisji dostaje tak nowe sezony.
+ * Szczegółom o innym `tmdb_id` niż wpis nie ufamy: to dane innego serialu.
+ * @returns {boolean} true, gdy wpis się zmienił
  */
-function uzupelnijLiczbyOdcinkow(show, detail) {
-  const nowe = detail && detail.season_ep_counts;
-  if (!nowe || !Object.keys(nowe).length) return;
-  if (show.season_ep_counts && Object.keys(show.season_ep_counts).length) return;
-  show.season_ep_counts = { ...nowe };
-  if (!state.backendAvailable) saveLocalDatabase();
+function odswiezMetadaneSerialu(show, detail) {
+  const lista = detail && detail.season_ep_counts;
+  if (!lista || !Object.keys(lista).length) return false;
+  const idWpisu = tmdbIdOf(show.tmdb_id);
+  const idSzczegolow = tmdbIdOf(detail.tmdb_id);
+  if (idWpisu && idSzczegolow && idWpisu !== idSzczegolow) return false;
+
+  const numerySezonow = Object.keys(lista).map(k => parseInt(k, 10)).filter(n => n > 0);
+  const sumaOdcinkow = Object.values(lista).reduce((suma, ile) => suma + (parseInt(ile, 10) || 0), 0);
+  const nowe = {
+    season_ep_counts: { ...lista },
+    total_seasons: Math.max(parseInt(detail.total_seasons, 10) || 0, ...numerySezonow),
+    total_episodes: parseInt(detail.total_episodes, 10) || sumaOdcinkow
+  };
+  if (detail.status) nowe.series_status = detail.status;
+
+  const zmienione = Object.keys(nowe).filter(pole => JSON.stringify(show[pole]) !== JSON.stringify(nowe[pole]));
+  if (!zmienione.length) return false;
+  Object.assign(show, nowe);
+  saveLocalDatabase();
+  if (getActiveEnvMode() === "flask") {
+    apiFetch(`/api/shows/${encodeURIComponent(show.uuid)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(nowe)
+    }).catch(e => console.warn("CineLog: metadane serialu nie zapisały się na serwerze:", e));
+  }
+  return true;
 }
 
 async function fetchTrackerData(show, gen = trackerGen) {
@@ -565,6 +597,7 @@ async function fetchTrackerData(show, gen = trackerGen) {
           }
 
           detail = {
+            tmdb_id: tData.id,
             title: tData.name || show.title,
             plot: plot || show.plot || "",
             genre: (tData.genres || []).map(g => g.name).join(", "),
@@ -638,7 +671,7 @@ async function fetchTrackerData(show, gen = trackerGen) {
     } catch (e) { console.debug("CineLog: szczegóły serialu: OMDb niedostępny", e); }
   }
 
-  uzupelnijLiczbyOdcinkow(show, detail);
+  odswiezMetadaneSerialu(show, detail);
 
   // Direct client fallback for episode metadata if empty
   if (gen !== trackerGen) return null;
@@ -1172,7 +1205,7 @@ function refreshTrackerAfterEpisodeUpdate(updated) {
 async function toggleEpisodeWatch(season, episode) {
   if (!selectedShow) return;
 
-  if (!state.backendAvailable) {
+  if (!bibliotekaNaSerwerze()) {
     persistLocalEpisodes(selectedShow, (eps) => {
       const idx = eps.findIndex(e => e.season === season && e.episode === episode);
       if (idx !== -1) {
@@ -1206,7 +1239,7 @@ async function toggleEpisodeWatch(season, episode) {
 }
 
 async function batchMarkEpisodes(showUuid, episodesList) {
-  if (!state.backendAvailable) {
+  if (!bibliotekaNaSerwerze()) {
     const show = state.shows.find(s => s && s.uuid === showUuid) || selectedShow;
     if (!show) return;
     persistLocalEpisodes(show, (eps) => {
@@ -1325,10 +1358,20 @@ function askBatchConfirmation({ message, season, episode, onAllSeasons, onThisSe
   }
 }
 
-async function toggleShowFavorite(uuid, currentFav) {
+/**
+ * Przełącza „ulubione" serialu: biblioteka w pamięci, zapis lokalny, serwer (tryb Flask).
+ * @param {string} uuid
+ * @param {boolean} currentFav stan sprzed kliknięcia
+ * @param {object} [widok] obiekt pokazywany w arkuszu, gdy nie jest wpisem biblioteki (dostaje ten sam stan)
+ */
+async function toggleShowFavorite(uuid, currentFav, widok = null) {
   const nextFav = !currentFav;
   const found = state.shows.find(s => s.uuid === uuid || s.id === uuid || String(s.tmdb_id) === String(uuid));
-  if (found) found.is_favorite = nextFav;
+  const ustaw = (wartosc) => {
+    if (found) found.is_favorite = wartosc;
+    if (widok && widok !== found) widok.is_favorite = wartosc;
+  };
+  ustaw(nextFav);
   renderShows();
   updateStats();
   saveLocalDatabase();
@@ -1341,12 +1384,19 @@ async function toggleShowFavorite(uuid, currentFav) {
         body: JSON.stringify({ is_favorite: nextFav })
       });
     } catch (e) {
-      // Błąd zapisu na backendzie: cofamy optymistyczną zmianę stanu.
-      if (found) found.is_favorite = currentFav;
-      renderShows();
-      updateStats();
-      saveLocalDatabase();
-      showToastNotification("Nie udało się zapisać zmiany (brak połączenia z serwerem).", "error");
+      if (getActiveEnvMode() === "flask") {
+        // Backend istnieje, a zapisu nie przyjął: cofamy optymistyczną zmianę,
+        // żeby UI nie pokazywało stanu, którego serwer nie ma.
+        ustaw(currentFav);
+        renderShows();
+        updateStats();
+        saveLocalDatabase();
+        showToastNotification("Nie udało się zapisać zmiany na serwerze.", "error");
+      } else {
+        // Tryb klienta / demo (brak backendu, GitHub Pages, offline): zmiana została
+        // zapisana lokalnie i taka ma zostać — to normalny tryb pracy, nie błąd.
+        console.warn("Zapis ulubionych serialu nieudany (sieć):", e);
+      }
     }
   }
 }
@@ -1356,17 +1406,11 @@ async function deleteShow(itemOrUuid) {
   const targetUuid = isObj ? itemOrUuid.uuid : itemOrUuid;
   const targetId = isObj ? itemOrUuid.id : itemOrUuid;
   const targetTmdb = isObj ? itemOrUuid.tmdb_id : null;
-  const targetTitle = isObj ? itemOrUuid.title : (typeof itemOrUuid === "string" ? itemOrUuid : null);
-  const targetNorm = targetTitle ? normalizeTitleForLibrary(targetTitle) : null;
 
-  state.shows = state.shows.filter(s => {
-    if (isObj && s === itemOrUuid) return false;
-    if (targetUuid && s.uuid && String(s.uuid) === String(targetUuid)) return false;
-    if (targetId && s.id && String(s.id) === String(targetId)) return false;
-    if (targetTmdb && s.tmdb_id && String(s.tmdb_id) === String(targetTmdb)) return false;
-    if (targetNorm && s.title && normalizeTitleForLibrary(s.title) === targetNorm) return false;
-    return true;
-  });
+  const usuwane = state.shows.filter(s => pozycjaDoUsuniecia(s, itemOrUuid));
+  state.shows = state.shows.filter(s => !usuwane.includes(s));
+  // Ślad po usunięciu jedzie na Dysk: bez niego pozycja wracała z drugiego urządzenia.
+  if (trybBazyWPamieci() === "client") usuwane.forEach(s => oznaczUsuniecie(s, "show"));
 
   saveLocalDatabase();
   syncWindowAliases();
@@ -1379,7 +1423,9 @@ async function deleteShow(itemOrUuid) {
   showToastNotification("Serial został usunięty z biblioteki.", "info");
 
   const backendId = targetUuid || targetId || targetTmdb;
-  if (backendId && window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
+  // Tylko biblioteka serwera jest usuwana na serwerze. W trybie klienta nieudane usunięcie
+  // „odświeżało listę z serwera”, czyli podmieniało bibliotekę użytkownika cudzą.
+  if (backendId && trybBazyWPamieci() === "flask") {
     try {
       await apiFetch(`/api/shows/${encodeURIComponent(backendId)}`, { method: "DELETE" });
     } catch (err) {

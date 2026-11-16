@@ -403,6 +403,17 @@ export function closeEnvStatusModal() {
   closeModal("m3-sheet-env-status");
 }
 
+/**
+ * Treść okna potwierdzenia: wszystko jest escapowane, a potem przywracane są wyłącznie
+ * znaczniki <b>, </b> i <br> (bez atrybutów). Tytuły z biblioteki i dane z API wstawione
+ * do treści pozostają więc tekstem.
+ * @param {string} message
+ * @returns {string} bezpieczny HTML
+ */
+function sformatujTrescOkna(message) {
+  return escapeHtml(message).replace(/&lt;(\/?b|br)&gt;/g, "<$1>");
+}
+
 export function showM3ConfirmDialog({
   title = "Czy na pewno?",
   message = "",
@@ -431,7 +442,7 @@ export function showM3ConfirmDialog({
           <span class="material-symbols-rounded" style="font-size: 26px;">${icon}</span>
         </div>
         <h3 class="m3-dialog-title">${escapeHtml(title)}</h3>
-        <div class="m3-dialog-message">${escapeHtml(message)}</div>
+        <div class="m3-dialog-message">${sformatujTrescOkna(message)}</div>
         <div class="m3-dialog-actions">
           <button type="button" class="m3-chip" id="m3-dialog-btn-cancel" style="padding: 10px 18px; font-weight: 700; border-radius: var(--md-corner-full);">${escapeHtml(cancelText)}</button>
           <button type="button" class="m3-btn-action-primary" id="m3-dialog-btn-confirm" style="background: ${confirmBtnBg}; color: ${confirmBtnFg}; padding: 10px 22px; font-weight: 700; border-radius: var(--md-corner-full);">${escapeHtml(confirmText)}</button>

@@ -4,7 +4,7 @@
 // dodawania, więc serial trafia do biblioteki z liczbą sezonów i odcinków.
 // ==========================================================================
 
-import { state, saveLocalDatabase, apiFetch, buildLocalLibraryEntry, getActiveEnvMode, tmdbIdOf } from './state.js';
+import { state, saveLocalDatabase, apiFetch, buildLocalLibraryEntry, getActiveEnvMode, tmdbIdOf, taSamaPozycja } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { renderMovies } from './movies.js';
@@ -53,7 +53,8 @@ function zbudujZapis(detail, serial) {
  * Dodaje pozycję do listy „Do obejrzenia”: serwer w trybie Flask, w pozostałych
  * trybach (albo gdy serwer odrzuci zapis) — biblioteka w przeglądarce.
  * @param {object} item pozycja z rekomendacji / filmografii (title, year, tmdb_id|id, type|media_type)
- * @returns {Promise<object>} zapisany wpis biblioteki
+ * Pozycja już obecna w bibliotece zostaje bez zmian statusu i oceny.
+ * @returns {Promise<object>} wpis biblioteki (nowy albo istniejący)
  */
 export async function dodajDoKolejki(item) {
   const serial = jestSerialem(item);
@@ -78,16 +79,25 @@ export async function dodajDoKolejki(item) {
     tylkoLokalnie = true;
   }
 
-  if (serial) {
-    state.shows.unshift(zapisany);
-    if (state.mode === "shows") renderShows();
-  } else {
-    state.movies.unshift(zapisany);
-    if (state.mode === "movies") renderMovies();
+  // `already_exists` to informacja odpowiedzi serwera, nie pole wpisu biblioteki.
+  const { already_exists: serwerJuzMial, ...wpis } = zapisany;
+  const lista = serial ? state.shows : state.movies;
+  const idx = lista.findIndex(w => (w.uuid && w.uuid === wpis.uuid) || taSamaPozycja(w, wpis));
+  const juzByl = Boolean(serwerJuzMial) || idx !== -1;
+  if (idx === -1) {
+    lista.unshift(wpis);
+  } else if (!tylkoLokalnie) {
+    // Serwer zwrócił aktualny stan wpisu (status i ocena zostają jego); lokalnego
+    // wpisu nie nadpisujemy świeżo zbudowanym „watchlist” bez oceny.
+    lista[idx] = { ...lista[idx], ...wpis };
   }
+  zapisany = idx === -1 || !tylkoLokalnie ? wpis : lista[idx];
+  if (state.mode === (serial ? "shows" : "movies")) (serial ? renderShows : renderMovies)();
   updateStats();
   saveLocalDatabase();
-  showToastNotification(`Dodano "${zapisany.title}" do listy Do obejrzenia! 🔖`);
+  showToastNotification(juzByl
+    ? `„${zapisany.title}” jest już w bibliotece.`
+    : `Dodano "${zapisany.title}" do listy Do obejrzenia! 🔖`, juzByl ? "info" : "success");
   // Ostrzeżenie po toaście sukcesu: oba dzielą jeden element, wcześniejsze by zniknęło.
   if (tylkoLokalnie && getActiveEnvMode() === "flask") {
     showToastNotification("Nie udało się zapisać na serwerze — pozycja jest tylko w tej przeglądarce.", "error");

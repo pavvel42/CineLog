@@ -1,4 +1,4 @@
-import { state, getGradientForTitle, apiFetch, wybierzTrafienieWTmdb } from './state.js';
+import { state, getGradientForTitle, apiFetch, wybierzTrafienieWTmdb, escapeHtml, safeUrl, bibliotekaNaSerwerze } from './state.js';
 import { showToastNotification } from './ui.js';
 import { openMovieDetail } from './movies.js';
 import { openEpisodeTracker } from './shows.js';
@@ -28,14 +28,15 @@ export async function loadUpcomingData(forceRefresh = false) {
 
       let items = [];
 
-      // 1. Try Flask API /api/upcoming first
-      try {
-        const res = await apiFetch(forceRefresh ? "/api/upcoming?refresh=1" : "/api/upcoming");
-        if (res.ok) {
+      // 1. Harmonogram z serwera — tylko dla biblioteki serwera. /api/upcoming liczy premiery
+      //    z bazy serwera, więc w trybie klienta i demo pokazywałby cudzą bibliotekę.
+      if (bibliotekaNaSerwerze()) {
+        try {
+          const res = await apiFetch(forceRefresh ? "/api/upcoming?refresh=1" : "/api/upcoming");
           const data = await res.json();
           items = data.items || [];
-        }
-      } catch (e) { console.debug("CineLog: radar premier z backendu niedostępny", e); }
+        } catch (e) { console.debug("CineLog: radar premier z backendu niedostępny", e); }
+      }
 
       // 2. Always ensure all watchlist movies from client state.movies are present (e.g. Avatar 4, 5, etc.)
       const existingMovieIds = new Set(items.filter(i => i.media_type === "movie").map(i => i.id || i.title));
@@ -249,11 +250,11 @@ function renderUpcoming() {
     if (it.days_left === 0) {
       countdownBadge = `<span class="m3-countdown-badge today"><span class="material-symbols-rounded" style="font-size: 14px;">local_fire_department</span> Premiera Dzisiaj!</span>`;
     } else if (it.days_left === 1) {
-      countdownBadge = `<span class="m3-countdown-badge urgent"><span class="material-symbols-rounded" style="font-size: 14px;">schedule</span> Jutro! (${getDayOfWeekPL(it.release_date)})</span>`;
+      countdownBadge = `<span class="m3-countdown-badge urgent"><span class="material-symbols-rounded" style="font-size: 14px;">schedule</span> Jutro! (${escapeHtml(getDayOfWeekPL(it.release_date))})</span>`;
     } else if (it.days_left <= 7) {
-      countdownBadge = `<span class="m3-countdown-badge urgent"><span class="material-symbols-rounded" style="font-size: 14px;">hourglass_top</span> Za ${it.days_left} dni (${getDayOfWeekPL(it.release_date)})</span>`;
+      countdownBadge = `<span class="m3-countdown-badge urgent"><span class="material-symbols-rounded" style="font-size: 14px;">hourglass_top</span> Za ${escapeHtml(it.days_left)} dni (${escapeHtml(getDayOfWeekPL(it.release_date))})</span>`;
     } else if (it.days_left < 9999) {
-      countdownBadge = `<span class="m3-countdown-badge normal"><span class="material-symbols-rounded" style="font-size: 14px;">calendar_month</span> Za ${it.days_left} dni • ${formatDatePL(it.release_date)}</span>`;
+      countdownBadge = `<span class="m3-countdown-badge normal"><span class="material-symbols-rounded" style="font-size: 14px;">calendar_month</span> Za ${escapeHtml(it.days_left)} dni • ${escapeHtml(formatDatePL(it.release_date))}</span>`;
     } else {
       countdownBadge = `<span class="m3-countdown-badge in-prod"><span class="material-symbols-rounded" style="font-size: 14px;">movie_filter</span> Kolejny sezon zapowiedziany</span>`;
     }
@@ -262,21 +263,25 @@ function renderUpcoming() {
       ? `<span class="m3-meta-badge" style="font-size: 11px; padding: 2px 6px;"><span class="material-symbols-rounded" style="font-size: 12px;">tv</span> Serial</span>`
       : `<span class="m3-meta-badge" style="font-size: 11px; padding: 2px 6px;"><span class="material-symbols-rounded" style="font-size: 12px;">movie</span> Film</span>`;
 
-    const posterHtml = it.poster_url 
-      ? `<img src="${it.poster_url}" alt="${it.title}" class="m3-upcoming-poster" loading="lazy" data-fallback-display="flex"><div class="m3-upcoming-poster" style="display: none; align-items: center; justify-content: center; background: ${getGradientForTitle(it.title)}; font-size: 10px; color: #fff; font-weight: 700; text-align: center; padding: 4px;">${it.title}</div>`
-      : `<div class="m3-upcoming-poster" style="display: flex; align-items: center; justify-content: center; background: ${getGradientForTitle(it.title)}; font-size: 10px; color: #fff; font-weight: 700; text-align: center; padding: 4px;">${it.title}</div>`;
+    // Tytuł i adres plakatu pochodzą z TMDb/biblioteki — do HTML tylko po escapowaniu.
+    const safeTitle = escapeHtml(it.title);
+    const posterSrc = safeUrl(it.poster_url);
+    const titleFallbackHtml = (display) => `<div class="m3-upcoming-poster" style="display: ${display}; align-items: center; justify-content: center; background: ${getGradientForTitle(it.title)}; font-size: 10px; color: #fff; font-weight: 700; text-align: center; padding: 4px;">${safeTitle}</div>`;
+    const posterHtml = posterSrc
+      ? `<img src="${escapeHtml(posterSrc)}" alt="${safeTitle}" class="m3-upcoming-poster" loading="lazy" data-fallback-display="flex">${titleFallbackHtml("none")}`
+      : titleFallbackHtml("flex");
 
     return `
-      <div class="m3-upcoming-card" data-id="${it.id}" data-type="${it.media_type}" data-title="${it.title}">
+      <div class="m3-upcoming-card" data-id="${escapeHtml(it.id)}" data-type="${escapeHtml(it.media_type)}" data-title="${safeTitle}">
         ${posterHtml}
         <div class="m3-upcoming-body">
           <div>
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 4px;">
               ${typeBadge}
-              ${it.release_date ? `<span style="font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); font-weight: 600;">${it.release_date}</span>` : ''}
+              ${it.release_date ? `<span style="font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); font-weight: 600;">${escapeHtml(it.release_date)}</span>` : ''}
             </div>
-            <div class="m3-upcoming-title" title="${it.title}">${it.title}</div>
-            <div class="m3-upcoming-subtitle">${it.status_label || ''}</div>
+            <div class="m3-upcoming-title" title="${safeTitle}">${safeTitle}</div>
+            <div class="m3-upcoming-subtitle">${escapeHtml(it.status_label || '')}</div>
           </div>
           <div>
             ${countdownBadge}
@@ -324,13 +329,62 @@ function renderUpcoming() {
   });
 }
 
+/** Tekst wartości iCalendar (RFC 5545 §3.3.11): `\`, `;`, `,` i nowa linia wymagają ukośnika. */
+function escapeIcsText(value) {
+  return String(value ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\r\n|\r|\n/g, "\\n");
+}
+
+/** Liczba oktetów UTF-8 jednego punktu kodowego. */
+function utf8Length(codePoint) {
+  if (codePoint <= 0x7F) return 1;
+  if (codePoint <= 0x7FF) return 2;
+  if (codePoint <= 0xFFFF) return 3;
+  return 4;
+}
+
+/** Zawija linię do 75 oktetów (RFC 5545 §3.1); kontynuacja zaczyna się od spacji, znaków wielobajtowych nie tnie. */
+function foldIcsLine(line) {
+  const parts = [];
+  let current = "";
+  let bytes = 0;
+  for (const ch of line) {
+    const size = utf8Length(ch.codePointAt(0));
+    if (bytes + size > 75) {
+      parts.push(current);
+      current = " ";
+      bytes = 1;
+    }
+    current += ch;
+    bytes += size;
+  }
+  parts.push(current);
+  return parts.join("\r\n");
+}
+
+/** Czy tekst to istniejąca data kalendarzowa RRRR-MM-DD (np. nie 2026-02-30). */
+function isIsoDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [y, m, d] = value.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toISOString().slice(0, 10) === value;
+}
+
+/** Dzień po `RRRR-MM-DD` w formacie `RRRRMMDD` (DTEND wydarzenia całodniowego jest wyłączny). */
+function nextDayIcs(isoDate) {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10).replace(/-/g, "");
+}
+
 function exportCalendarICS() {
   if (!upcomingData || upcomingData.length === 0) {
     showToastNotification("Brak nadchodzących premier do wyeksportowania.", "info");
     return;
   }
 
-  const validItems = upcomingData.filter(it => it.release_date && it.release_date.match(/^\d{4}-\d{2}-\d{2}$/));
+  const validItems = upcomingData.filter(it => it.release_date && isIsoDate(it.release_date));
   if (validItems.length === 0) {
     showToastNotification("Brak pozycji z potwierdzoną dokładną datą premiery.", "info");
     return;
@@ -349,19 +403,23 @@ function exportCalendarICS() {
   validItems.forEach(it => {
     const dStr = it.release_date.replace(/-/g, "");
     const nowStr = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-    const uid = `cinelog-${it.id || it.title.replace(/\s+/g, "_")}-${dStr}@cinelog.app`;
+    const uid = `cinelog-${String(it.id || it.title).replace(/[^\w-]+/g, "_")}-${dStr}@cinelog.app`;
     const summary = it.media_type === "tv"
       ? `📺 Premiera odcinka: ${it.title} (${it.status_label || 'Nowy odcinek'})`
       : `🎬 Premiera filmu: ${it.title}`;
-    const description = `Premiera w CineLog: ${it.title}\\nStatus: ${it.status_label || 'Wkrótce'}\\nTyp: ${it.media_type === 'tv' ? 'Serial' : 'Film'}`;
+    const description = [
+      `Premiera w CineLog: ${it.title}`,
+      `Status: ${it.status_label || 'Wkrótce'}`,
+      `Typ: ${it.media_type === 'tv' ? 'Serial' : 'Film'}`
+    ].map(escapeIcsText).join("\\n");
 
     ics.push(
       "BEGIN:VEVENT",
       `UID:${uid}`,
       `DTSTAMP:${nowStr}`,
       `DTSTART;VALUE=DATE:${dStr}`,
-      `DTEND;VALUE=DATE:${dStr}`,
-      `SUMMARY:${summary}`,
+      `DTEND;VALUE=DATE:${nextDayIcs(it.release_date)}`,
+      `SUMMARY:${escapeIcsText(summary)}`,
       `DESCRIPTION:${description}`,
       "STATUS:CONFIRMED",
       "TRANSP:TRANSPARENT",
@@ -371,7 +429,7 @@ function exportCalendarICS() {
 
   ics.push("END:VCALENDAR");
 
-  const blob = new Blob([ics.join("\r\n")], { type: "text/calendar;charset=utf-8" });
+  const blob = new Blob([ics.map(foldIcsLine).join("\r\n") + "\r\n"], { type: "text/calendar;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

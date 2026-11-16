@@ -2,7 +2,7 @@
 // CineLog - Movies Management & Details Modal Module
 // ==========================================================================
 
-import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, normalizeTitleForLibrary, escapeHtml, safeUrl, renderListInChunks, apiFetch, isRealDetail, clientTmdbKey, szukajWTmdbPoStronieKlienta, localTimestamp, getActiveEnvMode, wybierzTrafienieWTmdb } from './state.js';
+import { state, getGradientForTitle, saveLocalDatabase, syncWindowAliases, escapeHtml, safeUrl, renderListInChunks, apiFetch, isRealDetail, clientTmdbKey, szukajWTmdbPoStronieKlienta, localTimestamp, getActiveEnvMode, wybierzTrafienieWTmdb, pozycjaDoUsuniecia, oznaczUsuniecie, trybBazyWPamieci, bibliotekaNaSerwerze } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { getWatchProvidersForTitle, matchVodFilter, ensureVodDataForVisible, getUserLanguage, getCountryDisplayName } from './vod.js';
@@ -411,9 +411,12 @@ function initMovieFavoriteButton(movie) {
     favBtn.title = isFav ? "Usuń z ulubionych" : "Dodaj do ulubionych";
   };
   updateFavBtnUI();
-  favBtn.onclick = () => {
-    toggleMovieFavorite(movie.uuid, Boolean(movie.is_favorite));
-    movie.is_favorite = !movie.is_favorite;
+  favBtn.onclick = async () => {
+    // Stan zmienia wyłącznie toggleMovieFavorite; arkusz tylko go odczytuje. Wcześniej pole
+    // było odwracane tu drugi raz (arkusz trzyma ten sam obiekt co biblioteka) i serce gasło.
+    const zapis = toggleMovieFavorite(movie.uuid, Boolean(movie.is_favorite), movie);
+    updateFavBtnUI();
+    await zapis; // serwer mógł odrzucić zapis — wtedy zmiana jest już cofnięta
     updateFavBtnUI();
   };
 }
@@ -672,10 +675,20 @@ export async function openMovieDetail(movie) {
   }
 }
 
-async function toggleMovieFavorite(uuid, currentFav) {
+/**
+ * Przełącza „ulubione" filmu: biblioteka w pamięci, zapis lokalny, serwer (tryb Flask).
+ * @param {string} uuid
+ * @param {boolean} currentFav stan sprzed kliknięcia
+ * @param {object} [widok] obiekt pokazywany w arkuszu, gdy nie jest wpisem biblioteki (dostaje ten sam stan)
+ */
+async function toggleMovieFavorite(uuid, currentFav, widok = null) {
   const nextFav = !currentFav;
   const found = state.movies.find(m => m.uuid === uuid || m.id === uuid || String(m.tmdb_id) === String(uuid));
-  if (found) found.is_favorite = nextFav;
+  const ustaw = (wartosc) => {
+    if (found) found.is_favorite = wartosc;
+    if (widok && widok !== found) widok.is_favorite = wartosc;
+  };
+  ustaw(nextFav);
   renderMovies();
   updateStats();
   saveLocalDatabase();
@@ -691,7 +704,7 @@ async function toggleMovieFavorite(uuid, currentFav) {
       if (getActiveEnvMode() === "flask") {
         // Backend istnieje, a zapisu nie przyjął: cofamy optymistyczną zmianę,
         // żeby UI nie pokazywało stanu, którego serwer nie ma.
-        if (found) found.is_favorite = currentFav;
+        ustaw(currentFav);
         renderMovies();
         updateStats();
         saveLocalDatabase();
@@ -791,17 +804,11 @@ async function deleteMovie(itemOrUuid) {
   const targetUuid = isObj ? itemOrUuid.uuid : itemOrUuid;
   const targetId = isObj ? itemOrUuid.id : itemOrUuid;
   const targetTmdb = isObj ? itemOrUuid.tmdb_id : null;
-  const targetTitle = isObj ? itemOrUuid.title : (typeof itemOrUuid === "string" ? itemOrUuid : null);
-  const targetNorm = targetTitle ? normalizeTitleForLibrary(targetTitle) : null;
 
-  state.movies = state.movies.filter(m => {
-    if (isObj && m === itemOrUuid) return false;
-    if (targetUuid && m.uuid && String(m.uuid) === String(targetUuid)) return false;
-    if (targetId && m.id && String(m.id) === String(targetId)) return false;
-    if (targetTmdb && m.tmdb_id && String(m.tmdb_id) === String(targetTmdb)) return false;
-    if (targetNorm && m.title && normalizeTitleForLibrary(m.title) === targetNorm) return false;
-    return true;
-  });
+  const usuwane = state.movies.filter(m => pozycjaDoUsuniecia(m, itemOrUuid));
+  state.movies = state.movies.filter(m => !usuwane.includes(m));
+  // Ślad po usunięciu jedzie na Dysk: bez niego pozycja wracała z drugiego urządzenia.
+  if (trybBazyWPamieci() === "client") usuwane.forEach(m => oznaczUsuniecie(m, "movie"));
 
   saveLocalDatabase();
   syncWindowAliases();
@@ -814,7 +821,9 @@ async function deleteMovie(itemOrUuid) {
   showToastNotification("Film został usunięty z biblioteki.", "info");
 
   const backendId = targetUuid || targetId || targetTmdb;
-  if (backendId && window.location.protocol !== "file:" && !window.location.hostname.includes("github.io")) {
+  // Tylko biblioteka serwera jest usuwana na serwerze. W trybie klienta nieudane usunięcie
+  // „odświeżało listę z serwera”, czyli podmieniało bibliotekę użytkownika cudzą.
+  if (backendId && trybBazyWPamieci() === "flask") {
     try {
       await apiFetch(`/api/movies/${encodeURIComponent(backendId)}`, { method: "DELETE" });
     } catch (err) {
@@ -963,25 +972,24 @@ export async function openRematchPicker(item, itemType = "movie") {
           };
 
           let saved = false;
-          try {
-            const endpoint = itemType === "series" ? `/api/shows/${item.uuid}` : `/api/movies/${item.uuid}`;
-            const updateRes = await apiFetch(endpoint, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload)
-            });
-
-            if (updateRes.ok) {
+          if (bibliotekaNaSerwerze()) {
+            try {
+              const endpoint = itemType === "series" ? `/api/shows/${item.uuid}` : `/api/movies/${item.uuid}`;
+              const updateRes = await apiFetch(endpoint, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+              });
               applyRematch(await updateRes.json());
               saved = true;
+            } catch (err) {
+              console.error("Error saving rematch:", err);
+              showToastNotification("Nie udało się zapisać nowej wersji na serwerze.", "error");
             }
-          } catch (err) {
-            console.error("Error saving rematch:", err);
-            showToastNotification("Nie udało się zapisać nowej wersji na serwerze.", "error");
           }
 
           if (!saved) {
-            // Tryb klienta (GitHub Pages / offline): aktualizacja lokalna.
+            // Tryb klienta / demo / brak serwera: aktualizacja w przeglądarce.
             applyRematch(payload);
           }
         });

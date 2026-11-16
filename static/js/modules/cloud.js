@@ -2,7 +2,7 @@
 // CineLog - Google Drive Cloud Sync, Local Backup & AI Configuration Module
 // ==========================================================================
 
-import { state, saveLocalDatabase, markUserDatabaseCustom, syncWindowAliases, escapeHtml, zapiszKopieBazy, pobierzKopieBazy, przywrocKopieBazy } from './state.js';
+import { state, saveLocalDatabase, markUserDatabaseCustom, syncWindowAliases, escapeHtml, zapiszKopieBazy, pobierzKopieBazy, przywrocKopieBazy, trybBazyWPamieci, pobierzUsuniete, zapiszUsuniete, odwolajUsunieciaDla } from './state.js';
 import { showToastNotification, showM3ConfirmDialog } from './ui.js';
 import { updateStats } from './stats.js';
 import { renderMovies } from './movies.js';
@@ -581,12 +581,23 @@ if (btnConnect) {
       try {
         window.googleDriveSync.connect(
           clientId,
-          (movies, shows) => {
-            if (movies && movies.length > 0) zapiszKopieBazy("połączenie z Google Drive");
-            if (movies && movies.length > 0) state.movies = movies;
-            if (shows && shows.length > 0) state.shows = shows;
-            saveLocalDatabase();
-            markUserDatabaseCustom();
+          (movies, shows, driveData) => {
+            const dyskMaDane = (Array.isArray(movies) && movies.length > 0) || (Array.isArray(shows) && shows.length > 0);
+            if (dyskMaDane) {
+              // Biblioteka z Dysku zastępuje lokalną w całości. Podmiana samych filmów albo
+              // samych seriali zostawiała drugą połowę z bazy demo i wysyłała ją na Dysk.
+              zapiszKopieBazy("połączenie z Google Drive");
+              state.movies = Array.isArray(movies) ? movies : [];
+              state.shows = Array.isArray(shows) ? shows : [];
+              // Najpierw tryb, potem zapis: zapis idzie pod klucz trybu biblioteki w pamięci.
+              markUserDatabaseCustom();
+              zapiszUsuniete(driveData && Array.isArray(driveData.deleted) ? driveData.deleted : []);
+              saveLocalDatabase(true);
+              window.googleDriveSync.zapamietajStanZsynchronizowany();
+            } else if (trybBazyWPamieci() === "client") {
+              // Pusta baza na Dysku: zostaje biblioteka użytkownika i to ona trafia na Dysk.
+              saveLocalDatabase();
+            }
             updateStats();
             if (state.mode === "movies") renderMovies();
             else renderShows();
@@ -601,6 +612,28 @@ if (btnConnect) {
         showToastNotification(`Nie udało się rozpocząć logowania Google: ${e && e.message ? e.message : "nieznany błąd"}.`, "error");
       }
     }
+  });
+}
+
+const opisBledu = (e) => (e && e.message ? e.message : "nieznany błąd");
+
+/**
+ * „Wyślij" i „Scal" dotyczą biblioteki użytkownika. Przy otwartej bazie demo albo bazie
+ * serwera wysłałyby na Dysk cudzą bazę jako bibliotekę użytkownika — wymagają świadomej zgody.
+ * @param {string} operacja nazwa przycisku
+ * @returns {Promise<boolean>}
+ */
+async function potwierdzUzycieCudzejBazy(operacja) {
+  const tryb = trybBazyWPamieci();
+  if (tryb === "client") return true;
+  const nazwaBazy = tryb === "demo" ? "bazę demonstracyjną" : "bazę z serwera Flask";
+  return showM3ConfirmDialog({
+    title: "To nie jest Twoja biblioteka",
+    message: `Masz teraz otwartą <b>${nazwaBazy}</b>. „${operacja}” wyśle ją na Dysk Google i od tej chwili <b>będzie ona Twoją biblioteką</b> — także na innych urządzeniach.<br><br>Jeśli chcesz pracować na własnej bibliotece, anuluj i przełącz się na „Tryb klienta”.`,
+    confirmText: "Tak, użyj tej bazy",
+    cancelText: "Anuluj",
+    icon: "warning",
+    isDestructive: true
   });
 }
 
@@ -628,8 +661,11 @@ if (btnPull) {
           const kopiaZapisana = zapiszKopieBazy("Pull z Google Drive");
           state.movies = Array.isArray(data.movies) ? data.movies : [];
           state.shows = Array.isArray(data.shows) ? data.shows : [];
-          saveLocalDatabase();
           markUserDatabaseCustom();
+          zapiszUsuniete(Array.isArray(data.deleted) ? data.deleted : []);
+          // Bez wysyłki z powrotem: to jest dokładnie stan, który przyszedł z Dysku.
+          saveLocalDatabase(true);
+          window.googleDriveSync.zapamietajStanZsynchronizowany();
           syncWindowAliases();
           updateStats();
 
@@ -654,7 +690,7 @@ if (btnPull) {
           showToastNotification("Nie znaleziono pliku bazy na Dysku. Upewnij się, że na drugim urządzeniu kliknięto 'Wyślij do Chmury'.", "warning");
         }
       } catch (e) {
-        showToastNotification("Błąd podczas pobierania bazy z Dysku Google.", "error");
+        showToastNotification(`Nie udało się pobrać bazy z Dysku Google (${opisBledu(e)}). Biblioteka w przeglądarce zostaje bez zmian.`, "error");
       } finally {
         btnPull.innerHTML = origText;
         btnPull.disabled = false;
@@ -667,6 +703,13 @@ const btnPush = document.getElementById("m3-btn-gdrive-push");
 if (btnPush) {
   btnPush.addEventListener("click", async () => {
     if (window.googleDriveSync) {
+      if (!(await potwierdzUzycieCudzejBazy("Wyślij do Chmury"))) return;
+      if (trybBazyWPamieci() !== "client") {
+        // Po zgodzie otwarta baza staje się biblioteką użytkownika; poprzednia zostaje jako kopia.
+        zapiszKopieBazy("wysłanie otwartej bazy na Dysk Google");
+        markUserDatabaseCustom();
+        saveLocalDatabase(true);
+      }
       btnPush.disabled = true;
       const origText = btnPush.innerHTML;
       btnPush.innerHTML = `<span class="material-symbols-rounded" style="animation: spin 1s linear infinite; font-size: 18px;">sync</span> Zapisuję na Dysku...`;
@@ -707,6 +750,7 @@ const btnMerge = document.getElementById("m3-btn-gdrive-merge");
 if (btnMerge) {
   btnMerge.addEventListener("click", async () => {
     if (window.googleDriveSync) {
+      if (!(await potwierdzUzycieCudzejBazy("Scal z Chmurą"))) return;
       btnMerge.disabled = true;
       const origText = btnMerge.innerHTML;
       btnMerge.innerHTML = `<span class="material-symbols-rounded" style="animation: spin 1s linear infinite; font-size: 16px;">sync</span> Scalam...`;
@@ -715,11 +759,13 @@ if (btnMerge) {
         const cloudData = await window.googleDriveSync.downloadFromDrive();
         if (cloudData) {
           const kopiaZapisana = zapiszKopieBazy("scalanie z Google Drive");
-          const merged = window.googleDriveSync.mergeLibraries(state.movies, state.shows, cloudData.movies, cloudData.shows);
+          const merged = window.googleDriveSync.mergeLibraries(state.movies, state.shows, cloudData.movies, cloudData.shows, pobierzUsuniete(), cloudData.deleted);
           state.movies = merged.movies;
           state.shows = merged.shows;
-          saveLocalDatabase();
           markUserDatabaseCustom();
+          zapiszUsuniete(merged.deleted);
+          // Wysyłka wyniku scalenia jest niżej (uploadToDrive) — bez drugiej, odroczonej.
+          saveLocalDatabase(true);
           syncWindowAliases();
           updateStats();
           if (state.mode === "movies") renderMovies();
@@ -743,7 +789,7 @@ if (btnMerge) {
           showToastNotification("Utworzono nową bazę na Dysku Google z Twojej aktualnej biblioteki.", "success");
         }
       } catch(e) {
-        showToastNotification("Błąd podczas scalania bazy.", "error");
+        showToastNotification(`Nie udało się scalić z Dyskiem Google (${opisBledu(e)}). Nic nie zostało zmienione.`, "error");
       } finally {
         btnMerge.innerHTML = origText;
         btnMerge.disabled = false;
@@ -822,11 +868,15 @@ if (btnRestoreBackup) {
       showToastNotification("Nie udało się przywrócić kopii.", "error");
       return;
     }
+    // Przywrócona biblioteka ma zastąpić tę na Dysku: bez tego następna synchronizacja
+    // pobierała z Dysku stan sprzed przywrócenia i po cichu je cofała.
+    odwolajUsunieciaDla(przywrocone.movies, przywrocone.shows);
+    const naDysku = window.googleDriveSync ? await window.googleDriveSync.zastapNaDysku() : false;
     updateStats();
     if (state.mode === "movies") renderMovies();
     else renderShows();
     updateKopiaBazyHint();
-    showToastNotification(`Przywrócono kopię: ${przywrocone.movies.length} filmów, ${przywrocone.shows.length} seriali.`, "success");
+    showToastNotification(`Przywrócono kopię: ${przywrocone.movies.length} filmów, ${przywrocone.shows.length} seriali${naDysku ? " (zapisano też na Dysku Google)" : ""}.`, "success");
   });
 }
 

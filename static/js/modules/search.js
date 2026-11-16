@@ -1,4 +1,4 @@
-import { state, saveLocalDatabase, getGradientForTitle, findDuplicateInLibrary, normalizeTitleForLibrary, escapeHtml, safeUrl, apiFetch, fetchWithTimeout, tmdbIdOf, localTimestamp } from './state.js';
+import { state, saveLocalDatabase, getGradientForTitle, findDuplicateInLibrary, escapeHtml, safeUrl, apiFetch, fetchWithTimeout, tmdbIdOf, localTimestamp, taSamaPozycja, bibliotekaNaSerwerze } from './state.js';
 import { showToastNotification } from './ui.js';
 import { updateStats } from './stats.js';
 import { getUserLanguage } from './vod.js';
@@ -703,6 +703,7 @@ function initInteractiveStars() {
 }
 
 async function saveMovieToBackend(payload) {
+  if (!bibliotekaNaSerwerze()) return null; // tryb klienta / demo / brak serwera: zapis w przeglądarce
   try {
     // apiFetch rzuca przy błędzie HTTP: łapiemy i schodzimy na zapis lokalny jak dotąd.
     const res = await apiFetch("/api/movies/add", {
@@ -743,11 +744,12 @@ function buildLocalMovie(currentPreviewData, status, rating) {
   return movie;
 }
 
-function upsertMovieInLibrary(savedMovie, sheetAdd) {
+function upsertMovieInLibrary(odpowiedz, sheetAdd) {
+  // `already_exists` to informacja odpowiedzi serwera, nie pole wpisu biblioteki.
+  const { already_exists: _serwerJuzMial, ...savedMovie } = odpowiedz;
   const existingIdx = state.movies.findIndex(m =>
     (m.uuid && m.uuid === savedMovie.uuid) ||
-    (savedMovie.tmdb_id && m.tmdb_id && String(m.tmdb_id) === String(savedMovie.tmdb_id)) ||
-    (normalizeTitleForLibrary(m.title) === normalizeTitleForLibrary(savedMovie.title))
+    taSamaPozycja(m, savedMovie)
   );
 
   if (existingIdx !== -1) {
@@ -785,8 +787,8 @@ async function addMovieFromPreview(currentPreviewData, status, rating, sheetAdd)
   upsertMovieInLibrary(savedMovie, sheetAdd);
   // Komunikat MUSI iść po toaście sukcesu: oba dzielą jeden element DOM, więc
   // wcześniejsze ostrzeżenie zostałoby nadpisane przez „Zapisano…".
-  // W trybie statycznym (GitHub Pages) zapis lokalny to normalna droga — milczymy.
-  if (onlyLocal && state.backendAvailable) {
+  // W trybie klienta i demo zapis w przeglądarce to normalna droga — milczymy.
+  if (onlyLocal && bibliotekaNaSerwerze()) {
     showToastNotification(
       "Serwer nie zapisał filmu — jest tylko w tej przeglądarce. Zsynchronizuj bazę z Dyskiem Google w Ustawieniach.",
       "warning"
@@ -795,6 +797,7 @@ async function addMovieFromPreview(currentPreviewData, status, rating, sheetAdd)
 }
 
 async function saveShowToBackend(payload) {
+  if (!bibliotekaNaSerwerze()) return null; // tryb klienta / demo / brak serwera: zapis w przeglądarce
   try {
     // apiFetch rzuca przy błędzie HTTP: łapiemy i schodzimy na zapis lokalny jak dotąd.
     const res = await apiFetch("/api/shows/add", {
@@ -834,11 +837,11 @@ function buildLocalShow(currentPreviewData, status, rating, episodesList) {
   };
 }
 
-function upsertShowInLibrary(savedShow, sheetAdd) {
+function upsertShowInLibrary(odpowiedz, sheetAdd) {
+  const { already_exists: _serwerJuzMial, ...savedShow } = odpowiedz;
   const existingIdx = state.shows.findIndex(s =>
     (s.uuid && s.uuid === savedShow.uuid) ||
-    (savedShow.tmdb_id && s.tmdb_id && String(s.tmdb_id) === String(savedShow.tmdb_id)) ||
-    (normalizeTitleForLibrary(s.title) === normalizeTitleForLibrary(savedShow.title))
+    taSamaPozycja(s, savedShow)
   );
 
   if (existingIdx !== -1) {
@@ -887,7 +890,7 @@ async function addShowFromPreview(currentPreviewData, status, rating, preAddWatc
   const onlyLocal = !savedShow;
   if (onlyLocal) savedShow = buildLocalShow(currentPreviewData, status, rating, episodesList);
   upsertShowInLibrary(savedShow, sheetAdd);
-  if (onlyLocal && state.backendAvailable) {
+  if (onlyLocal && bibliotekaNaSerwerze()) {
     showToastNotification(
       "Serwer nie zapisał serialu — jest tylko w tej przeglądarce. Zsynchronizuj bazę z Dyskiem Google w Ustawieniach.",
       "warning"

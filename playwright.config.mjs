@@ -1,5 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
+const PISZA_DO_BAZY_SERWERA = ["**/import-zastepuje.spec.js"];
+
 export default defineConfig({
   testDir: "./e2e",
   timeout: 45_000,
@@ -22,5 +24,17 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 20_000,
   },
-  projects: [{ name: "chromium", use: { browserName: "chromium" } }],
+  projects: [
+    { name: "chromium", use: { browserName: "chromium" }, testIgnore: PISZA_DO_BAZY_SERWERA },
+    // Te specyfikacje wymieniają całą wspólną bazę serwera e2e (POST /api/import). Uruchomione
+    // równolegle z resztą kasowały dane zasiane przez inne testy (show-completion: „brak-w-bazie”),
+    // więc idą osobno, po projekcie głównym. Pojedynczo: `npx playwright test <plik> --no-deps`.
+    {
+      name: "chromium-baza-serwera",
+      use: { browserName: "chromium" },
+      testMatch: PISZA_DO_BAZY_SERWERA,
+      dependencies: ["chromium"],
+      fullyParallel: false,
+    },
+  ],
 });

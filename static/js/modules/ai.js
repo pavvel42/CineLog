@@ -346,12 +346,52 @@ const MENTION_FORBIDDEN_WORDS = [
   "tok myślenia", "złota rekomendacja", "wybór", "minut", "godzin"
 ];
 
+// Końcówki fleksyjne etykiet (np. „fascynacje", „archetypie") — dopasowanie po początku słowa.
+const MENTION_FORBIDDEN_STEMS = ["archetyp", "fascynacj"];
+
+// Słowa łączące, które mogą stać obok słów z listy w nagłówku („Mój wybór", „Twój Archetyp Kinomana",
+// „Złota Rekomendacja AI", „Analyze the User's Request"), ale same niczego nie wykluczają.
+const MENTION_FILLER_WORDS = new Set([
+  "mój", "moje", "moja", "twój", "twoje", "twoja", "nasze", "i", "oraz", "a", "do", "dla", "na", "w", "z",
+  "ai", "the", "of", "user's", "input", "data", "plus", "video", "max"
+]);
+
+const MENTION_FORBIDDEN_PHRASES = MENTION_FORBIDDEN_WORDS
+  .map(fw => fw.split(" "))
+  .sort((a, b) => b.length - a.length);
+
+/**
+ * Czy kandydat jest etykietą/nagłówkiem (np. „Mój wybór", „Kluczowe wzorce"), a nie tytułem?
+ * Odrzucamy tylko frazę, która w CAŁOŚCI składa się ze słów z listy i słów łączących.
+ * Tytuł, w którym obok słowa z listy stoi inne słowo („Wybór Zofii", „Prime Suspect",
+ * „Idea of You"), jest prawdziwym tytułem.
+ */
 function isForbiddenTitleCandidate(str) {
-  const l = str.toLowerCase().trim();
-  return MENTION_FORBIDDEN_WORDS.some(fw => l === fw || l.includes(fw)) || /^\d+[\.\)]/.test(str);
+  if (/^\d+[\.\)]/.test(str)) return true;
+
+  const tokens = str.toLowerCase().split(/[^\p{L}\p{N}+']+/u).filter(Boolean);
+  let foundForbidden = false;
+  let i = 0;
+  while (i < tokens.length) {
+    const phrase = MENTION_FORBIDDEN_PHRASES.find(words => words.every((w, k) => tokens[i + k] === w));
+    if (phrase) {
+      foundForbidden = true;
+      i += phrase.length;
+      continue;
+    }
+    const token = tokens[i].replace(/^'+|'+$/g, "").replace(/\+$/, "");
+    if (!token) { i++; continue; }
+    if (MENTION_FORBIDDEN_STEMS.some(stem => token.startsWith(stem)) || MENTION_FORBIDDEN_WORDS.includes(token)) {
+      foundForbidden = true;
+    } else if (!MENTION_FILLER_WORDS.has(token)) {
+      return false; // słowo spoza listy etykiet — to tytuł
+    }
+    i++;
+  }
+  return foundForbidden;
 }
 
-function extractPrimaryMentionCandidates(lines) {
+export function extractPrimaryMentionCandidates(lines) {
   const primaryCandidates = [];
 
   // 1. First pass: Check each line for Primary Recommendation at the start (e.g. 1. "Coherence" (2013))

@@ -2,7 +2,7 @@
 // CineLog - Main Application Coordinator (ES6 Modular Architecture)
 // ==========================================================================
 
-import { state, apiFetch, saveLocalDatabase, syncWindowAliases, resetToDemoDatabase, markUserDatabaseCustom, getActiveEnvMode, setActiveEnvMode, zapiszKopieBazy } from './modules/state.js';
+import { state, apiFetch, saveLocalDatabase, syncWindowAliases, resetToDemoDatabase, getActiveEnvMode, setActiveEnvMode, zapiszKopieBazy, kluczBazyDlaTrybu, ustawBiblioteke, trybBazyWPamieci } from './modules/state.js';
 import { applyMaterial3Theme, showToastNotification, initBackdropDismiss, initThemeControls, initDemoBannerHandlers, updateDemoBannerVisibility, updateEnvStatusModalContent, openEnvStatusModal, closeEnvStatusModal, showM3ConfirmDialog, runSearchDiagnostics } from './modules/ui.js';
 import { updateStats, openAnalyticsModal, initAnalyticsEvents } from './modules/stats.js';
 import { hydrateVodCache, renderTopVodFilterBar, initVodSettingsHandlers } from './modules/vod.js';
@@ -16,6 +16,50 @@ import { initImporterHandlers, openImporterModal } from './modules/importer.js';
 
 // Apply initial M3 theme
 applyMaterial3Theme();
+
+/**
+ * Wczytuje bibliotekę danego trybu z localStorage do pamięci karty.
+ * @param {string} tryb "flask" | "demo" | "client"
+ * @returns {boolean} false, gdy pod kluczem trybu nie ma czytelnej bazy
+ */
+function wczytajBibliotekeZPamieciPrzegladarki(tryb) {
+  const zapisana = localStorage.getItem(kluczBazyDlaTrybu(tryb));
+  if (!zapisana) return false;
+  try {
+    const parsed = JSON.parse(zapisana);
+    if (!parsed || !(Array.isArray(parsed.movies) || Array.isArray(parsed.shows))) return false;
+    ustawBiblioteke(parsed.movies, parsed.shows, tryb);
+    return true;
+  } catch (e) {
+    console.warn("CineLog: uszkodzona lokalna baza w localStorage — pomijam", e);
+    return false;
+  }
+}
+
+function odswiezWidokBiblioteki() {
+  syncWindowAliases();
+  updateStats();
+  if (state.mode === "movies") renderMovies();
+  else if (state.mode === "shows") renderShows();
+  updateDemoBannerVisibility();
+}
+
+/**
+ * Inna karta tej samej przeglądarki zmieniła tryb albo bibliotekę. Bez tej reakcji karta
+ * trzymała w pamięci nieaktualny stan i przy pierwszym zapisie nadpisywała nim cudze zmiany
+ * (karta otwarta w demo potrafiła tak zastąpić bibliotekę użytkownika bazą demo).
+ * @param {StorageEvent} zdarzenie
+ */
+function obsluzZmianeWInnejKarcie(zdarzenie) {
+  if (zdarzenie.storageArea !== localStorage) return;
+  if (zdarzenie.key === null || zdarzenie.key === "cinelog_active_mode") {
+    if (getActiveEnvMode() !== state.trybBazy) loadData();
+    return;
+  }
+  if (state.trybBazy && zdarzenie.key === kluczBazyDlaTrybu(state.trybBazy) && zdarzenie.newValue) {
+    if (wczytajBibliotekeZPamieciPrzegladarki(state.trybBazy)) odswiezWidokBiblioteki();
+  }
+}
 
 async function loadData(targetMode = null) {
   const currentMode = targetMode || getActiveEnvMode();
@@ -31,10 +75,13 @@ async function loadData(targetMode = null) {
           apiFetch("/api/movies"),
           apiFetch("/api/shows")
         ]);
-        state.movies = await resMovies.json();
-        state.shows = await resShows.json();
+        const [filmySerwera, serialeSerwera] = [await resMovies.json(), await resShows.json()];
+        ustawBiblioteke(filmySerwera, serialeSerwera, "flask");
         saveLocalDatabase(true);
         wczytanoZSerwera = true;
+        // Tryb wybrany sam przy pierwszym uruchomieniu zostaje przypięty: chwilowo
+        // niedostępny serwer przy następnym starcie nie przerzuci użytkownika do demo.
+        if (!localStorage.getItem("cinelog_active_mode")) setActiveEnvMode("flask");
       } catch (e) {
         console.warn("Nie udało się wczytać bazy z serwera Flask:", e);
       }
@@ -42,12 +89,10 @@ async function loadData(targetMode = null) {
     if (!wczytanoZSerwera) {
       try {
         const kopiaSerwera = JSON.parse(localStorage.getItem("cinelog_database_server") || "null");
-        state.movies = Array.isArray(kopiaSerwera?.movies) ? kopiaSerwera.movies : [];
-        state.shows = Array.isArray(kopiaSerwera?.shows) ? kopiaSerwera.shows : [];
+        ustawBiblioteke(kopiaSerwera?.movies, kopiaSerwera?.shows, "flask");
       } catch (e) {
         console.warn("Uszkodzona lokalna kopia bazy serwera:", e);
-        state.movies = [];
-        state.shows = [];
+        ustawBiblioteke([], [], "flask");
       }
       showToastNotification("Serwer Flask jest niedostępny — pokazuję ostatnio wczytaną bazę serwera.", "warning");
     }
@@ -55,14 +100,7 @@ async function loadData(targetMode = null) {
     await resetToDemoDatabase();
   } else {
     // Client mode (LocalStorage / custom imported)
-    const localSaved = localStorage.getItem("cinelog_database");
-    if (localSaved) {
-      try {
-        const parsed = JSON.parse(localSaved);
-        if (parsed.movies && Array.isArray(parsed.movies)) state.movies = parsed.movies;
-        if (parsed.shows && Array.isArray(parsed.shows)) state.shows = parsed.shows;
-      } catch (e) { console.warn("CineLog: uszkodzona lokalna baza w localStorage — pomijam", e); }
-    } else {
+    if (!wczytajBibliotekeZPamieciPrzegladarki("client")) {
       await resetToDemoDatabase();
     }
   }
@@ -436,7 +474,7 @@ async function switchToFlaskEnvironment() {
   // (Wcześniej to przełączenie nadpisywało bibliotekę bez pytania i bez kopii.)
   const confirmed = await showM3ConfirmDialog({
     title: "Załadować bazę z serwera Flask?",
-    message: "Aktywną biblioteką stanie się baza z serwera (katalog danych na dysku).<br><br><div style='background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 10px; padding: 10px 12px; font-size: 0.8rem; color: var(--md-sys-color-on-surface);'>🛡️ <b>Twoja biblioteka i kopia na Dysku Google są bezpieczne</b> — baza serwera trafia do osobnego schowka, a poprzednią bibliotekę zapiszę jako kopię.</div>",
+    message: "Aktywną biblioteką stanie się baza z serwera (katalog danych na dysku).<br><br>🛡️ <b>Twoja biblioteka i kopia na Dysku Google są bezpieczne</b> — baza serwera trafia do osobnego schowka, a poprzednią bibliotekę zapiszę jako kopię.",
     confirmText: "Załaduj z serwera",
     cancelText: "Anuluj",
     icon: "dns",
@@ -463,10 +501,7 @@ async function switchToFlaskEnvironment() {
 }
 
 async function switchToDemoEnvironment() {
-  const isDriveAuth = window.googleDriveSync && window.googleDriveSync.isAuthorized();
-  const confirmMsg = isDriveAuth
-    ? "Twoje lokalne dane zostaną zastąpione przykładową kolekcją filmów i seriali.<br><br><div style='background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 10px; padding: 10px 12px; font-size: 0.8rem; color: var(--md-sys-color-on-surface);'>🛡️ <b>Twoja kopia na Dysku Google jest bezpieczna</b> (synchronizacja w chmurze została wstrzymana dla bazy demonstracyjnej).</div>"
-    : "Twoje lokalne dane w pamięci przeglądarki zostaną zresetowane do bazy demonstracyjnej.";
+  const confirmMsg = "Zobaczysz przykładową kolekcję filmów i seriali.<br><br>🛡️ <b>Twoja biblioteka zostaje nietknięta</b> — w przeglądarce i na Dysku Google. Wrócisz do niej przyciskiem „Tryb klienta”. Zmiany zrobione w bazie demo znikają po odświeżeniu strony.";
 
   const confirmed = await showM3ConfirmDialog({
     title: "Załadować bazę demonstracyjną?",
@@ -492,8 +527,13 @@ async function switchToDemoEnvironment() {
 }
 
 async function switchToClientEnvironment() {
+  // Tryb klienta bez zapisanej biblioteki zaczyna od pustej: demo ma własny klucz,
+  // więc nie ma już „kopii demo" do przejęcia jako biblioteka użytkownika.
+  if (!localStorage.getItem(kluczBazyDlaTrybu("client"))) {
+    localStorage.setItem(kluczBazyDlaTrybu("client"), JSON.stringify({ movies: [], shows: [], updated_at: new Date().toISOString() }));
+  }
+  localStorage.setItem("cinelog_user_imported", "true");
   setActiveEnvMode("client");
-  markUserDatabaseCustom();
   showToastNotification("Wczytywanie lokalnej bazy...", "info");
   await loadData("client");
   detectBackendEnvironment(false);
@@ -605,8 +645,11 @@ function initApp() {
 
   // W trybie serwera bazę można wczytać dopiero po sondzie backendu — bez
   // czekania loadData() widział backendAvailable=false i omijał serwer.
+  // To samo przy pierwszym uruchomieniu (żaden tryb nie jest przypięty): wybór trybu
+  // zależy od wyniku sondy, a ustalany przed nią zawsze kończył na demo.
   const sondaBackendu = detectBackendEnvironment(false);
-  if (getActiveEnvMode() === "flask") {
+  const przypietyTryb = localStorage.getItem("cinelog_active_mode");
+  if (!przypietyTryb || przypietyTryb === "flask") {
     sondaBackendu.then(() => loadData());
   } else {
     loadData();
@@ -620,14 +663,18 @@ function initApp() {
  * @param {object[]} shows
  */
 function zastosujBibliotekeZDysku(movies, shows) {
-  state.movies = movies;
-  state.shows = shows;
-  syncWindowAliases();
+  // Dysk dotyczy wyłącznie biblioteki użytkownika: karta, która w międzyczasie
+  // przeszła na demo albo bazę serwera, nie może dostać jej do pamięci.
+  if (trybBazyWPamieci() !== "client") return;
+  // Kopia tylko wtedy, gdy synchronizacja coś zabiera: zwykłe dopisanie pozycji nie może
+  // zastępować kopii zrobionej przed importem albo ręcznym nadpisaniem.
+  const przychodzace = new Set([...movies, ...shows].map((wpis) => wpis && wpis.uuid).filter(Boolean));
+  const cosZnika = [...state.movies, ...state.shows].some((wpis) => wpis && wpis.uuid && !przychodzace.has(wpis.uuid));
+  if (cosZnika) zapiszKopieBazy("automatyczna synchronizacja z Dyskiem Google");
+  ustawBiblioteke(movies, shows, "client");
   saveLocalDatabase(true);
-  updateStats();
-  if (state.mode === "movies") renderMovies();
-  else if (state.mode === "shows") renderShows();
-  updateDemoBannerVisibility();
+  odswiezWidokBiblioteki();
+  if (typeof window.updateKopiaBazyHint === "function") window.updateKopiaBazyHint();
 }
 
 /**
@@ -665,9 +712,12 @@ async function detectBackendEnvironment(showFeedbackToast = false) {
 if (window.googleDriveSync) {
   window.googleDriveSync.localLibraryProvider = () => ({
     movies: state.movies,
-    shows: state.shows
+    shows: state.shows,
+    tryb: trybBazyWPamieci()
   });
 }
+
+window.addEventListener("storage", obsluzZmianeWInnejKarcie);
 
 initImageErrorFallbacks();
 

@@ -43,6 +43,9 @@ export const state = {
   themeMode: localStorage.getItem("cinelog_theme_mode") || "dark",
   colorSeed: localStorage.getItem("cinelog_color_seed") || "#9333ea",
   backendAvailable: false,
+  // Tryb, z którego pochodzi biblioteka trzymana w pamięci TEJ karty ("flask" | "demo" | "client").
+  // Zapis idzie pod klucz tego trybu, a nie trybu z localStorage — ten mogła zmienić inna karta.
+  trybBazy: null,
   vodCache: {},
   recFeedData: null,
   isRecLoading: false,
@@ -162,8 +165,24 @@ export function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
  * @param {RequestInit & {timeoutMs?: number}} [options]
  * @returns {Promise<Response>}
  */
+// Trasy, które zmieniają bibliotekę serwera Flask (`data/*.json`).
+const TRASA_BIBLIOTEKI_SERWERA = /^\/api\/(movies|shows|import)(\/|$)/;
+
 export async function apiFetch(path, options = {}) {
   const { timeoutMs = 15000, headers, ...rest } = options;
+  // Biblioteka klienta i demo to inne bazy niż biblioteka serwera, także gdy serwer działa
+  // obok (aplikacja otwarta z localhost). Zapis takiej biblioteki na serwer psuł obie:
+  // serwer dostawał cudze wpisy, a jego odpowiedź (własna lista) zastępowała bibliotekę
+  // użytkownika. Żądanie odpada tu, bez sieci — wywołujący schodzą na zapis w przeglądarce
+  // tak samo jak przy braku backendu.
+  const metoda = String(rest.method || "GET").toUpperCase();
+  if (metoda !== "GET" && TRASA_BIBLIOTEKI_SERWERA.test(path) && trybBazyWPamieci() !== "flask") {
+    const error = new Error(`Biblioteka w trybie „${trybBazyWPamieci()}” nie jest zapisywana na serwerze (${metoda} ${path})`);
+    error.status = 0;
+    error.path = path;
+    error.kod = "biblioteka-poza-serwerem";
+    throw error;
+  }
   const response = await fetchWithTimeout(path, {
     ...rest,
     headers: { ...getKeyHeaders(), ...(headers || {}) },
@@ -288,6 +307,172 @@ export function normalizeTitleForLibrary(title) {
     .replace(/[^a-z0-9]/g, "");
 }
 
+const idTmdbPozycji = (entry) =>
+  (entry && entry.tmdb_id !== undefined && entry.tmdb_id !== null && entry.tmdb_id !== "") ? String(entry.tmdb_id) : null;
+
+/**
+ * Rok pozycji: pole `year`, data premiery albo nawias w tytule („Maniac (2018)").
+ * @param {object} entry
+ * @returns {string} cztery cyfry albo pusty napis
+ */
+export function rokPozycji(entry) {
+  if (!entry) return "";
+  for (const pole of [entry.year, entry.release_year, entry.release_date, entry.first_air_date]) {
+    const trafienie = String(pole ?? "").match(/(?:^|\D)((?:18|19|20)\d{2})(?:\D|$)/);
+    if (trafienie) return trafienie[1];
+  }
+  const wTytule = String(entry.title || "").match(/\(((?:18|19|20)\d{2})\)/);
+  return wTytule ? wTytule[1] : "";
+}
+
+/**
+ * Czy dwa wpisy to ta sama pozycja biblioteki. Remake to osobna pozycja:
+ * - oba wpisy mają tmdb_id → decyduje wyłącznie równość tmdb_id;
+ * - inaczej ten sam uuid albo ten sam znormalizowany tytuł, o ile lata się nie kłócą
+ *   (równe albo co najmniej jeden wpis nie ma roku).
+ * @param {object} a
+ * @param {object} b
+ * @returns {boolean}
+ */
+export function taSamaPozycja(a, b) {
+  if (!a || !b) return false;
+  const tmdbA = idTmdbPozycji(a);
+  const tmdbB = idTmdbPozycji(b);
+  if (tmdbA && tmdbB) return tmdbA === tmdbB;
+  if (a.uuid && b.uuid && String(a.uuid) === String(b.uuid)) return true;
+  const tytulA = normalizeTitleForLibrary(a.title);
+  if (!tytulA || tytulA !== normalizeTitleForLibrary(b.title)) return false;
+  const rokA = rokPozycji(a);
+  const rokB = rokPozycji(b);
+  return !rokA || !rokB || rokA === rokB;
+}
+
+/**
+ * Czy wpis biblioteki jest tym, który użytkownik usuwa. Cel-obiekt z uuid usuwa dokładnie
+ * ten wpis — wcześniej sam tytuł wystarczał, więc usunięcie remake'u kasowało też oryginał.
+ * @param {object} entry wpis biblioteki
+ * @param {object|string|number} cel usuwany wpis albo jego identyfikator/tytuł
+ * @returns {boolean}
+ */
+export function pozycjaDoUsuniecia(entry, cel) {
+  if (!entry || cel === null || cel === undefined || cel === "") return false;
+  if (typeof cel !== "object") {
+    const klucz = String(cel);
+    if (entry.uuid && String(entry.uuid) === klucz) return true;
+    if (entry.id && String(entry.id) === klucz) return true;
+    const tytul = normalizeTitleForLibrary(klucz);
+    return Boolean(tytul) && normalizeTitleForLibrary(entry.title) === tytul;
+  }
+  if (entry === cel) return true;
+  if (cel.uuid && entry.uuid) return String(entry.uuid) === String(cel.uuid);
+  if (cel.id && entry.id && String(entry.id) === String(cel.id)) return true;
+  return taSamaPozycja(entry, cel);
+}
+
+// --- Usunięcia (nagrobki) -----------------------------------------------------------------
+// Scalanie bibliotek to suma zbiorów, więc bez śladu po usunięciu pozycja skasowana na jednym
+// urządzeniu wracała z drugiego. Ślad („nagrobek") jedzie na Dysk razem z biblioteką.
+const KLUCZ_USUNIETYCH = "cinelog_deleted";
+const MAKS_WIEK_USUNIECIA_MS = 365 * 24 * 60 * 60 * 1000;
+const MAKS_LICZBA_USUNIEC = 5000;
+
+function kluczUsuniecia(u) {
+  if (u.uuid) return `${u.typ}:uuid:${u.uuid}`;
+  if (u.tmdb_id) return `${u.typ}:tmdb:${u.tmdb_id}`;
+  const tytul = normalizeTitleForLibrary(u.title);
+  return tytul ? `${u.typ}:tytul:${tytul}:${u.year || ""}` : "";
+}
+
+/**
+ * Suma dwóch list usunięć: bez duplikatów, bez wpisów starszych niż rok, najnowsze pierwsze.
+ * @param {object[]} a
+ * @param {object[]} b
+ * @returns {{typ: "movie"|"show", uuid: string, tmdb_id: string|null, title: string, year: string, deleted_at: string}[]}
+ */
+export function scalUsuniete(a, b) {
+  const granica = Date.now() - MAKS_WIEK_USUNIECIA_MS;
+  const poKluczu = new Map();
+  [...(Array.isArray(a) ? a : []), ...(Array.isArray(b) ? b : [])].forEach((u) => {
+    if (!u || typeof u !== "object" || (u.typ !== "movie" && u.typ !== "show")) return;
+    const czas = Date.parse(u.deleted_at);
+    if (!Number.isFinite(czas) || czas < granica) return;
+    const klucz = kluczUsuniecia(u);
+    if (!klucz) return;
+    const obecny = poKluczu.get(klucz);
+    if (!obecny || Date.parse(obecny.deleted_at) < czas) poKluczu.set(klucz, u);
+  });
+  return [...poKluczu.values()]
+    .sort((x, y) => Date.parse(y.deleted_at) - Date.parse(x.deleted_at))
+    .slice(0, MAKS_LICZBA_USUNIEC);
+}
+
+/** Usunięcia zapamiętane w tej przeglądarce (dotyczą biblioteki użytkownika). */
+export function pobierzUsuniete() {
+  try {
+    return scalUsuniete(JSON.parse(localStorage.getItem(KLUCZ_USUNIETYCH) || "[]"), []);
+  } catch (e) {
+    console.warn("CineLog: nieczytelna lista usunięć — pomijam", e);
+    return [];
+  }
+}
+
+/** @param {object[]} lista */
+export function zapiszUsuniete(lista) {
+  try {
+    localStorage.setItem(KLUCZ_USUNIETYCH, JSON.stringify(scalUsuniete(lista, [])));
+  } catch (e) {
+    console.warn("CineLog: nie udało się zapisać listy usunięć", e);
+  }
+}
+
+/**
+ * Czy wpis został usunięty. Wpis z uuid pasuje tylko po uuid: pozycja dodana ponownie
+ * dostaje nowy uuid, więc stare usunięcie jej nie dotyczy.
+ * @param {object} entry
+ * @param {"movie"|"show"} typ
+ * @param {object[]} usuniete
+ * @returns {boolean}
+ */
+export function czyUsuniety(entry, typ, usuniete) {
+  if (!entry || !Array.isArray(usuniete) || !usuniete.length) return false;
+  return usuniete.some((u) => {
+    if (u.typ !== typ) return false;
+    if (u.uuid || entry.uuid) return Boolean(u.uuid && entry.uuid && String(u.uuid) === String(entry.uuid));
+    return taSamaPozycja(u, entry);
+  });
+}
+
+/**
+ * Zapamiętuje usunięcie pozycji z biblioteki użytkownika.
+ * @param {object} entry
+ * @param {"movie"|"show"} typ
+ */
+export function oznaczUsuniecie(entry, typ) {
+  if (!entry) return;
+  zapiszUsuniete([...pobierzUsuniete(), {
+    typ,
+    uuid: entry.uuid ? String(entry.uuid) : "",
+    tmdb_id: idTmdbPozycji(entry),
+    title: entry.title || "",
+    year: rokPozycji(entry),
+    deleted_at: new Date().toISOString()
+  }]);
+}
+
+/**
+ * Biblioteka wprowadzona świadomie w całości (import, przywrócenie kopii) unieważnia
+ * usunięcia pozycji, które zawiera — inaczej następna synchronizacja znów by je skasowała.
+ * @param {object[]} movies
+ * @param {object[]} shows
+ */
+export function odwolajUsunieciaDla(movies, shows) {
+  const usuniete = pobierzUsuniete();
+  if (!usuniete.length) return;
+  const zostaja = usuniete.filter((u) =>
+    !((u.typ === "movie" ? movies : shows) || []).some((entry) => czyUsuniety(entry, u.typ, [u])));
+  if (zostaja.length !== usuniete.length) zapiszUsuniete(zostaja);
+}
+
 // Dopasowanie wyniku wyszukiwania TMDb do wpisu biblioteki.
 // Nie wolno brać pierwszego wyniku "w ciemno": tytuł typu "Biuro" ma w TMDb po kilka
 // wersji (The Office US, The Office UK, seriale o biurach), a wtedy opis i obsada
@@ -367,8 +552,9 @@ export function isItemInLibrary(item) {
 
   const checkList = (arr) => {
     return (arr || []).some(entry => {
-      // 1. Exact TMDb ID Match
-      if (tmdbId && entry.tmdb_id && String(entry.tmdb_id) === tmdbId) return true;
+      // 1. Oba wpisy mają identyfikator TMDb: rozstrzyga wyłącznie on. Ten sam tytuł z innym
+      // identyfikatorem to inna pozycja (remake, film i serial o tej samej nazwie).
+      if (tmdbId && entry.tmdb_id) return String(entry.tmdb_id) === tmdbId;
       // 2. Exact IMDb ID Match
       if (imdbId && entry.imdb_id && String(entry.imdb_id) === imdbId) return true;
 
@@ -409,7 +595,8 @@ export function findDuplicateInLibrary(title, type = "movie", tmdbId = null) {
   const titleVariants = getTitleVariants(title);
 
   const matchEntry = (entry) => {
-    if (targetTmdb && entry.tmdb_id && String(entry.tmdb_id) === targetTmdb) return true;
+    // Oba identyfikatory TMDb znane: rozstrzygają same (remake to osobna pozycja).
+    if (targetTmdb && entry.tmdb_id) return String(entry.tmdb_id) === targetTmdb;
     const entryVariants = getTitleVariants(entry);
     return titleVariants.some(tv => tv.length >= 3 && entryVariants.includes(tv));
   };
@@ -437,14 +624,45 @@ export function generateUUID() {
 }
 
 /**
- * Klucz, pod którym zapisujemy aktywną bazę.
- *
- * W trybie serwera (Flask) biblioteka przychodzi z /api/movies i /api/shows, więc
- * trzymamy ją pod osobnym kluczem: nadpisywanie "cinelog_database" kasowało
- * bibliotekę użytkownika i powrót na tryb klienta jej nie przywracał.
+ * Klucz localStorage z biblioteką danego trybu. Trzy tryby to trzy osobne bazy:
+ * "cinelog_database" należy wyłącznie do biblioteki użytkownika (tryb klienta).
+ * Wspólny klucz kończył się utratą danych — baza serwera albo demo nadpisywała
+ * bibliotekę użytkownika, a powrót na tryb klienta jej nie przywracał.
+ * @param {string} tryb "flask" | "demo" | "client"
+ * @returns {string}
  */
-function aktywnyKluczBazy() {
-  return getActiveEnvMode() === "flask" ? "cinelog_database_server" : "cinelog_database";
+export function kluczBazyDlaTrybu(tryb) {
+  if (tryb === "flask") return "cinelog_database_server";
+  if (tryb === "demo") return "cinelog_database_demo";
+  return "cinelog_database";
+}
+
+/**
+ * Podmienia bibliotekę w pamięci razem z informacją, z którego trybu pochodzi.
+ * Dane i tryb muszą zmieniać się w jednym kroku: zapis między nimi trafiłby
+ * z biblioteką jednego trybu pod klucz drugiego.
+ * @param {object[]} movies
+ * @param {object[]} shows
+ * @param {string} tryb "flask" | "demo" | "client"
+ */
+export function ustawBiblioteke(movies, shows, tryb) {
+  state.movies = Array.isArray(movies) ? movies : [];
+  state.shows = Array.isArray(shows) ? shows : [];
+  state.trybBazy = tryb;
+}
+
+/** Tryb biblioteki trzymanej w pamięci tej karty (przed pierwszym wczytaniem: tryb z ustawień). */
+export function trybBazyWPamieci() {
+  return state.trybBazy || getActiveEnvMode();
+}
+
+/**
+ * Czy zmiany biblioteki zapisuje serwer: w pamięci jest baza serwera Flask i serwer odpowiada.
+ * Sama dostępność backendu nie wystarcza — w trybie klienta i demo serwer bywa obok, a nie
+ * jest właścicielem danych (patrz `apiFetch`).
+ */
+export function bibliotekaNaSerwerze() {
+  return state.backendAvailable && trybBazyWPamieci() === "flask";
 }
 
 /** Klucz kopii ostatniej bazy użytkownika, sprzed destrukcyjnego nadpisania. */
@@ -610,8 +828,7 @@ export function pobierzKopieBazy() {
 export function przywrocKopieBazy() {
   const kopia = pobierzKopieBazy();
   if (!kopia) return null;
-  state.movies = Array.isArray(kopia.movies) ? kopia.movies : [];
-  state.shows = Array.isArray(kopia.shows) ? kopia.shows : [];
+  ustawBiblioteke(kopia.movies, kopia.shows, "client");
   localStorage.setItem("cinelog_database", JSON.stringify({
     movies: state.movies,
     shows: state.shows,
@@ -628,8 +845,9 @@ export function przywrocKopieBazy() {
  * @param {boolean} [skipCloudSync=false] true = nigdy nie dotykaj Drive (np. zapis demo)
  */
 export function saveLocalDatabase(skipCloudSync = false) {
+  const trybBazy = trybBazyWPamieci();
   try {
-    localStorage.setItem(aktywnyKluczBazy(), JSON.stringify({
+    localStorage.setItem(kluczBazyDlaTrybu(trybBazy), JSON.stringify({
       movies: state.movies,
       shows: state.shows,
       updated_at: new Date().toISOString()
@@ -648,7 +866,9 @@ export function saveLocalDatabase(skipCloudSync = false) {
   // do chmury (drugi guard, niezależny od trybu).
   // Bez warunku isAuthorized(): przy wygasłym tokenie zmiana ma zostać oznaczona
   // do wysłania (triggerAutoSave), a nie przepaść po cichu.
-  if (!skipCloudSync && getActiveEnvMode() === "client" && !isUserDatabaseDemo() && window.googleDriveSync) {
+  // Oba warunki naraz: biblioteka w pamięci jest biblioteką użytkownika ORAZ tryb w ustawieniach
+  // to nadal tryb klienta (inna karta mogła go zmienić — wtedy ta karta zaraz się przeładuje).
+  if (!skipCloudSync && trybBazy === "client" && getActiveEnvMode() === "client" && window.googleDriveSync) {
     window.googleDriveSync.triggerAutoSave(state.movies, state.shows);
   }
 }
@@ -671,9 +891,15 @@ export function isUserDatabaseDemo() {
   return mode === "demo";
 }
 
+/**
+ * Biblioteka trzymana w pamięci staje się biblioteką użytkownika (import, pobranie z Dysku).
+ * Wołaj PRZED saveLocalDatabase(): zapis idzie pod klucz trybu biblioteki w pamięci,
+ * więc w odwrotnej kolejności pobrana biblioteka trafiłaby pod klucz demo albo serwera.
+ */
 export function markUserDatabaseCustom() {
   localStorage.setItem("cinelog_user_imported", "true");
   setActiveEnvMode("client");
+  state.trybBazy = "client";
 }
 
 /**
@@ -682,9 +908,13 @@ export function markUserDatabaseCustom() {
  */
 export async function resetToDemoDatabase() {
   setActiveEnvMode("demo");
-  zapiszKopieBazy("reset do bazy demonstracyjnej");
-  localStorage.removeItem("cinelog_database");
-  localStorage.removeItem("cinelog_user_imported");
+  // Demo ma własny klucz, więc biblioteki użytkownika nie dotykamy. Wyjątek to pozostałość
+  // po starszych wersjach: trzymały demo pod kluczem biblioteki użytkownika i kasowały przy
+  // tym znacznik własnej biblioteki — bez znacznika pod tym kluczem leży stara kopia demo.
+  if (localStorage.getItem("cinelog_user_imported") !== "true" || !localStorage.getItem("cinelog_database")) {
+    localStorage.removeItem("cinelog_database");
+    localStorage.removeItem("cinelog_user_imported");
+  }
   localStorage.removeItem("cinelog_demo_banner_dismissed");
   
   let movies = [];
@@ -706,9 +936,8 @@ export async function resetToDemoDatabase() {
     } catch (e) { console.debug("CineLog: baza demo niedostępna pod tą ścieżką — próbuję następną", e); }
   }
 
-  state.movies = Array.isArray(movies) ? movies : [];
-  state.shows = Array.isArray(shows) ? shows : [];
-  
+  ustawBiblioteke(movies, shows, "demo");
+
   // 🛡️ Explicitly skip cloud sync to protect user's private Google Drive backup from being overwritten with demo
   saveLocalDatabase(true);
   return { movies: state.movies, shows: state.shows };

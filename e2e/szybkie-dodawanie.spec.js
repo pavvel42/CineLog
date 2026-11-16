@@ -74,4 +74,45 @@ test.describe("Szybkie dodawanie z rekomendacji", () => {
     });
     await expect(przycisk).toHaveClass(/added/);
   });
+
+  // Serwer rozpoznał pozycję jako już obecną (np. dodaną w innej karcie) i zwraca istniejący
+  // wpis z `already_exists`. Klient nie może ogłosić „Dodano”, zdublować wpisu ani zapisać
+  // pola `already_exists` w bibliotece.
+  test("pozycja, którą serwer już ma, nie jest dublowana ani ogłaszana jako dodana", async ({ page }) => {
+    const istniejacy = {
+      uuid: "s-biuro", title: "Biuro", status: "watching", rating: 4, tmdb_id: 2316,
+      episodes_watched: [{ season: 1, episode: 1 }], total_seasons: 9, total_episodes: 201,
+    };
+    let wyslano = 0;
+
+    await page.route("https://www.googleapis.com/**", (r) => r.abort());
+    await page.route("**/api/recommendations/**", (r) => r.fulfill(json({ results: [BIURO_W_REKOMENDACJACH] })));
+    await page.route("**/api/search_detail**", (r) => r.fulfill(json(BIURO_SZCZEGOLY)));
+    await page.route("**/api/watch_providers**", (r) => r.fulfill(json({ results: {} })));
+    await page.route("**/api/shows", async (route) => {
+      if (route.request().method() !== "POST") return route.fallback();
+      wyslano += 1;
+      return route.fulfill(json({ ...istniejacy, already_exists: true }));
+    });
+    await page.addInitScript(() => {
+      localStorage.clear();
+      localStorage.setItem("cinelog_active_mode", "flask");
+      localStorage.setItem("vod-country", "PL");
+    });
+
+    await page.goto("/?mode=movies");
+    await page.waitForTimeout(2000);
+    await page.locator('[data-tab="recommendations"]:visible').first().click();
+    const przycisk = page.locator(".m3-rec-card .m3-rec-quick-add").first();
+    await expect(przycisk).toBeVisible({ timeout: 15_000 });
+    await przycisk.click();
+    await expect.poll(() => wyslano).toBe(1);
+
+    await expect(page.locator("#m3-toast-notification")).toContainText("jest już w bibliotece");
+    const wpisy = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("cinelog_database_server")).shows.filter((w) => w.title === "Biuro"));
+    expect(wpisy).toHaveLength(1);
+    expect(wpisy[0]).toMatchObject({ uuid: "s-biuro", status: "watching", rating: 4 });
+    expect(wpisy[0]).not.toHaveProperty("already_exists");
+  });
 });
