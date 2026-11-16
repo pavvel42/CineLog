@@ -9,6 +9,8 @@ automatycznego oznaczania obejrzanych seriali.
 
 from __future__ import annotations
 
+import pytest
+
 
 def _episodes(count: int) -> list[dict[str, int]]:
     return [{"season": 1, "episode": i} for i in range(1, count + 1)]
@@ -58,11 +60,18 @@ def test_add_show_nie_nadpisuje_metadanych_zerem(client):
     assert body["series_status"] == "Ended"
 
 
-def test_verify_completion_bez_odcinkow_daje_watchlist(client):
+def test_verify_completion_bez_odcinkow_nie_rusza_statusu(client):
+    """Zmiana reguły: brak listy odcinków to brak danych, a nie dowód, że nic nie obejrzano.
+
+    Wcześniej `ep_count == 0` zawsze zrzucało serial do `watchlist` — serial „obejrzany"
+    z importu bez listy odcinków tracił status przy samym wejściu w zakładkę seriali.
+    """
     client.post("/api/shows", json={"title": "Serial", "total_episodes": 10, "status": "watching"})
     res = client.post("/api/shows/verify_completion")
     assert res.status_code == 200
-    assert res.get_json()["shows"][0]["status"] == "watchlist"
+    body = res.get_json()
+    assert body["updated"] == 0
+    assert body["shows"][0]["status"] == "watching"
 
 
 def test_verify_completion_częściowo_obejrzany_daje_watching(client):
@@ -107,3 +116,77 @@ def test_verify_completion_nie_zmienia_stanu_bez_potrzeby(client):
     assert first["updated"] == 1
     assert second["updated"] == 0
     assert second["shows"][0]["status"] == "watched"
+
+
+# --- B1: weryfikacja nie degraduje statusów przy braku danych -----------------------
+
+def _zaseeduj_seriale(*seriale: dict) -> None:
+    import app as app_module
+
+    app_module.save_json(app_module.SHOWS_FILE, [
+        {"uuid": f"s{i}", "title": f"Serial {i}", **dane} for i, dane in enumerate(seriale)
+    ])
+
+
+def _status_po_weryfikacji(client, **dane) -> dict:
+    _zaseeduj_seriale(dane)
+    res = client.post("/api/shows/verify_completion")
+    assert res.status_code == 200
+    return res.get_json()["shows"][0]
+
+
+def test_verify_completion_serial_obejrzany_z_importu_bez_odcinkow_zostaje_watched(client):
+    show = _status_po_weryfikacji(client, status="watched", total_episodes=20, episodes_watched=[])
+    assert show["status"] == "watched"
+
+
+def test_verify_completion_followed_bez_odcinkow_zostaje_followed(client):
+    show = _status_po_weryfikacji(client, status="followed", total_episodes=0)
+    assert show["status"] == "followed"
+
+
+def test_verify_completion_bez_odcinkow_i_bez_pola_episodes_watched_nie_rusza_statusu(client):
+    show = _status_po_weryfikacji(client, status="watching", total_episodes=8)
+    assert show["status"] == "watching"
+
+
+def test_verify_completion_nieznana_liczba_odcinkow_watchlist_z_odcinkami_daje_watching(client):
+    show = _status_po_weryfikacji(client, status="watchlist", episodes_watched=_episodes(2))
+    assert show["status"] == "watching"
+
+
+@pytest.mark.parametrize("status", ["watched", "followed", "watching"])
+def test_verify_completion_nieznana_liczba_odcinkow_nie_rusza_innych_statusow(client, status):
+    """Brak `total_episodes` nie jest dowodem, że serial jest w trakcie oglądania."""
+    show = _status_po_weryfikacji(client, status=status, total_episodes=None, episodes_watched=_episodes(2))
+    assert show["status"] == status
+
+
+def test_verify_completion_pomija_wpisy_zarchiwizowane(client):
+    show = _status_po_weryfikacji(
+        client, status="archived", archived=True, total_episodes=2, series_status="Ended",
+        episodes_watched=_episodes(2),
+    )
+    assert show["status"] == "archived"
+    assert not show.get("caught_up")
+
+
+def test_verify_completion_zarchiwizowany_z_flaga_ale_innym_statusem_tez_zostaje(client):
+    show = _status_po_weryfikacji(client, status="watchlist", archived=True, total_episodes=2,
+                                  episodes_watched=_episodes(1))
+    assert show["status"] == "watchlist"
+
+
+def test_verify_completion_znana_liczba_odcinkow_niekompletny_serial_daje_watching(client):
+    show = _status_po_weryfikacji(client, status="followed", total_episodes=10, episodes_watched=_episodes(4))
+    assert show["status"] == "watching"
+
+
+def test_verify_completion_toleruje_episodes_watched_bedace_napisem(client):
+    show = _status_po_weryfikacji(client, status="watching", total_episodes="abc", episodes_watched="zepsute")
+    assert show["status"] == "watching"
+
+
+def test_verify_completion_odrzuca_get(client):
+    """GET omijał ochronę CSRF (brak Origin przy nawigacji), a frontend używa tylko POST."""
+    assert client.get("/api/shows/verify_completion").status_code == 405

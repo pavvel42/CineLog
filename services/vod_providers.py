@@ -11,11 +11,15 @@ import logging
 import os
 from datetime import datetime, timedelta
 
+from .cache_utils import przytnij_cache
+from .data_store import save_json
+from .dopasowanie import wybierz_zgodny
 from .tmdb_client import tmdb_get
 
 log = logging.getLogger("cinelog")
 
 CACHE_TTL_DAYS = 7
+VOD_CACHE_MAX_ENTRIES = 500
 _GOOGLE_PLAY_LOGO = "https://image.tmdb.org/t/p/original/8z7rC8uIDaTM91X0ZfkRf04ydj2.jpg"
 
 _cache_state: dict = {"data": None}
@@ -60,15 +64,10 @@ def load_vod_cache(filepath: str) -> dict:
 
 
 def save_vod_cache(filepath: str, cache_data: dict) -> bool:
-    _cache_state["data"] = cache_data
-    try:
-        os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(cache_data, f, ensure_ascii=False, indent=2)
-        return True
-    except Exception as e:
-        log.error("Error saving VOD cache: %s", e)
-        return False
+    """Zapisuje cache atomowo (`save_json`), po wyrzuceniu wygasłych wpisów i przycięciu do limitu."""
+    przyciety = przytnij_cache(cache_data, VOD_CACHE_MAX_ENTRIES)
+    _cache_state["data"] = przyciety
+    return save_json(filepath, przyciety)
 
 
 def reset_memory_cache() -> None:
@@ -81,7 +80,7 @@ def fetch_live_watch_providers(clean_title: str, media_type: str, region: str,
     if not tmdb_api_key:
         return _empty_result(region)
 
-    # 1. Search TMDb if tmdb_id not directly provided (ranked by exact title match + popularity)
+    # 1. Search TMDb if tmdb_id not directly provided (tylko trafienie zgodne tytułem, bez zgadywania)
     if not tmdb_id:
         for lang in (f"{region.lower()}-{region}", "pl-PL", "en-US"):
             sdata = tmdb_get(
@@ -90,15 +89,9 @@ def fetch_live_watch_providers(clean_title: str, media_type: str, region: str,
                 api_key=tmdb_api_key,
                 timeout=4,
             )
-            results = (sdata or {}).get("results") or []
-            if results:
-                def score(r):
-                    t = (r.get("title") or r.get("name") or "").strip().lower()
-                    ot = (r.get("original_title") or r.get("original_name") or "").strip().lower()
-                    exact = 1 if (t == clean_title or ot == clean_title) else 0
-                    pop = float(r.get("popularity") or 0)
-                    return (exact * 1000) + pop
-                tmdb_id = max(results, key=score).get("id")
+            trafienie = wybierz_zgodny((sdata or {}).get("results"), clean_title)
+            if trafienie:
+                tmdb_id = trafienie.get("id")
                 break
 
     # Fallback to alternate media type if not found
@@ -110,10 +103,9 @@ def fetch_live_watch_providers(clean_title: str, media_type: str, region: str,
             api_key=tmdb_api_key,
             timeout=4,
         )
-        results = (sdata or {}).get("results") or []
-        if results:
-            best = max(results, key=lambda r: float(r.get("popularity") or 0))
-            tmdb_id = best.get("id")
+        trafienie = wybierz_zgodny((sdata or {}).get("results"), clean_title)
+        if trafienie:
+            tmdb_id = trafienie.get("id")
             media_type = alt_type
 
     if not tmdb_id:

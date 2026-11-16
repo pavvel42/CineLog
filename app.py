@@ -10,17 +10,24 @@ from __future__ import annotations
 
 import os
 import logging
+import traceback
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 from flask.typing import ResponseReturnValue
+from werkzeug.exceptions import HTTPException
 
 from services.data_store import (
     DATA_LOCK,
+    LibraryCorruptError,
     deduplicate_items,
     load_json,
+    load_library,
     save_json,
+    save_library,
 )
-from services.security import is_allowed_write
+from services.access_log import redact_secrets
+from services.security import allowed_hosts_from_env, is_allowed_host, is_allowed_write
+from services.validation import MAX_CONTENT_LENGTH, ApiError
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,7 +41,7 @@ __all__ = [
     "DATA_DIR", "MOVIES_FILE",
     "SHOWS_FILE", "UPCOMING_CACHE_FILE", "VOD_CACHE_FILE",
     "EPISODES_CACHE", "RECOMMENDATIONS_CACHE", "DATA_LOCK",
-    "load_movies", "save_movies", "load_shows", "save_shows",
+    "load_movies", "save_movies", "load_shows", "save_shows", "load_json", "save_json",
     "load_vod_cache", "save_vod_cache", "fetch_live_watch_providers",
     "format_tmdb_summary", "fetch_online_metadata", "fetch_episodes_meta",
     "normalize_title", "normalize_tmdb_id", "_safe_int", "_is_safe_media_url",
@@ -64,6 +71,31 @@ if not TMDB_API_KEY:
     log.info("TMDB_API_KEY nie został ustawiony w .env ani w środowisku. Funkcje wyszukiwania online TMDb będą wyłączone lub ograniczone.")
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
+
+
+@app.before_request
+def _guard_host_header() -> ResponseReturnValue | None:
+    """Odrzuca żądania z nagłówkiem Host spoza localhost/adresów IP/CINELOG_ALLOWED_HOSTS.
+
+    Chroni przed DNS rebinding: strona pod obcą nazwą, która po zmianie DNS wskazuje na
+    127.0.0.1, ma zgodne `Origin` i `Host`, więc strażnik zapisu poniżej jej nie zatrzyma.
+    """
+    if is_allowed_host(request.host, allowed_hosts_from_env()):
+        return None
+    log.warning("Odrzucono żądanie z niedozwolonym nagłówkiem Host: %s %s", request.method, request.path)
+    return jsonify({
+        "error": "Niedozwolona nazwa hosta. Dopisz ją do CINELOG_ALLOWED_HOSTS, jeśli to Twój adres.",
+    }), 403
+
+
+@app.after_request
+def _security_headers(response: Response) -> Response:
+    """Nagłówki bezpieczeństwa. CSP zostaje w index.html (nie dokładamy go po stronie serwera)."""
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    return response
 
 
 @app.before_request
@@ -104,24 +136,74 @@ UPCOMING_CACHE_FILE = os.path.join(DATA_DIR, "upcoming_cache.json")
 EPISODES_CACHE: dict[str, tuple[float, dict]] = {}
 
 def load_movies() -> list:
-    movies = load_json(MOVIES_FILE)
+    movies = load_library(MOVIES_FILE)
     deduped = deduplicate_items(movies)
     if len(deduped) != len(movies):
         save_json(MOVIES_FILE, deduped)
     return deduped
 
-def save_movies(movies_list: object) -> bool:
-    return save_json(MOVIES_FILE, movies_list)
+def save_movies(movies_list: object, replace_corrupt: bool = False) -> bool:
+    return save_library(MOVIES_FILE, movies_list, replace_corrupt=replace_corrupt)
 
 def load_shows() -> list:
-    shows = load_json(SHOWS_FILE)
+    shows = load_library(SHOWS_FILE)
     deduped = deduplicate_items(shows)
     if len(deduped) != len(shows):
         save_json(SHOWS_FILE, deduped)
     return deduped
 
-def save_shows(shows_list: object) -> bool:
-    return save_json(SHOWS_FILE, shows_list)
+def save_shows(shows_list: object, replace_corrupt: bool = False) -> bool:
+    return save_library(SHOWS_FILE, shows_list, replace_corrupt=replace_corrupt)
+
+
+_HTTP_ERROR_MESSAGES = {
+    400: "Niepoprawne żądanie — sprawdź, czy treść jest poprawnym JSON-em.",
+    404: "Nie znaleziono zasobu.",
+    405: "Ta metoda HTTP nie jest dostępna dla tego adresu.",
+    413: f"Żądanie jest za duże (limit {MAX_CONTENT_LENGTH // (1024 * 1024)} MB).",
+    415: "Oczekiwano treści w formacie JSON (nagłówek Content-Type: application/json).",
+}
+
+
+@app.errorhandler(ApiError)
+def _api_error(e: ApiError) -> ResponseReturnValue:
+    return jsonify({"error": e.message}), e.status_code
+
+
+@app.errorhandler(HTTPException)
+def _http_error(e: HTTPException) -> ResponseReturnValue:
+    """Błędy HTTP tras `/api/` jako JSON `{"error": ...}`; reszta zostaje domyślną stroną Flaska."""
+    if not request.path.startswith("/api/"):
+        return e
+    code = e.code or 500
+    return jsonify({"error": _HTTP_ERROR_MESSAGES.get(code, f"Błąd żądania (HTTP {code}).")}), code
+
+
+@app.errorhandler(Exception)
+def _unhandled_error(e: Exception) -> ResponseReturnValue:
+    """Nieobsłużony wyjątek: pełny ślad (zamaskowany) trafia do logu, klient dostaje tylko JSON."""
+    log.error(
+        "Nieobsłużony wyjątek w %s %s: %s",
+        request.method, request.path, redact_secrets(traceback.format_exc()),
+    )
+    if not request.path.startswith("/api/"):
+        return Response("Internal Server Error", status=500)
+    return jsonify({"error": "Wewnętrzny błąd serwera. Szczegóły są w logu aplikacji."}), 500
+
+
+@app.errorhandler(LibraryCorruptError)
+def _library_corrupt(e: LibraryCorruptError) -> ResponseReturnValue:
+    """Jeden handler dla wszystkich tras biblioteki: JSON z czytelnym komunikatem zamiast śladu stosu."""
+    log.error("Biblioteka uszkodzona: %s", e)
+    plik = os.path.basename(e.filepath)
+    return jsonify({
+        "error": (
+            f"Plik biblioteki „{plik}” jest uszkodzony ({e.reason}), więc zapis i odczyt zostały wstrzymane, "
+            f"żeby go nie nadpisać. Kopia leży obok pliku ({plik}.corrupt). "
+            "Przywróć bibliotekę z kopii albo zaimportuj ją ponownie z pliku eksportu."
+        ),
+        "corrupt": True,
+    }), 500
 
 
 VOD_CACHE_FILE = os.path.join(DATA_DIR, "vod_cache.json")
@@ -156,7 +238,7 @@ def fetch_live_watch_providers(clean_title: str, media_type: str, region: str,
         clean_title, media_type, region, tmdb_api_key or TMDB_API_KEY, tmdb_id=tmdb_id
     )
 
-RECOMMENDATIONS_CACHE: dict[str, dict] = {}
+RECOMMENDATIONS_CACHE: dict[str, tuple[float, dict]] = {}
 
 
 # --- Registracja blueprintów tras ---

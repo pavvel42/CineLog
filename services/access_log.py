@@ -12,6 +12,7 @@ podmienia w logu samą wartość parametru na `***`, zostawiając nazwę paramet
 
 from __future__ import annotations
 
+import re
 from urllib.parse import unquote_plus
 
 from werkzeug.serving import WSGIRequestHandler
@@ -55,6 +56,36 @@ def sanitize_path(path: str) -> str:
         else:
             czesci.append(fragment)
     return f"{base}?{'&'.join(czesci)}"
+
+
+# Parametr `nazwa=wartość` w adresie lub komunikacie (po `?`, `&`, spacji, cudzysłowie, nawiasie).
+_PARAMETR = re.compile(r"(?P<przed>^|[?&;,\s'\"(])(?P<nazwa>[\w.\-]+)=(?P<wartosc>[^&\s'\")#]+)")
+# Nagłówek Authorization (`Authorization: Bearer abc`, `authorization=abc`) razem ze schematem.
+_AUTORYZACJA = re.compile(
+    r"(?i)(?P<poczatek>authorization['\"]?\s*[:=]\s*['\"]?)(?:bearer\s+|basic\s+|token\s+)?[^\s,;'\"&}]+"
+)
+
+
+def redact_secrets(text: object, *secrets: str) -> str:
+    """Maskuje sekrety w dowolnym tekście: wartości parametrów-kluczy i nagłówek Authorization.
+
+    Treść wyjątku biblioteki HTTP potrafi zawierać cały adres żądania razem z `api_key=`.
+    Ta sama lista nazw co przy access-logu (`_czy_maskowac`); dodatkowo `secrets` to znane
+    wartości (np. klucz użyty w żądaniu), które maskujemy gdziekolwiek się pojawią.
+    """
+    wynik = str(text)
+
+    def _podmien(m: re.Match[str]) -> str:
+        if _czy_maskowac(m.group("nazwa")):
+            return f"{m.group('przed')}{m.group('nazwa')}={ZAMIAST_WARTOSCI}"
+        return m.group(0)
+
+    wynik = _PARAMETR.sub(_podmien, wynik)
+    wynik = _AUTORYZACJA.sub(lambda m: f"{m.group('poczatek')}{ZAMIAST_WARTOSCI}", wynik)
+    for sekret in secrets:
+        if sekret:
+            wynik = wynik.replace(sekret, ZAMIAST_WARTOSCI)
+    return wynik
 
 
 class SanitizedRequestHandler(WSGIRequestHandler):

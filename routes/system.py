@@ -14,11 +14,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from flask import Blueprint, jsonify, request, Response, send_file
+from flask import Blueprint, jsonify, Response, send_file
 
 from flask.typing import ResponseReturnValue
 
 import app as _app
+
+from routes._http import json_object
+from services.validation import episode_list, safe_poster_url
 
 log = logging.getLogger("cinelog")
 
@@ -69,14 +72,17 @@ class NieprawidlowyImport(ValueError):
     """Treść importu nie przeszła walidacji — komunikat trafia do użytkownika (HTTP 400)."""
 
 
-def _wpisy_importu(raw: object, pole: str) -> list[dict[str, Any]]:
-    """Waliduje jedną listę importu i nadaje brakujące lub zdublowane `uuid`.
+def _wpisy_importu(raw: object, pole: str) -> tuple[list[dict[str, Any]], int]:
+    """Waliduje jedną listę importu; zwraca (poprawne wpisy, liczba pominiętych).
 
-    Trasy PUT/DELETE adresują wpisy po `uuid`, więc wpis bez niego (albo z
-    identyfikatorem powtórzonym w pliku) byłby po imporcie nieedytowalny.
+    Wpis niebędący obiektem albo bez tytułu-napisu jest pomijany, a reszta przechodzi —
+    jeden zepsuty rekord nie blokuje importu całej biblioteki. Pola, które frontend renderuje
+    i wysyła dalej (adres plakatu, lista odcinków), są czyszczone ze złych typów. Brakujące
+    lub zdublowane `uuid` są nadawane od nowa: trasy PUT/DELETE adresują wpisy po `uuid`,
+    więc wpis bez niego byłby po imporcie nieedytowalny.
     """
     if raw is None:
-        return []
+        return [], 0
     if not isinstance(raw, list):
         raise NieprawidlowyImport(f"Pole „{pole}” musi być listą.")
     if len(raw) > IMPORT_MAX_ITEMS:
@@ -85,21 +91,24 @@ def _wpisy_importu(raw: object, pole: str) -> list[dict[str, Any]]:
         )
     wynik: list[dict[str, Any]] = []
     uzyte: set[str] = set()
-    for nr, wpis in enumerate(raw, start=1):
-        if not isinstance(wpis, dict):
-            raise NieprawidlowyImport(f"Pozycja {nr} w „{pole}” nie jest obiektem.")
-        tytul = str(wpis.get("title") or "").strip()
-        if not tytul:
-            raise NieprawidlowyImport(f"Pozycja {nr} w „{pole}” nie ma tytułu.")
+    pominiete = 0
+    for wpis in raw:
+        if not isinstance(wpis, dict) or not isinstance(wpis.get("title"), str) or not wpis["title"].strip():
+            pominiete += 1
+            continue
         kopia = dict(wpis)
-        kopia["title"] = tytul
+        kopia["title"] = wpis["title"].strip()
+        if "poster_url" in kopia:
+            kopia["poster_url"] = safe_poster_url(kopia["poster_url"])
+        if "episodes_watched" in kopia:
+            kopia["episodes_watched"] = episode_list(kopia["episodes_watched"])
         identyfikator = str(kopia.get("uuid") or "").strip()
         if not identyfikator or identyfikator in uzyte:
             identyfikator = str(uuid.uuid4())
         kopia["uuid"] = identyfikator
         uzyte.add(identyfikator)
         wynik.append(kopia)
-    return wynik
+    return wynik, pominiete
 
 
 @bp.route("/api/import", methods=["POST"])
@@ -109,21 +118,20 @@ def import_library() -> ResponseReturnValue:
     Kopii poprzedniej bazy nie robimy — kopię użytkownik pobiera sam przyciskiem
     eksportu. Pusty import jest odrzucany, żeby przypadkowe żądanie nie wyczyściło bazy.
     """
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return jsonify({"error": "Oczekiwano obiektu JSON z polami movies i shows."}), 400
+    data = json_object()
     try:
-        movies = _wpisy_importu(data.get("movies"), "movies")
-        shows = _wpisy_importu(data.get("shows"), "shows")
+        movies, pominiete_filmy = _wpisy_importu(data.get("movies"), "movies")
+        shows, pominiete_seriale = _wpisy_importu(data.get("shows"), "shows")
     except NieprawidlowyImport as e:
         return jsonify({"error": str(e)}), 400
+    pominiete = pominiete_filmy + pominiete_seriale
     if not movies and not shows:
-        return jsonify({"error": "Import nie zawiera żadnych pozycji."}), 400
+        return jsonify({"error": "Import nie zawiera żadnych poprawnych pozycji.", "skipped": pominiete}), 400
 
     with _app.DATA_LOCK:
-        if not (_app.save_movies(movies) and _app.save_shows(shows)):
+        if not (_app.save_movies(movies, replace_corrupt=True) and _app.save_shows(shows, replace_corrupt=True)):
             log.error("Import biblioteki: zapis na dysk nie powiódł się")
             return jsonify({"error": "Nie udało się zapisać bazy."}), 500
 
-    log.info("Import biblioteki: %d filmów, %d seriali", len(movies), len(shows))
-    return jsonify({"movies": movies, "shows": shows})
+    log.info("Import biblioteki: %d filmów, %d seriali, pominięto %d", len(movies), len(shows), pominiete)
+    return jsonify({"movies": movies, "shows": shows, "skipped": pominiete})

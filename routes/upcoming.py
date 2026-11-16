@@ -17,7 +17,6 @@ import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, date
 
-import os
 from flask import Blueprint, jsonify, request
 
 
@@ -26,11 +25,16 @@ from flask.typing import ResponseReturnValue
 import app as _app
 
 from services import client_keys
+from services.cache_utils import przytnij_cache
+from services.dopasowanie import wybierz_zgodny
 from services.tmdb_client import KEY_REJECTED_MESSAGE, key_rejected
 
 log = logging.getLogger("cinelog")
 
 bp = Blueprint("upcoming", __name__)
+
+# Limit wpisów pliku cache harmonogramu (wygasłe wpisy są wyrzucane przy każdym zapisie).
+_UPCOMING_CACHE_MAX_ENTRIES = 300
 
 @bp.route("/api/upcoming", methods=["GET"])
 def get_upcoming_schedule() -> ResponseReturnValue:
@@ -70,13 +74,9 @@ def get_upcoming_schedule() -> ResponseReturnValue:
                 pass
                 
     # 2. TV shows (watching & watchlist)
-    cache = {}
-    if os.path.exists(_app.UPCOMING_CACHE_FILE):
-        try:
-            with open(_app.UPCOMING_CACHE_FILE, "r", encoding="utf-8") as f:
-                cache = json.load(f)
-        except Exception:
-            pass
+    # Uszkodzony plik cache'u to pusty cache (`load_json` zwraca wtedy `[]`).
+    wczytany = _app.load_json(_app.UPCOMING_CACHE_FILE)
+    cache: dict[str, dict] = wczytany if isinstance(wczytany, dict) else {}
             
     watching_shows = [s for s in shows if s.get("status") in ["watching", "watchlist", "w_trakcie", "planowane"] and not s.get("archived")]
     
@@ -108,14 +108,8 @@ def get_upcoming_schedule() -> ResponseReturnValue:
                     if not results:
                         return (k, None, False)
                     
-                    clean_target = clean_t.lower()
-                    top = None
-                    for r in results:
-                        orig = (r.get("original_name") or "").lower()
-                        name = (r.get("name") or "").lower()
-                        if orig == clean_target or name == clean_target:
-                            top = r
-                            break
+                    # Pełny tytuł (z rokiem w nawiasie) — rok rozstrzyga między wersjami o tej samej nazwie.
+                    top = wybierz_zgodny(results, t)
                     if not top:
                         # Bez zgodnego tytułu nie ma danych platformy — wcześniej brany był pierwszy
                         # wynik, więc harmonogram dostawał odcinki innego serialu o podobnej nazwie.
@@ -209,12 +203,8 @@ def get_upcoming_schedule() -> ResponseReturnValue:
             })
             
     if cache_dirty:
-        try:
-            os.makedirs(os.path.dirname(_app.UPCOMING_CACHE_FILE), exist_ok=True)
-            with open(_app.UPCOMING_CACHE_FILE, "w", encoding="utf-8") as f:
-                json.dump(cache, f, ensure_ascii=False, indent=2)
-        except Exception:
-            pass
+        # Atomowo (`save_json`), po wyrzuceniu wygasłych wpisów i przycięciu do limitu.
+        _app.save_json(_app.UPCOMING_CACHE_FILE, przytnij_cache(cache, _UPCOMING_CACHE_MAX_ENTRIES))
             
     # Deduplicate items by title / ID
     seen_keys = set()

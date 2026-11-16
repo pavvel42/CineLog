@@ -21,6 +21,7 @@ from flask.typing import ResponseReturnValue
 import app as _app
 
 from services import client_keys
+from services.access_log import redact_secrets
 from services.dopasowanie import wybierz_zgodny
 from services.metadata import server_omdb_key
 from services.tmdb_client import KEY_REJECTED_MESSAGE, key_rejected
@@ -36,7 +37,7 @@ def search_preview() -> ResponseReturnValue:
     lang = request.args.get("lang", "pl-PL").strip()
 
     if not title:
-        return jsonify({"found": False, "message": "Podaj tytuł do wyszukania."}), 400
+        return jsonify({"found": False, "error": "Podaj tytuł do wyszukania.", "message": "Podaj tytuł do wyszukania."}), 400
 
     clean_title = re.sub(r"\s*\([^)]*\)", "", title).strip()
     tmdb_type = "tv" if media_type == "series" else "movie"
@@ -99,9 +100,9 @@ def search_preview() -> ResponseReturnValue:
                     "key_rejected": True,
                     "message": f"Klucz TMDb został odrzucony przez API (HTTP {e.code}). Sprawdź, czy klucz jest poprawny w zakładce „Chmura & Asystent AI” → „Klucze API”."
                 })
-            log.warning("TMDb search preview error: %s", e)
+            log.warning("TMDb search preview error: %s", redact_secrets(e))
         except Exception as e:
-            log.warning("TMDb search preview error: %s", e)
+            log.warning("TMDb search preview error: %s", redact_secrets(e))
 
     # 2. Secondary fallback: Search OMDb if TMDb returned empty
     if not results_list:
@@ -334,6 +335,7 @@ def search_detail() -> ResponseReturnValue:
                     if not chosen:
                         return jsonify({
                             "found": False,
+                            "error": "Nie znalazłem pozycji o tym tytule.",
                             "message": "Nie znalazłem pozycji o tym tytule.",
                         }), 404
 
@@ -344,7 +346,7 @@ def search_detail() -> ResponseReturnValue:
                         return build_tmdb_response(det, tmdb_type)
         except Exception as e:
             key_odrzucony = key_odrzucony or key_rejected(e)
-            log.warning("TMDb detail fetch error: %s", e)
+            log.warning("TMDb detail fetch error: %s", redact_secrets(e))
 
     # 2. Fallback to OMDb / TVmaze
     if effective_omdb_key:
@@ -375,7 +377,7 @@ def search_detail() -> ResponseReturnValue:
                     })
         except Exception as e:
             key_odrzucony = key_odrzucony or key_rejected(e)
-            log.warning("OMDb detail fetch fallback error: %s", e)
+            log.warning("OMDb detail fetch fallback error: %s", redact_secrets(e))
 
     if key_odrzucony:
         return jsonify({
@@ -385,6 +387,6 @@ def search_detail() -> ResponseReturnValue:
             "message": KEY_REJECTED_MESSAGE
         })
 
-    return jsonify({"found": False, "message": "Nie udało się pobrać szczegółów pozycji."}), 404
+    return jsonify({"found": False, "error": "Nie udało się pobrać szczegółów pozycji.", "message": "Nie udało się pobrać szczegółów pozycji."}), 404
 
 # --- ALL DATA API ---

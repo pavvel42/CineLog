@@ -8,10 +8,18 @@ potwierdzenia, że pochodzą z naszej aplikacji.
 
 Sprawdzamy nagłówki, które dokłada sama przeglądarka i których skrypt obcej
 strony nie może podrobić: `Origin` oraz `Sec-Fetch-Site`.
+
+Drugą warstwą jest kontrola nagłówka `Host` (ochrona przed DNS rebinding): strażnik
+zapisu porównuje `Origin` z `Host`, więc strona pod `evil.com`, która po zmianie DNS
+wskazuje na 127.0.0.1, miałaby obie wartości równe. Atak rebinding wymaga nazwy DNS,
+dlatego akceptujemy `localhost`, literały IP (dostęp po adresie LAN przy HOST=0.0.0.0)
+i nazwy jawnie dopisane w `CINELOG_ALLOWED_HOSTS`.
 """
 
 from __future__ import annotations
 
+import ipaddress
+import os
 from urllib.parse import urlsplit
 
 WRITE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
@@ -75,3 +83,31 @@ def is_allowed_write(
     origin_host = _normalize_netloc(urlsplit(origin).netloc)
     request_host = _normalize_netloc(host)
     return origin_host == request_host
+
+
+ALLOWED_HOSTS_ENV = "CINELOG_ALLOWED_HOSTS"
+
+
+def allowed_hosts_from_env() -> tuple[str, ...]:
+    """Dodatkowe nazwy hostów z `CINELOG_ALLOWED_HOSTS` (lista po przecinku, małe litery)."""
+    raw = os.environ.get(ALLOWED_HOSTS_ENV, "")
+    return tuple(name.strip().lower().rstrip(".") for name in raw.split(",") if name.strip())
+
+
+def _is_ip_literal(host: str) -> bool:
+    try:
+        ipaddress.ip_address(host.split("%", 1)[0])  # strefa IPv6 (fe80::1%eth0) nie zmienia adresu
+    except ValueError:
+        return False
+    return True
+
+
+def is_allowed_host(host_header: str | None, extra_hosts: tuple[str, ...] = ()) -> bool:
+    """Czy nagłówek `Host` wskazuje na ten komputer (localhost, adres IP) albo nazwę z listy?"""
+    if not host_header or not host_header.strip() or "@" in host_header:
+        return False
+    host, _ = _normalize_netloc(host_header)
+    host = host.rstrip(".")
+    if not host:
+        return False
+    return host == "localhost" or _is_ip_literal(host) or host in extra_hosts

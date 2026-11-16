@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 import urllib.error
 import urllib.request
 import urllib.parse
@@ -20,11 +21,40 @@ from flask.typing import ResponseReturnValue
 import app as _app
 
 from services import client_keys
+from services.access_log import redact_secrets
+from services.dopasowanie import wybierz_osobe, wybierz_zgodny
 from services.tmdb_client import KEY_REJECTED_MESSAGE, key_rejected
 
 log = logging.getLogger("cinelog")
 
 bp = Blueprint("recommendations", __name__)
+
+
+# Cache odpowiedzi rekomendacji: wpisy (timestamp_monotonic, odpowiedź) z TTL i limitem —
+# wcześniej rósł bez ograniczenia i serwował dane do restartu procesu (wzorzec: EPISODES_CACHE).
+_RECOMMENDATIONS_CACHE_TTL_SECONDS = 6 * 60 * 60
+_RECOMMENDATIONS_CACHE_MAX_ENTRIES = 200
+
+
+def _now() -> float:
+    return time.monotonic()
+
+
+def _recs_cache_get(cache_key: str) -> dict | None:
+    wpis = _app.RECOMMENDATIONS_CACHE.get(cache_key)
+    if not wpis:
+        return None
+    ts, odpowiedz = wpis
+    if _now() - ts > _RECOMMENDATIONS_CACHE_TTL_SECONDS:
+        _app.RECOMMENDATIONS_CACHE.pop(cache_key, None)
+        return None
+    return odpowiedz
+
+
+def _recs_cache_set(cache_key: str, odpowiedz: dict) -> None:
+    _app.RECOMMENDATIONS_CACHE[cache_key] = (_now(), odpowiedz)
+    while len(_app.RECOMMENDATIONS_CACHE) > _RECOMMENDATIONS_CACHE_MAX_ENTRIES:
+        _app.RECOMMENDATIONS_CACHE.pop(next(iter(_app.RECOMMENDATIONS_CACHE)))
 
 
 def _rec_response(formatted: list, key_odrzucony: bool) -> dict:
@@ -49,8 +79,9 @@ def get_recommendations_for_item() -> ResponseReturnValue:
     tmdb_key = client_keys.tmdb_key() or _app.TMDB_API_KEY
 
     cache_key = f"rec_item_{tmdb_type}_{tmdb_id}_{title}_{lang}_{tmdb_key}"
-    if cache_key in _app.RECOMMENDATIONS_CACHE:
-        return jsonify(_app.RECOMMENDATIONS_CACHE[cache_key])
+    zbuforowane = _recs_cache_get(cache_key)
+    if zbuforowane is not None:
+        return jsonify(zbuforowane)
 
     if not tmdb_key:
         return jsonify({"status": "no_key", "message": "Klucz TMDb API nie został skonfigurowany. Dodaj klucz w oknie Chmura & Asystent AI -> Klucze API.", "results": []})
@@ -64,12 +95,13 @@ def get_recommendations_for_item() -> ResponseReturnValue:
             req = urllib.request.Request(url_search, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(req, timeout=4) as resp:
                 sdata = json.loads(resp.read().decode("utf-8"))
-                res = sdata.get("results", [])
-                if res:
-                    tmdb_id = str(res[0].get("id"))
+                # Tylko trafienie zgodne tytułem (i rokiem) — pierwszy wynik bywał cudzą produkcją.
+                trafienie = wybierz_zgodny(sdata.get("results", []), title)
+                if trafienie:
+                    tmdb_id = str(trafienie.get("id"))
         except Exception as e:
             key_odrzucony = key_odrzucony or key_rejected(e)
-            log.warning("Error searching TMDb ID for rec title %s: %s", title, e)
+            log.warning("Error searching TMDb ID for rec title %s: %s", title, redact_secrets(e))
 
     if not tmdb_id:
         ratunek: dict = {"status": "error", "message": "Missing or unresolved TMDb ID", "results": []}
@@ -98,12 +130,12 @@ def get_recommendations_for_item() -> ResponseReturnValue:
                         results_list.append(item)
     except Exception as e:
         key_odrzucony = key_odrzucony or key_rejected(e)
-        log.warning("Error fetching TMDb recommendations for %s %s: %s", tmdb_type, tmdb_id, e)
+        log.warning("Error fetching TMDb recommendations for %s %s: %s", tmdb_type, tmdb_id, redact_secrets(e))
 
     formatted = [_app.format_tmdb_summary(it, tmdb_type) for it in results_list]
 
     response_data = _rec_response(formatted, key_odrzucony)
-    _app.RECOMMENDATIONS_CACHE[cache_key] = response_data
+    _recs_cache_set(cache_key, response_data)
     return jsonify(response_data)
 
 
@@ -129,8 +161,9 @@ def discover_recommendations() -> ResponseReturnValue:
     tmdb_key = client_keys.tmdb_key() or _app.TMDB_API_KEY
 
     cache_key = f"rec_discover_{tmdb_type}_{genres}_{sort_by}_{min_vote_avg}_{min_vote_count}_{max_vote_count}_{with_crew}_{year_gte}_{year_lte}_{date_gte}_{date_lte}_{with_release_type}_{with_watch_providers}_{watch_region}_{lang}_{tmdb_key}"
-    if cache_key in _app.RECOMMENDATIONS_CACHE:
-        return jsonify(_app.RECOMMENDATIONS_CACHE[cache_key])
+    zbuforowane = _recs_cache_get(cache_key)
+    if zbuforowane is not None:
+        return jsonify(zbuforowane)
 
     if not tmdb_key:
         return jsonify({"status": "no_key", "count": 0, "results": [], "message": "Brak klucza TMDb API. Skonfiguruj klucz w aplikacji."})
@@ -169,10 +202,10 @@ def discover_recommendations() -> ResponseReturnValue:
             formatted = [_app.format_tmdb_summary(it, tmdb_type) for it in data.get("results", [])]
     except Exception as e:
         key_odrzucony = key_odrzucony or key_rejected(e)
-        log.warning("Error in discover recommendations: %s", e)
+        log.warning("Error in discover recommendations: %s", redact_secrets(e))
 
     response_data = _rec_response(formatted, key_odrzucony)
-    _app.RECOMMENDATIONS_CACHE[cache_key] = response_data
+    _recs_cache_set(cache_key, response_data)
     return jsonify(response_data)
 
 
@@ -184,8 +217,9 @@ def get_trending_recommendations() -> ResponseReturnValue:
     tmdb_key = client_keys.tmdb_key() or _app.TMDB_API_KEY
 
     cache_key = f"rec_trending_{media_type}_{time_window}_{lang}_{tmdb_key}"
-    if cache_key in _app.RECOMMENDATIONS_CACHE:
-        return jsonify(_app.RECOMMENDATIONS_CACHE[cache_key])
+    zbuforowane = _recs_cache_get(cache_key)
+    if zbuforowane is not None:
+        return jsonify(zbuforowane)
 
     if not tmdb_key:
         return jsonify({"status": "no_key", "count": 0, "results": [], "message": "Brak klucza TMDb API. Skonfiguruj klucz w aplikacji."})
@@ -205,10 +239,10 @@ def get_trending_recommendations() -> ResponseReturnValue:
                 formatted.append(_app.format_tmdb_summary(it, m_type))
     except Exception as e:
         key_odrzucony = key_odrzucony or key_rejected(e)
-        log.warning("Error in trending recommendations: %s", e)
+        log.warning("Error in trending recommendations: %s", redact_secrets(e))
 
     response_data = _rec_response(formatted, key_odrzucony)
-    _app.RECOMMENDATIONS_CACHE[cache_key] = response_data
+    _recs_cache_set(cache_key, response_data)
     return jsonify(response_data)
 
 
@@ -220,11 +254,12 @@ def get_actor_details() -> ResponseReturnValue:
     tmdb_key = client_keys.tmdb_key() or _app.TMDB_API_KEY
 
     if not person_id and not name:
-        return jsonify({"status": "error", "message": "Missing actor ID or name"}), 400
+        return jsonify({"status": "error", "error": "Missing actor ID or name", "message": "Missing actor ID or name"}), 400
 
     cache_key = f"actor_det_{person_id}_{name}_{lang}_{tmdb_key}"
-    if cache_key in _app.RECOMMENDATIONS_CACHE:
-        return jsonify(_app.RECOMMENDATIONS_CACHE[cache_key])
+    zbuforowane = _recs_cache_get(cache_key)
+    if zbuforowane is not None:
+        return jsonify(zbuforowane)
 
     if not tmdb_key:
         fallback_res = {
@@ -248,9 +283,10 @@ def get_actor_details() -> ResponseReturnValue:
             try:
                 with urllib.request.urlopen(urllib.request.Request(url_search, headers={"User-Agent": "Mozilla/5.0"}), timeout=4) as r_s:
                     sdata = json.loads(r_s.read().decode("utf-8", errors="ignore"))
-                    results = sdata.get("results", [])
-                    if results:
-                        person_id = str(results[0].get("id"))
+                    # Pierwsza osoba o dokładnie tym nazwisku; trafienie o innym nazwisku to nie ona.
+                    trafienie = wybierz_osobe(sdata.get("results", []), name)
+                    if trafienie:
+                        person_id = str(trafienie.get("id"))
             except Exception as e:
                 key_odrzucony = key_odrzucony or key_rejected(e)
 
@@ -270,7 +306,7 @@ def get_actor_details() -> ResponseReturnValue:
             if key_odrzucony:
                 fallback_person["key_rejected"] = True
                 fallback_person["message"] = KEY_REJECTED_MESSAGE
-            _app.RECOMMENDATIONS_CACHE[cache_key] = fallback_person
+            _recs_cache_set(cache_key, fallback_person)
             return jsonify(fallback_person)
 
         # Fetch person details & combined_credits
@@ -341,10 +377,10 @@ def get_actor_details() -> ResponseReturnValue:
                 "known_for_department": pdata.get("known_for_department"),
                 "filmography": sorted_credits
             }
-            _app.RECOMMENDATIONS_CACHE[cache_key] = result
+            _recs_cache_set(cache_key, result)
             return jsonify(result)
     except Exception as e:
-        log.warning("Error fetching actor details for id=%s, name=%s: %s", person_id, name, e)
+        log.warning("Error fetching actor details for id=%s, name=%s: %s", person_id, name, redact_secrets(e))
         fallback: dict = {
             "status": "ok",
             "id": person_id if (person_id and str(person_id).isdigit()) else None,

@@ -65,3 +65,19 @@ def wybierz_zgodny(wyniki: list[dict] | None, tytul: object, rok: object = "",
     if len(zgodne) > 1 and not rok_celu:
         return None  # dwie wersje o tym samym tytule i brak roku — nie zgadujemy
     return zgodne[0]
+
+
+def wybierz_osobe(wyniki: list[dict] | None, nazwisko: object) -> dict | None:
+    """Pierwsza osoba o dokładnie tym nazwisku albo None.
+
+    Osoby nie mają roku, więc imienników nie da się rozstrzygnąć tak jak wersji filmu. TMDb
+    sortuje trafienia od najbardziej znanej osoby — bierzemy pierwszą zgodną z nazwiskiem
+    (reguła 1:1 z `resolveTmdbPersonId` we froncie), a trafienie o innym nazwisku odrzucamy.
+    """
+    cel = normalize_title(nazwisko)
+    if not cel:
+        return None
+    return next(
+        (o for o in (wyniki or []) if isinstance(o, dict) and normalize_title(o.get("name")) == cel),
+        None,
+    )

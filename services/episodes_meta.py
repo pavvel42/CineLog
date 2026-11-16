@@ -12,7 +12,8 @@ import re
 import urllib.parse
 import urllib.request
 
-from .data_store import normalize_title
+from .access_log import redact_secrets
+from .dopasowanie import wybierz_zgodny
 from .tmdb_client import tmdb_get
 
 log = logging.getLogger("cinelog")
@@ -33,16 +34,10 @@ def fetch_episodes_meta(clean_title: str, show_id: int | str | None, lang: str,
                     api_key=tmdb_api_key,
                     timeout=4,
                 )
-                results = (s_data or {}).get("results") or []
-                cel = normalize_title(clean_title)
-                # Tytuł musi się zgadzać — wcześniej brany był pierwszy wynik sortowania bez sprawdzenia,
-                # czy w ogóle pasuje. Skutek bywał taki, że serial dostawał odcinki innej produkcji
-                # (opis i obsada z jednej wersji, odcinki z drugiej). Wolimy brak odcinków niż cudze.
-                dopasowane = [
-                    r for r in results
-                    if cel and cel in {normalize_title(r.get("name")), normalize_title(r.get("original_name"))}
-                ]
-                show_id = str(dopasowane[0]["id"]) if dopasowane else None
+                # Tytuł musi się zgadzać (i rok, gdy znany) — wcześniej brany był pierwszy wynik
+                # sortowania, więc serial dostawał odcinki innej produkcji. Wolimy brak odcinków niż cudze.
+                trafienie = wybierz_zgodny((s_data or {}).get("results"), clean_title)
+                show_id = str(trafienie["id"]) if trafienie else None
 
             if show_id:
                 det = tmdb_get(f"/tv/{show_id}", {"language": lang}, api_key=tmdb_api_key, timeout=4) or {}
@@ -71,7 +66,7 @@ def fetch_episodes_meta(clean_title: str, show_id: int | str | None, lang: str,
                                 "image": f"https://image.tmdb.org/t/p/w300{still_path}" if still_path else None,
                             }
         except Exception as e:
-            log.warning("TMDb episode meta error for %s: %s", clean_title, e)
+            log.warning("TMDb episode meta error for %s: %s", clean_title, redact_secrets(e))
 
     # 2. Enrich with TVmaze (fills split multi-part finales and missing descriptions)
     try:
@@ -79,7 +74,12 @@ def fetch_episodes_meta(clean_title: str, show_id: int | str | None, lang: str,
         req_tvm = urllib.request.Request(url_tvm, headers={"User-Agent": "CineLog/1.0"})
         with urllib.request.urlopen(req_tvm, timeout=4) as resp_tvm:
             data_tvm = json.loads(resp_tvm.read().decode("utf-8", errors="ignore"))
-            eps_tvm = data_tvm.get("_embedded", {}).get("episodes", [])
+            # `singlesearch` sam wybiera „najbliższy” serial — jego odcinki dołączamy tylko wtedy,
+            # gdy nazwa zgadza się z naszym tytułem.
+            zgodny_tvm = wybierz_zgodny(
+                [{"name": data_tvm.get("name"), "first_air_date": data_tvm.get("premiered")}], clean_title
+            )
+            eps_tvm = data_tvm.get("_embedded", {}).get("episodes", []) if zgodny_tvm else []
             for ep_tvm in eps_tvm:
                 s_n = ep_tvm.get("season")
                 e_n = ep_tvm.get("number")

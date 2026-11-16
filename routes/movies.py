@@ -11,13 +11,23 @@ import uuid
 import logging
 from datetime import datetime
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify
 
 from flask.typing import ResponseReturnValue
 
 import app as _app
 
+from routes._http import json_object
 from services import client_keys
+from services.data_store import find_same_item
+from services.validation import (
+    optional_text,
+    optional_year,
+    parse_status,
+    parse_tmdb_id,
+    require_title,
+    safe_poster_url,
+)
 
 log = logging.getLogger("cinelog")
 
@@ -30,7 +40,11 @@ def get_movies() -> ResponseReturnValue:
 
 @bp.route("/api/movies/<movie_uuid>", methods=["PUT"])
 def update_movie(movie_uuid: str) -> ResponseReturnValue:
-    data = request.get_json() or {}
+    data = json_object()
+    # Walidacja przed jakimkolwiek zapisem: niepoprawne pole = 400 i żadna część żądania nie trafia do bazy.
+    new_title = require_title(data["title"]) if "title" in data else None
+    new_status = parse_status(data["status"]) if "status" in data else None
+    new_tmdb_id = parse_tmdb_id(data["tmdb_id"]) if "tmdb_id" in data else None
     with _app.DATA_LOCK:
         movies = _app.load_movies()
 
@@ -43,10 +57,12 @@ def update_movie(movie_uuid: str) -> ResponseReturnValue:
         if not movie_to_update:
             return jsonify({"error": "Movie not found"}), 404
 
-        if "title" in data and isinstance(data["title"], str) and data["title"].strip():
-            movie_to_update["title"] = data["title"].strip()
-        if "status" in data and data["status"] in ["watched", "watchlist", "followed"]:
-            movie_to_update["status"] = data["status"]
+        if new_title is not None:
+            movie_to_update["title"] = new_title
+        if new_status is not None:
+            movie_to_update["status"] = new_status
+        if new_tmdb_id is not None:
+            movie_to_update["tmdb_id"] = new_tmdb_id
         if "is_favorite" in data:
             movie_to_update["is_favorite"] = bool(data["is_favorite"])
         if "rating" in data:
@@ -87,14 +103,14 @@ def delete_movie(movie_uuid: str) -> ResponseReturnValue:
 @bp.route("/api/movies/add", methods=["POST"])
 @bp.route("/api/movies", methods=["POST"])
 def add_movie() -> ResponseReturnValue:
-    data = request.get_json() or {}
-    title = data.get("title", "").strip()
-    
-    if not title:
-        return jsonify({"error": "Title is required"}), 400
+    data = json_object()
+    title = require_title(data.get("title"))
+    status = parse_status(data["status"]) if "status" in data else "watchlist"
+    tmdb_id = _app.normalize_tmdb_id(data.get("tmdb_id"))
+    year = optional_year(data.get("year"))
 
-    poster_url = data.get("poster_url")
-    release_date = data.get("release_date")
+    poster_url = safe_poster_url(data.get("poster_url"))
+    release_date = optional_text(data.get("release_date"))
 
     if not poster_url or not release_date:
         fetched_poster, fetched_date = _app.fetch_online_metadata(
@@ -105,7 +121,6 @@ def add_movie() -> ResponseReturnValue:
         if not release_date and fetched_date:
             release_date = fetched_date
 
-    status = data.get("status", "watchlist")
     rating = data.get("rating") or None
     if status == "watchlist":
         rating = None
@@ -114,24 +129,25 @@ def add_movie() -> ResponseReturnValue:
 
     with _app.DATA_LOCK:
         movies = _app.load_movies()
-        norm_title = _app.normalize_title(title)
-        tmdb_id = data.get("tmdb_id")
-        existing_movie = next((m for m in movies if (tmdb_id and m.get("tmdb_id") and str(m.get("tmdb_id")) == str(tmdb_id)) or (_app.normalize_title(m.get("title")) and _app.normalize_title(m.get("title")) == norm_title)), None)
+        existing_movie = find_same_item(movies, {"title": title, "tmdb_id": tmdb_id, "year": year})
 
         if existing_movie:
+            # Plakat, tmdb_id i data premiery to dane uzupełniane zawsze, o ile brakuje ich we wpisie.
+            if poster_url and (not existing_movie.get("poster_url") or "favicon" in existing_movie.get("poster_url", "")):
+                existing_movie["poster_url"] = poster_url
+            if tmdb_id and not existing_movie.get("tmdb_id"):
+                existing_movie["tmdb_id"] = tmdb_id
+            if release_date and not existing_movie.get("release_date"):
+                existing_movie["release_date"] = release_date
+            if status == "watchlist":
+                # Szybkie „+ Do obejrzenia” na pozycji, która już jest w bibliotece, niczego
+                # nie cofa: status, ocena i daty zostają (wcześniej kasowało ocenę).
+                if _app.save_movies(movies):
+                    return jsonify({**existing_movie, "already_exists": True}), 200
+                return jsonify({"error": "Failed to save database"}), 500
             existing_movie["status"] = status
             if rating is not None:
                 existing_movie["rating"] = rating
-            elif status == "watchlist":
-                existing_movie["rating"] = None
-            if poster_url and (not existing_movie.get("poster_url") or "favicon" in existing_movie.get("poster_url", "")):
-                existing_movie["poster_url"] = poster_url
-            if data.get("tmdb_id") is not None:
-                tmdb_id = _app.normalize_tmdb_id(data.get("tmdb_id"))
-                if tmdb_id and not existing_movie.get("tmdb_id"):
-                    existing_movie["tmdb_id"] = tmdb_id
-            if release_date and not existing_movie.get("release_date"):
-                existing_movie["release_date"] = release_date
             if status == "watched":
                 if not existing_movie.get("watch_date"):
                     existing_movie["watch_date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -152,9 +168,11 @@ def add_movie() -> ResponseReturnValue:
             "rating": rating,
             "poster_url": poster_url,
             "raw_rating_suffix": None,
-            "tmdb_id": _app.normalize_tmdb_id(data.get("tmdb_id")),
+            "tmdb_id": tmdb_id,
             "rewatched": _app._safe_int(data.get("rewatched", 0))
         }
+        if year:
+            new_movie["year"] = year
 
         movies.insert(0, new_movie)
 
