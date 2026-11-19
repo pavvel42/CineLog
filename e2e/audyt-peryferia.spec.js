@@ -300,3 +300,53 @@ test.describe("P5: martwe kontrolki usunięte z index.html", () => {
     expect(html).not.toContain("Oznacz kolejny (+1)");
   });
 });
+
+test.describe("Asystent AI zna całą bibliotekę", () => {
+  test.use({ serviceWorkers: "block" });
+
+  // Na żywo (biblioteka 173 filmów do obejrzenia): prompt obcinał listę „Do obejrzenia" do 40
+  // pozycji, a seriali w trakcie oglądania nie zawierał wcale — model polecał to, co już jest
+  // w bibliotece, choć użytkownik prosił o tytuły spoza niej.
+  const prompt = (page, zapytanie) =>
+    page.evaluate(async (q) => {
+      const { state } = await import("/static/js/modules/state.js");
+      const { buildCuratorSystemPrompt } = await import("/static/js/modules/ai.js");
+      state.movies = [
+        ...Array.from({ length: 173 }, (_, i) => ({ uuid: `w-${i}`, title: `Planowany film ${i + 1}`, status: "watchlist" })),
+        { uuid: "o-1", title: "Obejrzany film", status: "watched" },
+      ];
+      state.shows = [
+        { uuid: "s-1", title: "Serial w trakcie", status: "watching", watched_count: 3 },
+        { uuid: "s-2", title: "Planowany serial", status: "watchlist" },
+        ...Array.from({ length: 45 }, (_, i) => ({ uuid: `sw-${i}`, title: `Planowany serial ${i + 2}`, status: "watchlist" })),
+      ];
+      return buildCuratorSystemPrompt(q);
+    }, zapytanie);
+
+  test("zapytanie o filmy: cała lista do obejrzenia", async ({ page }) => {
+    await przygotuj(page);
+    await page.goto("/");
+    const p = await prompt(page, "Poleć mi film podobny do Incepcji");
+    expect(p).toContain('"Planowany film 173"');
+    expect(p).toContain('"Obejrzany film"');
+    // Prośba „spoza biblioteki" wyklucza też listę do obejrzenia (reguła 2 inaczej do niej zachęca).
+    expect(p).toMatch(/NIE MA w bibliotece[^\n]*"Do obejrzenia"/);
+  });
+
+  test("zapytanie o seriale: seriale w trakcie i cała lista do obejrzenia", async ({ page }) => {
+    await przygotuj(page);
+    await page.goto("/");
+    const p = await prompt(page, "Jaki serial obejrzeć?");
+    expect(p).toContain('"Serial w trakcie"');
+    expect(p).toContain('"Planowany serial 46"');
+  });
+
+  test("zapytanie ogólne: wszystko z biblioteki", async ({ page }) => {
+    await przygotuj(page);
+    await page.goto("/");
+    const p = await prompt(page, "Co dziś obejrzeć?");
+    expect(p).toContain('"Planowany film 173"');
+    expect(p).toContain('"Planowany serial 46"');
+    expect(p).toContain('"Serial w trakcie"');
+  });
+});

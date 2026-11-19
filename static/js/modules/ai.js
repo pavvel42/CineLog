@@ -690,7 +690,8 @@ export function buildCuratorSystemPrompt(userQuery = "") {
 
   if (isMovieOnly) {
     const favMovies = (state.movies || []).filter(m => m.is_favorite || m.rating >= 4).slice(0, 30).map(m => `"${m.title}" (${m.rating ? m.rating + '/5★' : 'Ulubiony'})`);
-    const watchlistMovies = (state.movies || []).filter(m => m.status === 'watchlist').slice(0, 40).map(m => `"${m.title}"`);
+    // Pełne listy: model ma nie polecać niczego, co już jest w bibliotece (także na liście do obejrzenia).
+    const watchlistMovies = (state.movies || []).filter(m => m.status === 'watchlist').map(m => `"${m.title}"`);
     const watchedMovies = (state.movies || []).filter(m => m.status === 'watched').map(m => `"${m.title}"`);
 
     libraryContext = `
@@ -700,20 +701,22 @@ BIBLIOTEKA FILMOWA UŻYTKOWNIKA:
 - WSZYSTKIE OBEJRZANE JUŻ FILMY (ZAKAZ PONOWNEGO POLECANIA, chyba że użytkownik o to poprosi): ${watchedMovies.join(", ") || "brak"}`;
   } else if (isSeriesOnly) {
     const favShows = (state.shows || []).filter(s => s.is_favorite || s.rating >= 4).slice(0, 30).map(s => `"${s.title}" (${s.rating ? s.rating + '/5★' : 'Ulubiony'})`);
-    const watchlistShows = (state.shows || []).filter(s => s.status === 'watchlist').slice(0, 40).map(s => `"${s.title}"`);
+    const watchlistShows = (state.shows || []).filter(s => s.status === 'watchlist').map(s => `"${s.title}"`);
+    const watchingShows = (state.shows || []).filter(s => s.status === 'watching').map(s => `"${s.title}"`);
     const watchedShows = (state.shows || []).filter(s => s.status === 'watched').map(s => `"${s.title}"`);
 
     libraryContext = `
 BIBLIOTEKA SERIALOWA UŻYTKOWNIKA:
 - Ulubione i wysoko ocenione seriale (${favShows.length}): ${favShows.join(", ") || "brak"}
 - Seriale na liście "Do obejrzenia" (Watchlist) (${watchlistShows.length}): ${watchlistShows.join(", ") || "brak"}
+- Seriale w trakcie oglądania (${watchingShows.length}): ${watchingShows.join(", ") || "brak"}
 - WSZYSTKIE OBEJRZANE JUŻ SERIALE (ZAKAZ PONOWNEGO POLECANIA, chyba że użytkownik o to poprosi): ${watchedShows.join(", ") || "brak"}`;
   } else {
     const favMovies = (state.movies || []).filter(m => m.is_favorite || m.rating >= 4).slice(0, 25).map(m => `"${m.title}" (${m.rating ? m.rating + '/5★' : 'Ulubiony'})`);
     const favShows = (state.shows || []).filter(s => s.is_favorite || s.rating >= 4).slice(0, 25).map(s => `"${s.title}" (${s.rating ? s.rating + '/5★' : 'Ulubiony'})`);
     const watchlist = [
-      ...(state.movies || []).filter(m => m.status === 'watchlist').slice(0, 30).map(m => `Film: "${m.title}"`),
-      ...(state.shows || []).filter(s => s.status === 'watchlist').slice(0, 30).map(s => `Serial: "${s.title}"`)
+      ...(state.movies || []).filter(m => m.status === 'watchlist').map(m => `Film: "${m.title}"`),
+      ...(state.shows || []).filter(s => s.status === 'watchlist').map(s => `Serial: "${s.title}"`)
     ];
     const watchedAll = [
       ...(state.movies || []).filter(m => m.status === 'watched').map(m => `"${m.title}"`),
@@ -725,6 +728,7 @@ BIBLIOTEKA MULTIMEDIALNA UŻYTKOWNIKA:
 - Najwyżej ocenione filmy: ${favMovies.join(", ") || "brak"}
 - Ulubione i ukończone seriale: ${favShows.join(", ") || "brak"}
 - Lista "Do obejrzenia" (Watchlist): ${watchlist.join(", ") || "brak"}
+- Seriale w trakcie oglądania: ${(state.shows || []).filter(s => s.status === 'watching').map(s => `"${s.title}"`).join(", ") || "brak"}
 - WSZYSTKIE OBEJRZANE POZYCJE (ZAKAZ PONOWNEGO POLECANIA, chyba że użytkownik o to poprosi): ${watchedAll.join(", ") || "brak"}`;
   }
 
@@ -739,6 +743,7 @@ ${libraryContext}
 KLUCZOWE ZASADY:
 1. BEZWZGLĘDNY ZAKAZ REKOMENDOWANIA OBEJRZANYCH TYTUŁÓW: Użytkownik widział już wszystkie pozycje z sekcji "WSZYSTKIE OBEJRZANE". Pod żadnym pozorem nie polecaj mu tytułów z tej listy (chyba że wprost pyta o opinię lub powtórkę)!
 2. Gdy proponujesz pozycję, która znajduje się na jego liście "Do obejrzenia" (Watchlist), koniecznie dodaj oznaczenie (🍿 Masz na liście Do Obejrzenia!).
+   Wyjątek: gdy użytkownik prosi o tytuły, których NIE MA w bibliotece, nie polecaj ani obejrzanych, ani tych z listy "Do obejrzenia" — przed odpowiedzią sprawdź każdy tytuł z obiema listami.
 3. Gdy polecasz tytuły, zaproponuj dokładnie 2-3 wybitne, trafione pozycje.
 4. Format punktów rekomendacji:
    1. "Główny Tytuł" (Rok) – dlaczego warto + platforma VOD w Polsce.
